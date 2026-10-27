@@ -1,6 +1,9 @@
 # Issue-015 — App: the install wizard
 
-> **Status:** **specified, not implemented** — `install.php` does not exist yet.
+> **Status:** **implemented and verified** — `install.php` and
+> `assets/css/pages/install.css` exist. The wizard was walked through all three
+> steps against the running stack and against a sandbox on 2026-10-27, and the
+> layer is guarded by `database/install_test.php`.
 > **Target:** v0.2 (the application) — the one screen that must work on a machine
 > that has never run the product.
 > **Severity:** **critical** — if the wizard cannot finish, the product cannot be
@@ -24,7 +27,48 @@
 
 ---
 
+## Implementation notes — 2026-10-27
+
+The specification left five questions open, and one of its rules conflicted with
+the mockup. Each decision is recorded here and guarded by
+`database/install_test.php`, so a later change cannot quietly reintroduce the
+shape this issue rejected.
+
+| # | The spec said | The decision | Why |
+|---|---|---|---|
+| 1 | The wizard "is **one file**" (§3) and the page stylesheet is `assets/css/pages/install.css` (§3) | **`install.php` is one file; the stylesheet is a second.** | The rule is about the *logic* being in one file, so that deleting `install.php` leaves no fragment behind. A stylesheet is not a fragment — it is a static asset that the application shell also loads, and the mockup's layer is `tokens → base → components → pages/install.css` like every other screen. |
+| 2 | The mail fields "may be empty" for an open relay (§6), while the mockup asks for a user, a password and a From address whenever an SMTP host is set | **The issue wins: `smtp_user` and `smtp_pass` may be empty.** | The mockup is a picture of one configuration; the issue is the contract. An open relay is a real deployment, and a wizard that refuses to describe it is a wizard that cannot install one. The From address and the From name are still required — `setFrom()` needs them — and the **test** refuses to run without them. |
+| 3 | The failure messages are one sentence each (§10) | **One sentence, split into an alert title and a hint.** | The mockup's alert has a short title — *The database server refused the connection.* — and a hint under it. `installSplitMessage()` cuts the message at the first stop, so the sentence reads the way the mockup reads, and the wording itself is the mockup's wording. |
+| 4 | The wizard "**may** attempt the deletion itself when `is_writable()` allows it" (§9) | **The wizard does not delete itself.** | A bind-mounted project directory makes `is_writable()` a poor proxy for "the operator can remove this file", and a wizard that removes its own entry point is a wizard whose next run is a 404 instead of a refusal. The page says truthfully that the installer did not remove itself, and shows the exact `rm -f` command. |
+| 5 | The wizard "has **no app bar and no nav**" and "**no footer link farm**" (§3) | **The wizard renders its own complete HTML document.** | It does not include `includes/header.php` / `includes/footer.php` — those are the *application* and *guest* shells, and they carry the app bar, the nav and the footer. The wizard still requires `includes/functions.php` for `e()`, `startSession()`, the CSRF helpers, `redirect()` and `asset_url()`. |
+| 6 | §7 says the wizard loads `database/schema.sql` "with the wizard's own PDO handle" | **The handle is opened **with** the database selected, and the schema resolves the name at run time.** | `database/schema.sql` picks its database from `DATABASE()` with `financial_tracker` as the fallback, so the tables land in the database the operator typed — not in a hard-coded name. |
+
+Three facts belong on the record:
+
+- **A live installer is refused, not hidden.** The wizard answers **403** when
+  `config.php` already exists, before it reads the request. The specification
+  makes the *deletion* of `install.php` the operator's job; the refusal is the
+  belt to that braces, and it costs one `is_file()`.
+- **The wizard has no `vendor/`.** §1's first criterion is a machine with no
+  `vendor/`, so the wizard cannot depend on Composer's autoloader. It requires
+  `includes/functions.php` (no dependency) and requires
+  `vendor/autoload.php` **only when it exists** — the mail test then reports
+  *"The mail library is not installed. Run `composer install --no-dev
+  --optimize-autoloader`, or skip this step and add mail later."* and the step
+  does not advance. **Skipping stays available**, so the criterion holds: a
+  machine with no `vendor/` finishes the wizard.
+- **The `views/` deny rule is still owed.** The deny block refuses dotfiles,
+  `config.php`, `database/`, `includes/`, `docker/`, `vendor/` and
+  `composer.json|lock` — but not `views/`, which does not exist yet. **Issue-016
+  must add the `views/` rule when it creates the first screen**, exactly as
+  issue-014 recorded it.
+
+---
+
 ## Table of contents
+
+*Implementation notes — 2026-10-27* (the places where the specification
+contradicted itself, and how each was resolved)
 
 1. Objective
 2. Constraints
@@ -551,6 +595,10 @@ error. The mockup names three failures, each described in plain language:
 ```bash
 cd /home/zongbao/projects/financial-tracker
 
+# 0 — the automated guard: it walks the whole wizard in a sandbox
+docker compose exec -T app php /var/www/html/database/install_test.php
+echo "exit=$?"          # 0 = pass
+
 # 1 — lint
 docker compose exec -T app php -l /var/www/html/install.php
 
@@ -598,14 +646,29 @@ docker compose restart app
 echo "suite_exit=$?"
 ```
 
-Expected: step 2 shows **302** and **200**; step 3 shows **0** for the nav grep and a
-positive count for the stepper; step 4 shows a 64-hex-character token; step 5 prints
-`no-raw-error: ok`; step 6 prints `No syntax errors detected`; step 7 exits **0**;
-step 8 prints the bare literal; step 10 reports **0 FAIL**.
+Expected: step 0 exits **0**; step 2 shows **302** and **200**; step 3 shows **0**
+for the nav grep and a positive count for the stepper; step 4 shows a
+64-hex-character token; step 5 prints `no-raw-error: ok`; step 6 prints `No syntax
+errors detected`; step 7 exits **0**; step 8 prints the bare literal; step 10
+reports **0 FAIL**.
 
 > Steps 6–8 need the real database credentials. Take them from `.env` — the `db`
 > service's `MARIADB_USER` / `MARIADB_PASSWORD` — and from the compose file's
 > `db` service, which is reachable from the app container as the host name `db`.
+
+> **Step 0 is the one that matters.** `database/install_test.php` automates the
+> whole of §11: it copies the application into a temporary directory, serves it
+> with the PHP built-in server, walks the three steps with a real session and a
+> real CSRF token, and checks the written `config.php` — its constant set, its
+> bare boolean, its integer port, its parse — and the five tables in the
+> database. It then checks the refusal on a second run. The manual steps above
+> remain useful for looking at the screen; they are not the guard.
+>
+> The sandbox writes its `config.php` **inside the temporary directory**, so the
+> repository's own `config.php` is never created and the development database is
+> never touched. The scratch database `ft_install_test` is created with the root
+> account when that account is reachable and dropped afterwards; when it is not,
+> the test falls back to the application user and the configured database.
 
 ---
 

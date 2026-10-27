@@ -1,0 +1,39 @@
+/* ==========================================================================
+   INSTALL WIZARD — the page rules for install.php (issue-015 §3).
+
+   The component layer already carries the stepper, the card, the field, the
+   switch, the read-only list, the button group and the alerts. This file
+   adds only what the wizard needs on top of them, and it is loaded LAST —
+   after tokens.css, base.css and components.css.
+
+   Every colour and every size here is a token. A literal would not follow
+   the dark-mode blocks in tokens.css, and the wizard would keep its light
+   colours in a dark browser.
+   ========================================================================== */
+
+/* The vertical rhythm of the wizard.
+
+   .auth is a single centred column and the component layer stacks nothing:
+   the brand, the stepper, the alerts and the cards all sit on the next
+   line, flush against each other. The wizard needs air between them. */
+.install > * + * {
+    margin-top: var(--sp-4);
+}
+
+/* The command the operator runs to remove the installer.
+
+   It is a command and not prose: monospace, on its own line, and never
+   wrapped in a way that hides a character. On a narrow screen it scrolls
+   sideways instead. */
+.install__command {
+    display: block;
+    margin-top: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-md);
+    background-color: var(--surface-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    white-space: pre;
+    overflow-x: auto;
+}

@@ -11,7 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
-| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011–014 are implemented & verified; issues 015–020 are specification only.** |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011–015 are implemented & verified; issues 016–020 are specification only.** |
 
 ---
 
@@ -33,14 +33,14 @@ Two tracks run through this folder:
 | [012](issue-012.md) | App: the core runtime | App | **implemented & verified** | 011, 013 | `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php` — the helpers every screen uses — guarded by `database/runtime_test.php` |
 | [013](issue-013.md) | App: the design-token layer and the shared shell | App | **implemented & verified** | 004 | `assets/css/tokens.css`, `base.css`, `components.css`, `assets/js/app.js`, `includes/header.php`, `includes/footer.php` — guarded by `database/assets_test.php` |
 | [014](issue-014.md) | App: the front controller and the routing table | App | **implemented & verified** | 012 | `index.php`, `includes/views/error_404.php` … `error_bootstrap.php`, the `.htaccess` rewrite — guarded by `database/front_controller_test.php` |
-| [015](issue-015.md) | App: the install wizard | App | **specification** | 011, 012, 013 | `install.php` — the three-step wizard that writes `config.php` |
+| [015](issue-015.md) | App: the install wizard | App | **implemented & verified** | 011, 012, 013 | `install.php`, `assets/css/pages/install.css` — the three-step wizard that writes `config.php` — guarded by `database/install_test.php` |
 | [016](issue-016.md) | App: authentication and the mailer | App | **specification** | 012, 014, 015 | `includes/auth.php`, the sign-in / register / reset screens, the two-sided registration gate |
 | [017](issue-017.md) | App: the dashboard | App | **specification** | 013, 014, 016 | `views/dashboard.php` — the period tiles, the recent card, the empty states |
 | [018](issue-018.md) | App: the transaction list and the transaction form | App | **specification** | 013, 014, 016 | `views/transactions.php`, `views/transaction_form.php` — the filters, the presets, the table, the validation |
 | [019](issue-019.md) | App: the reports | App | **specification** | 013, 014, 016 | `views/reports.php` — the period selector, the "Over time" and "By category" tables |
 | [020](issue-020.md) | App: the categories and the settings | App | **specification** | 013, 014, 016 | `views/categories.php`, `views/settings.php` — the category list, the profile, the read-only installation card |
 
-> **The Application track has its first four issues in.** Issue 011 — the
+> **The Application track has its first five issues in.** Issue 011 — the
 > schema and the data model — is **implemented and verified**:
 > `database/schema.sql` creates the five tables, and
 > `database/schema_test.php` guards the column types, the unique keys, the
@@ -59,9 +59,15 @@ Two tracks run through this folder:
 > the controller, and `database/front_controller_test.php` guards all of it —
 > including a sandbox tier that runs the real controller through the gate, the
 > bootstrap failure, the 404, the 405 and the 500.
-> Issues 015–020 describe the code that has to be written; none of it exists
-> yet. `install.php` and `views/` are still `[TODO]` in
-> [`AGENTS.md`](../../AGENTS.md).
+> Issue 015 — the install wizard — is **implemented and verified**:
+> `install.php` collects the database, the mail and the access settings across
+> three steps, proves each one before it advances, loads the schema, writes
+> `config.php` atomically with `var_export()`, parse-checks the file it wrote
+> and refuses to run once `config.php` exists. `database/install_test.php`
+> guards all of it — including a sandbox tier that walks the real wizard
+> through all three steps and checks the written file.
+> Issues 016–020 describe the code that has to be written; none of it exists
+> yet. `views/` is still `[TODO]` in [`AGENTS.md`](../../AGENTS.md).
 
 ---
 
@@ -155,7 +161,7 @@ The implementation copies the shape, not the text.
 | [012](issue-012.md) | `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php` | 011 |
 | [013](issue-013.md) | `assets/css/`, `includes/header.php`, `includes/footer.php` | the mockup's `assets/` layer |
 | [014](issue-014.md) | `index.php` | 012 |
-| [015](issue-015.md) | `install.php` | 011, 012, 013 |
+| [015](issue-015.md) | `install.php`, `assets/css/pages/install.css` | 011, 012, 013 |
 | [016](issue-016.md) | `includes/auth.php`, the auth screens | 012, 014, 015 |
 | [017](issue-017.md) | `views/dashboard.php` | 013, 014, 016 |
 | [018](issue-018.md) | `views/transactions.php`, `views/transaction_form.php` | 013, 014, 016 |
@@ -190,9 +196,11 @@ The implementation copies the shape, not the text.
 > the three CSS layers are carried over from `docs/mockup/assets/` verbatim,
 > `assets/js/app.js` holds every behaviour, `includes/header.php` and
 > `includes/footer.php` render the two shells, and `database/assets_test.php`
-> guards all of it. Issues 014–020 are the specification a developer picks up
-> to build `index.php`, `install.php` and `views/`. The repository itself is
-> still mostly greenfield — those files do not exist yet.
+> guards all of it. Issues 014–015 are **implemented and verified** too:
+> `index.php` is the front controller, `install.php` is the wizard, and each is
+> guarded by its own regression test. Issues 016–020 are the specification a
+> developer picks up to build `views/`. The repository itself is still mostly
+> greenfield — the five screens do not exist yet.
 
 ---
 

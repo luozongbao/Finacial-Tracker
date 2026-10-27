@@ -9,12 +9,13 @@ This file holds only what an agent cannot infer from the tree.
 ## Status
 
 **Greenfield — the application code barely exists yet: only the schema, the
-core runtime, the design-token layer and the front controller have been written.
-The development infrastructure and the design deliverables are complete.**
+core runtime, the design-token layer, the front controller and the install
+wizard have been written. The development infrastructure and the design
+deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `assets/css/tokens.css` + `base.css` + `components.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 015–020** | `install.php`, `views/`, `assets/css/pages/` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 016–020** | `views/`, the page stylesheets of the five screens |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -30,7 +31,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first four issues in.** Issue 011
+The **application track (issues 011–020) has its first five issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -49,12 +50,16 @@ it. Issue 014 (the front controller) is **implemented and verified** —
 `index.php` holds the install gate, the security headers and the error
 boundary, `includes/views/` holds the four error pages and the bootstrap page,
 the `.htaccess` rewrite hands everything that is not a real file to the
-controller, and `database/front_controller_test.php` guards all of it. The
-remaining six issues (015–020) are **specified but not written** — they are the
-specification a developer picks up to build the installer, the authentication
-and the five screens. The repository itself is still mostly greenfield —
-`install.php` and `views/` do not exist yet, and the page stylesheets under
-`assets/css/pages/` arrive with their screen.
+controller, and `database/front_controller_test.php` guards all of it. Issue 015
+(the install wizard) is **implemented and verified** — `install.php` collects
+the database, the mail and the access settings across three steps, proves each
+one before it advances, loads the schema, writes `config.php` atomically and
+refuses to run once `config.php` exists, and `database/install_test.php` guards
+all of it. The remaining five issues (016–020) are **specified but not
+written** — they are the specification a developer picks up to build the
+authentication and the five screens. The repository itself is still mostly
+greenfield — `views/` does not exist yet, and the page stylesheets of the five
+screens arrive with their screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -86,8 +91,8 @@ See [docs/issues/issue-010.md](docs/issues/issue-010.md) for the full policy.
 
 ````text
 index.php              # front controller: install gate → route table        [exists — issue-014]
-install.php            # web installer; writes config.php (delete it after install)  [TODO — issue-015]
-config.php             # git-ignored; written by install.php                  [TODO — issue-015]
+install.php            # web installer; writes config.php (delete it after install)  [exists — issue-015]
+config.php             # git-ignored; written by install.php                  [written by issue-015]
 config.template.php    # tracked twin — same constant set as config.php        [exists]
 composer.json         # tracked — the dependency manifest                      [exists]
 composer.lock         # tracked — the pinned dependency versions              [exists]
@@ -103,7 +108,8 @@ includes/              # [exists] mailer.php, bootstrap.php, Database.php, funct
   views/               # [exists] the four error pages + the bootstrap page [issue-014]
 views/                 # [TODO] one PHP view per screen                     [issues-016..020]
 assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
-  pages/               # [TODO] one page stylesheet per screen, with it    [issues-015..020]
+  pages/               # [exists] install.css                            [issue-015]
+                       # [TODO] one page stylesheet per screen, with it    [issues-016..020]
 assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
 assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/
@@ -145,6 +151,11 @@ This is the one part of the brief that is easy to get subtly wrong.
 2. **`install.php` creates `config.php`** from user input: database host (default
    `localhost`), database name, database user, database password, SMTP server, SMTP port,
    email user, SMTP password, plus the sender identity (`MAIL_FROM`, `MAIL_FROM_NAME`).
+   **This is implemented** — the wizard collects the settings across three steps
+   (database, mail, access), proves each step before it advances, loads
+   `database/schema.sql`, writes `config.php` with `var_export()` into a temporary
+   file, **parse-checks the file it wrote** and renames it into place.
+   `database/install_test.php` guards all of it.
 3. **`config.php` also carries `ALLOW_REGISTRATION`, default `true`.**
 4. **When `ALLOW_REGISTRATION` is `false`, registration is closed on the front end *and*
    the back end.** "Front end" = the register page does not render a form / returns 403.
@@ -169,7 +180,17 @@ Consequences that follow from this:
   used for the string settings also yields a valid boolean for this flag. Never write the
   strings `'true'` / `'false'`.
 - **Delete or lock `install.php` after a successful install.** A live installer is a
-  re-configuration hole.
+  re-configuration hole. The wizard tells the operator to delete it, shows the exact
+  `rm -f` command, and **refuses to run with a 403** once `config.php` exists — the
+  refusal is the belt to the operator's braces.
+- **`install.php` is a single file and it is the only writer of `config.php`.** It
+  renders its **own** HTML document — no `includes/header.php`, no
+  `includes/footer.php`, no app nav, no footer link farm — and it requires only
+  `includes/functions.php` (plus `vendor/autoload.php` **when it exists**, so a
+  machine with no `vendor/` can still finish the wizard).
+- **The wizard keeps its state in the session, never in a hidden field.** The CSRF
+  token is validated **before** any input is read, and a POST that names a step the
+  session has not reached is refused.
 - **`index.php` is the only entry point.** The `.htaccess` rewrite hands every URL that is
   not a real file to the controller, and the route table lives in
   `Router::defaultRoutes()` — never in a second copy inside the controller.
