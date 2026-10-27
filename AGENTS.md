@@ -8,13 +8,13 @@ This file holds only what an agent cannot infer from the tree.
 
 ## Status
 
-**Greenfield — the application code barely exists yet: only the schema has
-been written. The development infrastructure and the design deliverables are
-complete.**
+**Greenfield — the application code barely exists yet: only the schema and
+the core runtime have been written. The development infrastructure and the
+design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 011–020** | `index.php`, `install.php`, `assets/`, `views/`, `includes/Database.php`, `includes/functions.php` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 013–020** | `index.php`, `install.php`, `assets/`, `views/` |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -30,16 +30,21 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first issue in.** Issue 011
+The **application track (issues 011–020) has its first two issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
-delete rules against `information_schema`. The remaining nine issues (012–020)
-are **specified but not written** — they are the specification a developer
-picks up to build the runtime, the token layer, the front controller, the
+delete rules against `information_schema`. Issue 012 (the core runtime) is
+**implemented and verified** — `includes/Database.php` (the PDO singleton),
+`includes/functions.php` (escaping, money, dates, CSRF, validation, the
+ownership filter), `includes/auth.php` (the session, the guard, the
+registration gate) and `includes/Router.php` (the method-and-path table) exist,
+and `database/runtime_test.php` guards them. The remaining eight issues
+(013–020) are **specified but not written** — they are the specification a
+developer picks up to build the token layer, the front controller, the
 installer, the authentication and the five screens. The repository itself is
-still mostly greenfield — `index.php`, `install.php`, `includes/`, `views/` and
-`assets/` do not exist yet.
+still mostly greenfield — `index.php`, `install.php`, `views/` and `assets/` do
+not exist yet.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -83,7 +88,8 @@ docker-compose.yml     # app + db + phpmyadmin (+ the "mockup" profile)
 docker/
   entrypoint.sh        # adds the /var/www/html compatibility symlink
   mockup-nginx.conf    # static viewer for docs/mockup/
-includes/              # [partly] mailer.php, bootstrap.php; [TODO] Database.php, functions.php, Router.php, auth.php, header/footer
+includes/              # [exists] mailer.php, bootstrap.php, Database.php, functions.php, auth.php, Router.php
+                       # [TODO] header.php, footer.php                       [issues-013, 014]
 views/                 # [TODO] one PHP view per screen                     [issues-017..020]
 assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
 database/

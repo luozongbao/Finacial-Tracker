@@ -1,7 +1,8 @@
 # Issue-012 — App: the core runtime
 
-> **Status:** **specified, not implemented** — `includes/Database.php`,
-> `includes/functions.php`, `includes/auth.php` and `includes/Router.php` do not exist yet.
+> **Status:** **implemented and verified** — every acceptance criterion below was
+> measured against the running stack on 2026-10-27, and the runtime is guarded
+> by `database/runtime_test.php`.
 > **Target:** v0.2 (the application) — the layer every screen is built on.
 > **Severity:** **high** — a bug in the escaping helper or the CSRF helper is a
 > security bug in every screen at once.
@@ -422,12 +423,20 @@ function formatDate(?string $isoDate): string
         return '';
     }
     $ts = strtotime($isoDate . ' UTC');
-    return $ts === false ? '' : date('j M Y', $ts);
+    return $ts === false ? '' : gmdate('j M Y', $ts);
 }
 ````
 
 `19 October 2026` — the format the mockups use for the tile period labels, the table
 dates and the report week headings.
+
+> **`gmdate()`, not `date()`.** `strtotime()` parses the `DATE` column as a UTC
+> instant, but `date()` then renders it in the **server's default timezone** — so
+> on a server that is not on UTC the calendar day shifts (`2026-10-19` renders as
+> `20 October 2026` east of Greenwich). A transaction date is a calendar date, not
+> an instant, so it is rendered in UTC with `gmdate()`. The same reasoning applies
+> to every other date in the product: the whole application stores and renders in
+> UTC (`SET time_zone = '+00:00'` on the connection, `TIMEZONE` in `config.php`).
 
 ---
 
@@ -640,7 +649,7 @@ $router->dispatch();
 | `GET` | `/dashboard` | `views/dashboard.php` | required |
 | `GET` | `/transactions` | `views/transactions.php` | required |
 | `GET` | `/transactions/new` | `views/transaction_form.php` | required |
-| `GET` | `/transactions/{id}/edit` | `views/transaction_form.php` | required |
+| `GET` | `/transactions/edit?id=<id>` | `views/transaction_form.php` | required |
 | `POST` | `/transactions/save` | `views/transaction_save.php` | required |
 | `POST` | `/transactions/delete` | `views/transaction_delete.php` | required |
 | `GET` | `/reports` | `views/reports.php` | required |
@@ -652,9 +661,12 @@ $router->dispatch();
 | `POST` | `/settings/password` | `views/settings.php` | required |
 | `POST` | `/logout` | `views/logout.php` | required |
 
-The `{id}` in `/transactions/{id}/edit` is a **literal segment handled by the
-handler**, not a router feature: the handler reads the id from `$_GET['id']`,
-validates it as an integer, and the ownership check happens in the SQL.
+The id in `/transactions/edit?id=<id>` is a **query parameter**, not a router
+feature: the handler reads the id from `$_GET['id']`, validates it as an integer,
+and the ownership check happens in the SQL. The route table in §10 is matched
+**exactly** — the router has no placeholder syntax — so the id cannot be part of
+the path. (This matches [issue-018.md](issue-018.md) §3, which settles the edit
+form's URL as `/transactions/edit?id=<id>`.)
 
 > A **tab-separated** file, a **REST** API, and **JSON responses** are out of scope.
 > This is a server-rendered HTML application.
@@ -719,9 +731,10 @@ grep -q 'hash_equals' includes/functions.php && echo "hash-equals: present"
 grep -q 'random_bytes' includes/functions.php && echo "random-bytes: present"
 grep -q "SET time_zone" includes/Database.php && echo "utc: present"
 
-# 4 — no money arithmetic in PHP and no float columns
+# 4 — no money arithmetic in PHP, no float columns, no stray float casts
 grep -rnE '\$[a-z_]*amount\s*\+|\+\s*\$[a-z_]*amount' includes/ && echo "MONEY ARITHMETIC FOUND" || echo "no-amount-arithmetic: ok"
-grep -rn 'float' includes/ database/schema.sql | grep -v 'is_float' || echo "no-float-columns: ok"
+grep -nE '^\s*`?[a-z_]+`?\s+(float|double|real)\b' database/schema.sql && echo "FLOAT COLUMN FOUND" || echo "no-float-columns: ok"
+grep -rnE '\((float|double)\)' includes/ | grep -v 'includes/functions.php' && echo "FLOAT CAST OUTSIDE formatMoney()" || echo "no-float-casts: ok"
 
 # 5 — the regression test
 docker compose exec -T app php /var/www/html/database/runtime_test.php
@@ -733,8 +746,9 @@ echo "suite_exit=$?"
 ```
 
 Expected: step 1 lists four `ok:` lines, step 2 prints `No syntax errors detected`
-four times, step 3 prints five `ok` lines, step 4 prints `no-amount-arithmetic: ok`
-and `no-float-columns: ok`, step 5 exits **0**, and step 6 reports **0 FAIL**.
+four times, step 3 prints five `ok` lines, step 4 prints `no-amount-arithmetic: ok`,
+`no-float-columns: ok` and `no-float-casts: ok`, step 5 exits **0**, and step 6
+reports **0 FAIL**.
 
 ---
 

@@ -11,7 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
-| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issue 011 is implemented & verified; issues 012–020 are specification only.** |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011 and 012 are implemented & verified; issues 013–020 are specification only.** |
 
 ---
 
@@ -30,7 +30,7 @@ Two tracks run through this folder:
 | [009](issue-009.md) | Ops: upgrade the runtime to PHP 8.5.12 (PHP2Shell remediation) | DevOps | **implemented & verified** | 001 | the pinned `litespeedtech/openlitespeed:1.9.4-lsphp85` image, and the PHP floor in every document |
 | [010](issue-010.md) | Ops: introduce Composer as a vendor-time tool and vendor the SMTP mailer | DevOps | **implemented & verified** | 001, 009 | `composer.json`, `composer.lock`, `includes/mailer.php`, `database/mailer_test.php`, the `MAIL_FROM` / `MAIL_FROM_NAME` config constants |
 | [011](issue-011.md) | App: the schema and the data model | App | **implemented & verified** | 001, 003 | `database/schema.sql` — `users`, `categories`, `transactions`, `password_resets`, `email_verifications` — guarded by `database/schema_test.php` |
-| [012](issue-012.md) | App: the core runtime | App | **specification** | 011, 013 | `includes/functions.php`, `includes/Database.php`, `includes/helpers.php` — the helpers every screen uses |
+| [012](issue-012.md) | App: the core runtime | App | **implemented & verified** | 011, 013 | `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php` — the helpers every screen uses — guarded by `database/runtime_test.php` |
 | [013](issue-013.md) | App: the design-token layer and the shared shell | App | **specification** | 004 | `assets/css/tokens.css`, `base.css`, `components.css`, `includes/header.php`, `includes/footer.php` |
 | [014](issue-014.md) | App: the front controller and the routing table | App | **specification** | 012 | `index.php` — the install gate, the route table, the 404 and 403 pages |
 | [015](issue-015.md) | App: the install wizard | App | **specification** | 011, 012, 013 | `install.php` — the three-step wizard that writes `config.php` |
@@ -129,7 +129,7 @@ The implementation copies the shape, not the text.
 | Issue | Builds | Depends on |
 |---|---|---|
 | [011](issue-011.md) | `database/schema.sql` | the runtime and the web-root rules |
-| [012](issue-012.md) | `includes/functions.php`, `includes/Database.php`, `includes/helpers.php` | 011 |
+| [012](issue-012.md) | `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php` | 011 |
 | [013](issue-013.md) | `assets/css/`, `includes/header.php`, `includes/footer.php` | the mockup's `assets/` layer |
 | [014](issue-014.md) | `index.php` | 012 |
 | [015](issue-015.md) | `install.php` | 011, 012, 013 |
@@ -140,9 +140,11 @@ The implementation copies the shape, not the text.
 | [020](issue-020.md) | `views/categories.php`, `views/settings.php` | 013, 014, 016 |
 
 > **Two known contradictions between the issues**, both flagged in place:
-> issue-012's route table lists `GET /transactions/{id}/edit`, which issue-018
-> §3 replaces with `GET /transactions/edit?id=<id>`; and the mockups' figures do
-> not reconcile — issue-019 §13 lists the four contradictions and the
+> issue-012's route table listed `GET /transactions/{id}/edit`, which issue-018
+> §3 replaces with `GET /transactions/edit?id=<id>` — **resolved**: issue-012's
+> table now carries the query-parameter form, because the router matches
+> exactly and has no placeholder syntax; and the mockups' figures do not
+> reconcile — issue-019 §13 lists the four contradictions and the
 > corrected figure set.
 
 > The DevOps track is done: the stack runs **on PHP 8.5.12**, the mockup viewer
@@ -154,13 +156,16 @@ The implementation copies the shape, not the text.
 > git-ignored and never served, and `includes/mailer.php` is guarded by
 > `database/mailer_test.php`.
 >
-> The **application track has its first issue in**. Issue 011 — the schema and
-> the data model — is **implemented and verified**: `database/schema.sql`
+> **The Application track has its first two issues in.** Issue 011 — the schema
+> and the data model — is **implemented and verified**: `database/schema.sql`
 > creates the five tables and `database/schema_test.php` guards them against
-> `information_schema`. Issues 012–020 are the specification a developer picks
-> up to build `index.php`, `install.php`, `includes/`, `views/` and `assets/`.
-> The repository itself is still mostly greenfield — those files do not exist
-> yet.
+> `information_schema`. Issue 012 — the core runtime — is **implemented and
+> verified**: `includes/Database.php`, `includes/functions.php`,
+> `includes/auth.php` and `includes/Router.php` are the layer every screen is
+> built on, and `database/runtime_test.php` guards them. Issues 013–020 are the
+> specification a developer picks up to build `index.php`, `install.php`,
+> `views/` and `assets/`. The repository itself is still mostly greenfield —
+> those files do not exist yet.
 
 ---
 

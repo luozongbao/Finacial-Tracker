@@ -302,11 +302,15 @@ if (is_file($entrypoint)) {
 
 // The runtime must not mutate itself. A shell-execution function anywhere in
 // includes/ is the shape that would let it do so.
+//
+// The lookbehind excludes a METHOD call: PDO's own ->exec() runs a
+// statement, it does not start a program, and includes/Database.php calls
+// it to set the session time zone. Only a bare function call shells out.
 $includeFiles = glob($root . '/includes/*.php') ?: [];
 $shellers = [];
 foreach ($includeFiles as $file) {
     $code = strip_php_comments((string) file_get_contents($file));
-    if (preg_match('/\b(exec|shell_exec|proc_open|passthru|popen|system)\s*\(/', $code)) {
+    if (preg_match('/(?<![>:])\b(exec|shell_exec|proc_open|passthru|popen|system)\s*\(/', $code)) {
         $shellers[] = basename($file);
     }
 }

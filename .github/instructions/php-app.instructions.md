@@ -160,6 +160,11 @@ if (empty($errors)) {
 - Avoid `DateTime::createFromFormat()` for validation — it returns a `DateTime` with
   warnings (not `false`) for impossible dates like `2026-02-31`, so `if (!$date)` never
   fires. Validate with explicit range checks instead.
+- **Render dates with `gmdate()`, never `date()`.** The application stores and renders
+  in UTC (`SET time_zone = '+00:00'` on the connection). `date()` renders in the
+  *server's* default timezone, which shifts the calendar day of a `DATE` column when
+  the server is not on UTC — `2026-10-19` becomes `20 October 2026` east of
+  Greenwich. `formatDate()` in `includes/functions.php` already uses `gmdate()`.
 
 ## Style
 
