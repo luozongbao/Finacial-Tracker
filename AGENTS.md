@@ -9,12 +9,12 @@ This file holds only what an agent cannot infer from the tree.
 ## Status
 
 **Greenfield — the application code barely exists yet: only the schema, the
-core runtime and the design-token layer have been written. The development
-infrastructure and the design deliverables are complete.**
+core runtime, the design-token layer and the front controller have been written.
+The development infrastructure and the design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `assets/css/tokens.css` + `base.css` + `components.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 014–020** | `index.php`, `install.php`, `views/`, `assets/css/pages/` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `assets/css/tokens.css` + `base.css` + `components.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 015–020** | `install.php`, `views/`, `assets/css/pages/` |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -30,7 +30,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first three issues in.** Issue 011
+The **application track (issues 011–020) has its first four issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -45,12 +45,16 @@ and the shared shell) is **implemented and verified** — `assets/css/tokens.css
 verbatim, `assets/js/app.js` holds every behaviour behind a single
 `DOMContentLoaded` listener, `includes/header.php` and `includes/footer.php`
 render the app and guest shells, and `database/assets_test.php` guards all of
-it. The remaining seven issues (014–020) are **specified but not written** —
-they are the specification a developer picks up to build the front controller,
-the installer, the authentication and the five screens. The repository itself is
-still mostly greenfield — `index.php`, `install.php` and `views/` do not exist
-yet, and the page stylesheets under `assets/css/pages/` arrive with their
-screen.
+it. Issue 014 (the front controller) is **implemented and verified** —
+`index.php` holds the install gate, the security headers and the error
+boundary, `includes/views/` holds the four error pages and the bootstrap page,
+the `.htaccess` rewrite hands everything that is not a real file to the
+controller, and `database/front_controller_test.php` guards all of it. The
+remaining six issues (015–020) are **specified but not written** — they are the
+specification a developer picks up to build the installer, the authentication
+and the five screens. The repository itself is still mostly greenfield —
+`install.php` and `views/` do not exist yet, and the page stylesheets under
+`assets/css/pages/` arrive with their screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -81,14 +85,14 @@ See [docs/issues/issue-010.md](docs/issues/issue-010.md) for the full policy.
 ## Layout
 
 ````text
-index.php              # front controller: install gate → route table        [TODO — issue-014]
+index.php              # front controller: install gate → route table        [exists — issue-014]
 install.php            # web installer; writes config.php (delete it after install)  [TODO — issue-015]
 config.php             # git-ignored; written by install.php                  [TODO — issue-015]
 config.template.php    # tracked twin — same constant set as config.php        [exists]
 composer.json         # tracked — the dependency manifest                      [exists]
 composer.lock         # tracked — the pinned dependency versions              [exists]
 vendor/               # git-ignored; produced by the vendor-time install       [exists]
-.htaccess              # web-root deny block + (later) the front-controller rewrite
+.htaccess              # web-root deny block + the front-controller rewrite   [issue-014]
 .dockerignore  .env  .env.example
 docker-compose.yml     # app + db + phpmyadmin (+ the "mockup" profile)
 docker/
@@ -96,7 +100,8 @@ docker/
   mockup-nginx.conf    # static viewer for docs/mockup/
 includes/              # [exists] mailer.php, bootstrap.php, Database.php, functions.php, auth.php, Router.php
                        # [exists] header.php, footer.php — the two shells   [issue-013]
-views/                 # [TODO] one PHP view per screen                     [issues-017..020]
+  views/               # [exists] the four error pages + the bootstrap page [issue-014]
+views/                 # [TODO] one PHP view per screen                     [issues-016..020]
 assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
   pages/               # [TODO] one page stylesheet per screen, with it    [issues-015..020]
 assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
@@ -134,6 +139,9 @@ This is the one part of the brief that is easy to get subtly wrong.
 
 1. **`config.php` presence is the install gate.** `index.php` checks for `config.php`; if it
    exists, the app starts. If it does not, the visitor is sent to the installer.
+   **This is implemented** — the `is_file()` check runs *before* the dependency bootstrap,
+   so a fresh checkout redirects to the installer instead of dying on a missing
+   `vendor/`. `database/front_controller_test.php` guards the ordering.
 2. **`install.php` creates `config.php`** from user input: database host (default
    `localhost`), database name, database user, database password, SMTP server, SMTP port,
    email user, SMTP password, plus the sender identity (`MAIL_FROM`, `MAIL_FROM_NAME`).
@@ -162,6 +170,12 @@ Consequences that follow from this:
   strings `'true'` / `'false'`.
 - **Delete or lock `install.php` after a successful install.** A live installer is a
   re-configuration hole.
+- **`index.php` is the only entry point.** The `.htaccess` rewrite hands every URL that is
+  not a real file to the controller, and the route table lives in
+  `Router::defaultRoutes()` — never in a second copy inside the controller.
+- **A view owns its page.** The controller never emits the header or the footer; each
+  view requires `includes/header.php` and `includes/footer.php` itself. A `redirect:`
+  route answers with a zero-byte body.
 - Never add a code path that only works under Docker.
 
 ### The mailer's two extra constants

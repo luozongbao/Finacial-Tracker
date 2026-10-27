@@ -1,6 +1,9 @@
 # Issue-014 — App: the front controller and the routing table
 
-> **Status:** **specified, not implemented** — `index.php` does not exist yet.
+> **Status:** **implemented and verified** — `index.php`, the five error views and the
+> `.htaccess` rewrite exist. The behaviour was measured against the running stack
+> and against a sandbox on 2026-10-27, and the layer is guarded by
+> `database/front_controller_test.php`.
 > **Target:** v0.2 (the application) — the single entry point of the whole product.
 > **Severity:** **high** — the install gate and the error pages are the two places
 > where a mistake takes the whole application down.
@@ -18,7 +21,58 @@
 
 ---
 
+## Implementation notes — 2026-10-27
+
+The specification contradicted itself in two places and left four questions open.
+Each decision is recorded here and guarded by
+`database/front_controller_test.php`, so a later change cannot quietly reintroduce
+the shape this issue rejected.
+
+| # | The spec said | The decision | Why |
+|---|---|---|---|
+| 1 | "It has **24 routes**" (§4, §8) | **23 routes.** | The spec's own table sums to 23 — 8 guest + 1 dashboard + 5 transactions + 1 reports + 3 categories + 4 settings + 1 root — the table in [issue-012.md](issue-012.md) §10 holds 23, and `Router::defaultRoutes()` (committed, and asserted by `database/runtime_test.php`) holds 23. The prose count is a miscount; the table is the source of truth. |
+| 2 | The skeleton does `require_once __DIR__ . '/config.php';` **before** the gate (§4) | **The gate first, the require after it.** | On a fresh checkout there is no `config.php`, so the skeleton's order is a fatal "Failed opening required" — the visitor never reaches the installer. The spec's own §3 and its acceptance criteria put the gate first; the skeleton is a sketch. |
+| 3 | The lifecycle requires `includes/bootstrap.php` first (§4, §7) | **`includes/functions.php` is loaded before the bootstrap.** | The bootstrap failure page renders through the shared shell, and the shell needs `e()` and `asset_url()`. Neither file has a side effect, so the order is free to choose. |
+| 4 | "The route table is **literal** … in the controller" (§4) | **The table lives in `Router::defaultRoutes()`; the controller calls `Router::withDefaultRoutes()`.** | [issue-012.md](issue-012.md) §10 puts the table in one place and `database/runtime_test.php` asserts its 23 entries there. A second copy inside the controller would be two sources of truth for the same URLs. The table is still literal, and still one list — one file away. |
+| 5 | The lifecycle ends with "include footer.php" **in the controller** (§7) | **The view owns its page: it includes `header.php` and `footer.php`.** | The one redirect route (`GET /` → 302) must answer with a body of exactly zero bytes. A controller that always closed the page would emit a stray footer after the redirect. The test asserts that the redirect carries no body. |
+| 6 | The 404 is "the path is not in the route table" (§6) | **A missing handler file is a 500, not a 404.** | The router throws a `RuntimeException` for a missing handler, and that is a broken deployment, not a bad URL. The 404 keeps its one meaning: the URL is not in the table. |
+| 7 | "Each renders inside the app shell (or the auth shell for the guest-only pages)" (§6) | **The error pages use the guest shell.** | An error page can be reached by a signed-in user and by a guest, and the guest shell needs no database and no user context — so the page still renders when the database is unreachable. |
+| 8 | The 403 is "the registration is closed, or the visitor is not allowed" (§6) | **The 403 page is generic.** | It says "You do not have access to that page." and nothing else, so it leaks neither whether an account exists nor whether the registration is closed. The closed-registration screen is a page of its own (issue-016), not this page. |
+| 9 | The rewrite is the three rules of §5 | **The three rules, plus one for the bare root.** | The document root is a directory, so the `!-f` / `!-d` conditions skip it and the root is left to the server's directory index. Measured: on LiteSpeed the root does reach `index.php` through the default `DirectoryIndex` — the gate answers 302 — but that is the server's choice, not ours. `RewriteRule ^$ index.php [QSA,L]` makes the root routing explicit and server-independent. |
+
+Three facts belong on the record:
+
+- **`views/` is not denied yet.** The deny block denies `includes/`, `database/`,
+  `docker/` and `vendor/`, but not `views/` — and the screens will live there from
+  issue-016. A direct request for `/views/dashboard.php` would run a view outside
+  the controller. The deny block was left **untouched**, because the acceptance
+  criteria require it unchanged and there is nothing to expose yet (the directory
+  does not exist). **Issue-016 must add the `views/` rule when it creates the
+  first screen.**
+- **Two acceptance criteria cannot be met until the installer and the screens
+  exist — and are met in the sandbox instead.** §9 expects `/nope` → 404,
+  `POST /dashboard` → 405 and `/dashboard` → 302/200. Those need an installed
+  application (`config.php`, written by the installer in issue-015) and the
+  screens (issues 016–020). Until then the live stack answers **every** URL with
+  the gate's 302 to `/install.php`, and §9's step 4 measures the gate rather than
+  the error pages. The behaviour is therefore proved in the **sandbox tier** of
+  `database/front_controller_test.php`: a copy of the application in a temporary
+  directory, served by the PHP built-in server through a router script that
+  mimics the rewrite. It walks the same controller through three configurations —
+  no `config.php`, a `config.php` without `vendor/`, and a fully installed copy —
+  and asserts the 302, the 404 page, the 405 with its `Allow` header, the 302 to
+  `/dashboard`, the security headers and the 500 page with nothing leaked.
+- **The error boundary wraps the dispatch, not the requires** — as §7 says. A
+  failure in a `require` is a deployment error and stays visible; the bootstrap is
+  the one require with its own catch, because that is the failure a fresh checkout
+  hits first.
+
+---
+
 ## Table of contents
+
+*Implementation notes — 2026-10-27* (the places where the specification
+contradicted itself, and how each was resolved)
 
 1. Objective
 2. Constraints

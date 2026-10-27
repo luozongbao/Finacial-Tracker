@@ -58,4 +58,23 @@
     # docs/mockup/ stays public: it is the UX deliverable, and it is also
     # served by the standalone mockup container.
     RewriteRule "^/?docs/issues/" - [F,L]
+
+    # ---- Front controller -------------------------------------------------
+    # Everything that is not a real file and not a real directory is handed
+    # to index.php. Real files (install.php, assets/, docs/mockup/) are served
+    # directly.
+    #
+    # These rules come AFTER the deny block on purpose: the deny rules use
+    # [F,L] and must be evaluated first, so /.env and /database/ are refused
+    # by the server and never reach the front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^ index.php [QSA,L]
+
+    # The document root is a directory, so the two conditions above skip it
+    # and the bare root is left to the server's directory index. That works
+    # on LiteSpeed (index.php is in the default DirectoryIndex), but it is
+    # the server's choice, not ours. The root is the one URL that redirects
+    # to /dashboard, so it is routed explicitly.
+    RewriteRule ^$ index.php [QSA,L]
 </IfModule>
