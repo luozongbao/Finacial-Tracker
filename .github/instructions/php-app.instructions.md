@@ -1,0 +1,143 @@
+---
+description: "Use when writing or editing PHP application code in this repo — index.php, install.php, includes/, or any page. Covers the install/config contract, the config.php-only configuration rule, prepared statements, escaping, CSRF, and the PHP tokenizer traps that have caused outages."
+applyTo: ["*.php", "includes/**/*.php", "assets/**/*.php"]
+---
+
+# PHP application conventions
+
+## Runtime and configuration
+
+**PHP 8.2 is the floor.** The OpenLiteSpeed dev image ships PHP 8.2.33 (`lsphp82`).
+PHP 8.3+ syntax is unavailable until the image is replaced — do not use it.
+
+**Docker is development-only.** The app must install and run with Docker entirely out of
+the picture (production is plain Litespeed + PHP + MariaDB). Consequences:
+
+- **Configuration comes from `config.php` and nothing else.** No `getenv()`, no `$_ENV`,
+  no `.env` parsing in application code. A Docker entrypoint may translate environment
+  variables into `config.php` before the app starts, but that file lives in `docker/`.
+- **Never add a code path that only works under Docker.**
+- If a feature needs a setting, add a `config.php` constant — and add it to
+  `config.template.php` in the same change. The two must declare the **same constant set**.
+
+## The install gate
+
+`config.php` existing means "installed". `index.php` checks for it and sends the visitor
+to the installer when it is missing.
+
+- `install.php` writes `config.php` with `var_export()` (produces valid PHP literal syntax)
+  — never `addslashes()`.
+- Derive any absolute URL from server-controlled values (`$_SERVER['SERVER_NAME']`),
+  **never** `$_SERVER['HTTP_HOST']` (user-controllable).
+- CSRF-token every mutating POST in the wizard; the session must start before the first
+  token is issued so it survives the step redirects.
+- The installer must be deleted or locked after a successful install.
+- A second, DB-backed probe ("does the `users` table exist?") is **unreachable** in the
+  wizard — it does not load `config.php`, so the `DB_*` constants are undefined and any
+  such probe is dead code. `config.php` existing is the only real gate.
+
+## The `ALLOW-REGISTRATION` flag
+
+`config.php` carries `ALLOW-REGISTRATION`, default `'true'`.
+
+- The value is the **string** `'true'` / `'false'`, not a boolean. Compare strictly:
+  `ALLOW-REGISTRATION === 'false'`. A boolean comparison never matches the string.
+- When it is `'false'`, registration is closed **on both sides**:
+  - **Front end** — the register page does not render a form and returns 403.
+  - **Back end** — the POST handler rejects the request, regardless of what was rendered.
+- A check in only one of the two places is a bug. Write both.
+
+## Page skeleton
+
+````php
+<?php
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/auth.php';
+
+requireLogin();                      // FIRST — before any DB work
+
+$db = Database::getInstance();
+$user_id = getCurrentUserId();
+?>
+
+<?php include __DIR__ . '/includes/header.php'; ?>
+...
+<?php include __DIR__ . '/includes/footer.php'; ?>
+````
+
+Set `$title` before including the header. `startSession()` must be the **first** call in a
+page — it opens `ob_start()`, because `output_buffering=0` in this stack. Any byte emitted
+before it breaks `header()` and silently drops the security headers.
+
+## Queries
+
+- Prepared statements with `?` placeholders, always.
+- The only interpolation into SQL is a hard-coded table allow-list.
+- Ownership is enforced **in the SQL**, by filtering on the owning user id — not by
+  fetching first and checking afterwards.
+
+````php
+$where = ['t.user_id = ?'];
+$params = [$user_id];
+$sql = "SELECT t.* FROM transactions t WHERE " . implode(' AND ', $where) . " ORDER BY t.occurred_on DESC";
+$rows = $db->fetchAll($sql, $params);
+````
+
+- `Database::execute()` returns **bool**, not a row count. Use `lastInsertId()` after it.
+- `EMULATE_PREPARES = false` → native prepares → **one statement per call**.
+- **Money is never a float.** Amounts are `DECIMAL(14,2)`. Compute sums in SQL, read them
+  back as strings, format with `number_format()`.
+
+## Output escaping and CSRF
+
+- `e()` (`htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`) on **every** dynamic value in HTML.
+- Validate the CSRF token **before** reading any input, and put the hidden input in
+  **every** form:
+
+````php
+if (!validateCsrfToken($_POST['csrf_token'] ?? null)) {
+    $errors[] = 'Your session could not be verified. Please reload and submit again.';
+} else {
+    // read + validate into $errors[]
+}
+if (empty($errors)) {
+    // persist, then redirect
+}
+````
+
+````html
+<input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">
+````
+
+- Validation errors are plain strings in `$errors`, rendered as one alert block. On
+  failure the form re-renders with the submitted values.
+
+## Dates and periods
+
+- Store transaction dates as `DATE` in UTC (`occurred_on`), with `created_at` as the
+  audit timestamp.
+- Day / week / month / year grouping and summing belong **in the SQL**, not in a PHP loop
+  over rows.
+- The week-start rule lives in exactly one place (`WEEK_START` config constant, Monday by
+  default) so the reports and the UI always agree.
+- Avoid `DateTime::createFromFormat()` for validation — it returns a `DateTime` with
+  warnings (not `false`) for impossible dates like `2026-02-31`, so `if (!$date)` never
+  fires. Validate with explicit range checks instead.
+
+## Style
+
+- 4-space indent, `function foo() {`, `} else {`, `} elseif (...) {`.
+- A long docblock at the top of every file describing its contract.
+- `//` comments explain **why** and cite the relevant brief section.
+- `unset($x)` after any `foreach ($x as &$x)` reference loop.
+
+## PHP tokenizer traps
+
+- A literal `?>` inside a `//` comment **still closes PHP mode** — the rest of the file
+  becomes raw HTML.
+- A literal `<?php` inside a `//` comment **still opens a script block**.
+- A `/* … */` comment containing `*/` terminates early → `php -l` reports `Unmatched '}'`.
+- Write "PHP close tag" / "PHP open tag" in prose instead. **Always `php -l` every changed
+  file.**
