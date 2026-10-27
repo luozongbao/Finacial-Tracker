@@ -22,7 +22,7 @@ The stack is expected to expose three services:
 
 | Service | Image | Role |
 |---|---|---|
-| `app` | `litespeedtech/openlitespeed:latest` | LiteSpeed + LSPHP (PHP **8.2**), docroot `/var/www/vhosts/localhost/html` |
+| `app` | `litespeedtech/openlitespeed:1.9.4-lsphp85` | LiteSpeed + LSPHP (PHP **8.5.12**), docroot `/var/www/vhosts/localhost/html` |
 | `db` | `mariadb:10.11` | MariaDB, internal only |
 | `phpmyadmin` | `phpmyadmin:latest` | admin UI, optional |
 
@@ -33,8 +33,11 @@ plain `docker compose up -d`. Start it explicitly — see issue-002.md:
 docker compose up -d mockup   # http://localhost:${MOCKUP_PORT:-8089}/
 ````
 
-> The runtime image has **no `composer` and no `git`**. Any third-party PHP library must be
-> vendored into the repo or baked into a custom image.
+> The image tag is **pinned** to the PHP 8.5.12 patch release, not `latest` — see
+> issue-009.md. The runtime image has **no `composer` and no `git`**. Third-party PHP
+> libraries are vendored at **vendor time** on the host: `composer.json` and
+> `composer.lock` are tracked, `vendor/` is git-ignored, and nothing runs
+> `composer install` at start-up — see issue-010.md.
 
 ## Start / stop / inspect
 
@@ -156,7 +159,7 @@ phpMyAdmin is reachable at `http://localhost:${PHPMYADMIN_PORT:-8090}` (host `db
   docker compose exec --user root app chown -R 1000:1000 /var/www/vhosts/localhost/html
   ````
 
-- The PHP config lives at `/usr/local/lsws/lsphp82/etc/php/8.2/litespeed/php.ini`.
+- The PHP config lives at `/usr/local/lsws/lsphp85/etc/php/8.5/litespeed/php.ini`.
 - **`display_errors = Off`** — PHP errors go to the LiteSpeed error log, **not** to the
   browser. A blank page means: check the logs, then check the error log file.
 

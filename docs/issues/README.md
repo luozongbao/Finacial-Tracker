@@ -9,7 +9,7 @@ Two tracks run through this folder:
 
 | Track | Owner | Issues | Produces |
 |---|---|---|---|
-| **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) | The running development stack, the mockup viewer, and the web-root hardening. |
+| **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
 
 ---
@@ -26,6 +26,8 @@ Two tracks run through this folder:
 | [006](issue-006.md) | UX/UI: dashboard and transaction screens | UX/UI | **implemented & verified** | 004 | `05-dashboard.html`, `06-transactions.html`, `07-transaction-form.html` |
 | [007](issue-007.md) | UX/UI: reports, categories and settings screens | UX/UI | **implemented & verified** | 004 | `08-reports.html`, `09-categories.html`, `10-settings.html` |
 | [008](issue-008.md) | UX/UI: install wizard screen | UX/UI | **implemented & verified** | 004 | `11-install-wizard.html` |
+| [009](issue-009.md) | Ops: upgrade the runtime to PHP 8.5.12 (PHP2Shell remediation) | DevOps | **implemented & verified** | 001 | the pinned `litespeedtech/openlitespeed:1.9.4-lsphp85` image, and the PHP floor in every document |
+| [010](issue-010.md) | Ops: introduce Composer as a vendor-time tool and vendor the SMTP mailer | DevOps | **specified, not implemented** | 001, 009 | `composer.json`, `composer.lock`, the `MAIL_FROM` / `MAIL_FROM_NAME` config constants |
 
 ---
 
@@ -94,16 +96,19 @@ The implementation copies the shape, not the text.
 
 | If you are… | Read |
 |---|---|
-| picking up the DevOps work | 001 → 002 → 003 — **already implemented and verified** |
+| picking up the DevOps work | 001 → 002 → 003 → 009 — **already implemented and verified**; 010 is **specified, not implemented** |
 | picking up the UX/UI work | 004 → 005 → 006 → 007 → 008 |
-| writing the application | 001, 003 (the runtime), then 004 → 008 (the design), then `AGENTS.md` and `docs/About.md` |
-| reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer) |
+| writing the application | 001, 003, 009 (the runtime), then 004 → 008 (the design), then `AGENTS.md` and `docs/About.md` |
+| reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor) |
+| adding a third-party PHP library | 010 (Composer as a vendor-time tool) |
 
-> The DevOps track is done: the stack runs, the mockup viewer runs, and the web
-> root is hardened with a regression test that guards it. The UX/UI track is
-> done too: `docs/mockup/` holds the design-system reference page, all twelve
-> screens and the shared `assets/` layer, and every screen fits a 320 px
-> viewport without sideways scrolling.
+> The DevOps track is done: the stack runs **on PHP 8.5.12**, the mockup viewer
+> runs, and the web root is hardened with a regression test that guards it. The
+> UX/UI track is done too: `docs/mockup/` holds the design-system reference page,
+> all twelve screens and the shared `assets/` layer, and every screen fits a
+> 320 px viewport without sideways scrolling. Issue 010 is **specified but not
+> implemented** — it defines the dependency policy and the mailer contract for
+> the application track that has not started yet.
 
 ---
 

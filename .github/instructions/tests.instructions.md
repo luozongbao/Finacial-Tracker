@@ -20,7 +20,7 @@ docker exec <app-container> php /var/www/html/database/<test>_test.php
 ````
 
 The container is a **dev convenience**, not a requirement — the tests are plain PHP CLI
-scripts and run identically against any **PHP 8.2+** binary with a reachable MariaDB 10.11
+scripts and run identically against any **PHP 8.5.12+** binary with a reachable MariaDB 10.11
 (the DB-backed ones read `config.php` for credentials). A non-Docker developer runs
 `php database/<test>_test.php` locally.
 

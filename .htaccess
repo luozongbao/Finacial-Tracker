@@ -15,8 +15,9 @@
 #     /database/*        -> schema and regression-test sources
 #     /docs/issues/*     -> internal issue write-ups
 #
-#   Every rule below was verified against litespeedtech/openlitespeed:latest
-#   (LiteSpeed 1.9.2 / LSPHP 8.2.33). See docs/issues/issue-003.md.
+#   Every rule below was verified against
+#   litespeedtech/openlitespeed:1.9.4-lsphp85
+#   (LiteSpeed 1.9.4 / LSPHP 8.5.12). See docs/issues/issue-003.md.
 #
 # IMPORTANT FOR THE APPLICATION IMPLEMENTER
 #   The front-controller rewrite rules go in THIS file, below the deny block.

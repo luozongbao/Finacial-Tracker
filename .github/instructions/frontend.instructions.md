@@ -7,7 +7,8 @@ applyTo: ["assets/**"]
 
 Vanilla JS and plain CSS. **No framework, no bundler, no npm, no build step.** The
 OpenLiteSpeed container has no `node` and no `composer`, so anything that requires a
-compile step cannot run here.
+compile step cannot run here. (PHP dependencies are vendored at vendor time on the host —
+see `docs/issues/issue-010.md` — but the front end has no dependency step at all.)
 
 ## CSS layers
 

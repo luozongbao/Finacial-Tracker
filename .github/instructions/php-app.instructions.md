@@ -7,8 +7,17 @@ applyTo: ["*.php", "includes/**/*.php", "assets/**/*.php"]
 
 ## Runtime and configuration
 
-**PHP 8.2 is the floor.** The OpenLiteSpeed dev image ships PHP 8.2.33 (`lsphp82`).
-PHP 8.3+ syntax is unavailable until the image is replaced — do not use it.
+**PHP 8.5.12 is the floor.** The OpenLiteSpeed dev image ships PHP 8.5.12 (`lsphp85`).
+This is a **patch** floor, not a language floor: PHP2Shell (`CVE-2026-109618`,
+`CVE-2026-109619`) is an unauthenticated RCE affecting every PHP 5.4 – 8.5 build, and
+8.5.12 is the patched release. Do not lower the floor and do not use 8.5-only syntax just
+because it is available — the application is plain PHP with no framework.
+
+**Third-party libraries are vendored at vendor time, never at runtime.** `composer.json`
+and `composer.lock` are tracked; `vendor/` is git-ignored and produced by a deliberate
+host-side `composer install --no-dev --optimize-autoloader`. The runtime image has no
+`composer` and no `git`, and **nothing** may run `composer install` at container start-up,
+in the installer, or in a request handler. See `docs/issues/issue-010.md`.
 
 **Docker is development-only.** The app must install and run with Docker entirely out of
 the picture (production is plain Litespeed + PHP + MariaDB). Consequences:

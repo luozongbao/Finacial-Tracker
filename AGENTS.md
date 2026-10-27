@@ -13,16 +13,20 @@ infrastructure and the design deliverables do.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` (the UX/UI issues 004–008) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` (the UX/UI issues 004–008, and the Composer/mailer spec 010) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql`, `composer.json` |
 
-The DevOps track (issues 001–003) is **implemented and verified** — the stack
-runs, the mockup viewer runs, and the web root is hardened with a regression
-test guarding it. The UX/UI track (issues 004–008) is **implemented and
-verified** — `docs/mockup/` holds the design-system reference page, all twelve
-screen mockups and the shared token/base/component/JS layer they are built
-on. The mockups are **deliverables, not placeholders**: they specify the
-design the application is built from, and they are the source of truth for
-the token names the application must reuse verbatim.
+The DevOps track (issues 001–003, 009) is **implemented and verified** — the
+stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup viewer
+runs, and the web root is hardened with a regression test guarding it. The
+UX/UI track (issues 004–008) is **implemented and verified** — `docs/mockup/`
+holds the design-system reference page, all twelve screen mockups and the
+shared token/base/component/JS layer they are built on. The mockups are
+**deliverables, not placeholders**: they specify the design the application is
+built from, and they are the source of truth for the token names the
+application must reuse verbatim. Issue 010 (Composer as a vendor-time tool,
+and the SMTP mailer) is **specified but not implemented** — the dependency
+policy and the install procedure were measured against the real image, but
+the application that would consume the mailer does not exist yet.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -33,13 +37,22 @@ and the application track meet.
 | Layer | Choice | Constraint |
 |---|---|---|
 | Web server | **OpenLiteSpeed / LSPHP** | `.htaccess` **is** honoured (the vhost enables `rewrite { RewriteFile .htaccess }`) — front-controller rewrites work the same in dev and prod. |
-| Language | **PHP** | The dev image ships **PHP 8.2.33** (`lsphp82`). **PHP 8.2 is the floor.** |
+| Language | **PHP** | The dev image ships **PHP 8.5.12** (`lsphp85`). **PHP 8.5.12 is the floor** — see "Hard rules". |
 | Database | **MariaDB 10.11** | `utf8mb4`. |
 | Dev environment | **Docker Compose** | **Dev only.** The app must install and run with Docker entirely out of the picture. |
 
 No framework, no ORM, no bundler, no npm, no build step. **The runtime image has no
-`composer` and no `git`** — any third-party PHP library must be vendored into the repo or
-baked into a custom image, not `composer install`-ed at start-up.
+`composer` and no `git`.** Third-party PHP libraries are managed with **Composer as a
+vendor-time tool** — never as a runtime tool:
+
+- `composer.json` and `composer.lock` are **tracked**; `vendor/` is **git-ignored**.
+- `composer install --no-dev --optimize-autoloader` runs **once, deliberately**, outside
+  the container, against the project's own PHP version. The resulting `vendor/` tree is
+  what gets deployed.
+- **Nothing may `composer install` at container start-up**, in the installer, or in a
+  request handler. The runtime never mutates itself.
+
+See [docs/issues/issue-010.md](docs/issues/issue-010.md) for the full policy.
 
 ## Layout
 
@@ -48,6 +61,9 @@ index.php              # front controller: install gate → route table        [
 install.php            # web installer; writes config.php (delete it after install)  [TODO]
 config.php             # git-ignored; written by install.php                  [TODO]
 config.template.php    # tracked twin — same constant set as config.php        [exists]
+composer.json         # tracked — the dependency manifest                      [TODO]
+composer.lock         # tracked — the pinned dependency versions              [TODO]
+vendor/               # git-ignored; produced by the vendor-time install       [TODO]
 .htaccess              # web-root deny block + (later) the front-controller rewrite
 .dockerignore  .env  .env.example
 docker-compose.yml     # app + db + phpmyadmin (+ the "mockup" profile)
@@ -62,7 +78,7 @@ database/
   *_test.php           # standalone PHP CLI regression tests
 docs/
   About.md             # the product brief
-  issues/              # issue specifications (8) — see docs/issues/README.md
+  issues/              # issue specifications (10) — see docs/issues/README.md
   mockup/              # static HTML mockups + the shared assets/ layer
 ````
 
@@ -86,7 +102,7 @@ This is the one part of the brief that is easy to get subtly wrong.
    exists, the app starts. If it does not, the visitor is sent to the installer.
 2. **`install.php` creates `config.php`** from user input: database host (default
    `localhost`), database name, database user, database password, SMTP server, SMTP port,
-   email user, SMTP password.
+   email user, SMTP password, plus the sender identity (`MAIL_FROM`, `MAIL_FROM_NAME`).
 3. **`config.php` also carries `ALLOW_REGISTRATION`, default `true`.**
 4. **When `ALLOW_REGISTRATION` is `false`, registration is closed on the front end *and*
    the back end.** "Front end" = the register page does not render a form / returns 403.
@@ -114,6 +130,21 @@ Consequences that follow from this:
   re-configuration hole.
 - Never add a code path that only works under Docker.
 
+### The mailer's two extra constants
+
+The SMTP mailer needs a sender identity, which `SMTP_USER` does not always
+provide. Two constants are therefore part of the contract:
+
+````php
+const MAIL_FROM = 'no-reply@example.com';   // the From: address
+const MAIL_FROM_NAME = 'Financial Tracker'; // the display name
+````
+
+They follow the same rule as every other constant: **added to
+`config.template.php` and `config.php` in the same change**, written by
+`install.php`, and collected by the install wizard. The spec is
+[docs/issues/issue-010.md](docs/issues/issue-010.md) §7.
+
 ## Commands
 
 `php`, `composer`, `mysql`, and `mariadb` are **not on the host PATH** — everything runs
@@ -135,6 +166,14 @@ docker compose exec -T app php database/<test>_test.php
 
 # Whole suite (the helper handles pass/fail detection correctly)
 .github/skills/dev-stack-ops/scripts/run-tests.sh
+
+# Install the PHP dependencies — a VENDOR-TIME step, run from the project root.
+# Composer is not in the runtime image, so it is mounted in from /tmp.
+# Never run this at container start-up.
+curl -sSL -o /tmp/composer.phar https://getcomposer.org/composer-stable.phar
+docker run --rm -v "$PWD":/app -v /tmp:/w -w /app \
+  --entrypoint php litespeedtech/openlitespeed:1.9.4-lsphp85 \
+  /w/composer.phar install --no-dev --optimize-autoloader --no-interaction
 ````
 
 ### Ports
@@ -170,6 +209,34 @@ procedure, database access, and troubleshooting.
 ## Hard rules
 
 These are the traps that cost time in the sibling PHP projects this repo is modelled on.
+
+### The PHP floor is 8.5.12 — the patched release, not the 8.5 branch
+
+**PHP 8.5.12 is the floor.** Not 8.5, and not 8.2.
+
+PHP2Shell (`CVE-2026-109618`, `CVE-2026-109619`) is a pair of unauthenticated
+remote code execution vulnerabilities in the interpreter itself, affecting
+**every PHP 5.4 – 8.5 build**. They were exploited in the wild before they
+were even announced. The maintainers published temporary mitigations but
+stated there were **no complete mitigations** and that **updating was the only
+safe choice**.
+
+| Release | Patched? |
+|---|---|
+| 8.5.0 – 8.5.11 | **No — vulnerable** |
+| **8.5.12** | **Yes** — released 21 Oct 2026 |
+| 8.2.35 / 8.3.36 / 8.4.27 | Yes (the other patched branches) |
+
+The dev image is pinned to `litespeedtech/openlitespeed:1.9.4-lsphp85` — the
+tag is **pinned, not `latest`**, because a security floor that an upstream tag
+push can move is not a floor. Do not re-introduce `:latest`, and do not lower
+the floor in any document.
+
+The floor is a **minimum**, not a target: the application is plain PHP with no
+framework and has no reason to use 8.5-only syntax. The point of the floor is
+the **patch level**, not the language features.
+
+The spec is [docs/issues/issue-009.md](docs/issues/issue-009.md).
 
 ### A test passes on exit code, not on output
 
@@ -230,12 +297,14 @@ renders blank.
 | Doc | Use it for |
 |---|---|
 | [docs/About.md](docs/About.md) | The product brief: purpose, stack, installation contract. |
-| [docs/issues/README.md](docs/issues/README.md) | The index of all 8 issues — DevOps (001–003) and UX/UI (004–008). |
+| [docs/issues/README.md](docs/issues/README.md) | The index of all 10 issues — DevOps (001–003, 009–010) and UX/UI (004–008). |
 | [docs/issues/issue-001.md](docs/issues/issue-001.md) | The Docker Compose stack: services, ports, volumes, env variables. |
 | [docs/issues/issue-002.md](docs/issues/issue-002.md) | The mockup viewer container and the `docs/mockup/` contract. |
 | [docs/issues/issue-003.md](docs/issues/issue-003.md) | The web-root hardening, the `config.php` write path, the CLI harness path. |
 | [docs/issues/issue-004.md](docs/issues/issue-004.md) | The design charter: IA, tokens, shell, accessibility, responsive rules. |
 | [docs/issues/issue-005.md](docs/issues/issue-005.md) – [issue-008.md](docs/issues/issue-008.md) | The per-screen mockup specifications. |
+| [docs/issues/issue-009.md](docs/issues/issue-009.md) | The PHP 8.5.12 runtime floor: PHP2Shell, the pinned image tag, the paths that move. |
+| [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
 | [.github/instructions/](.github/instructions/) | Scoped conventions for PHP, database, tests, and front-end code. |

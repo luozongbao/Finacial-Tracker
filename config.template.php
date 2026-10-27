@@ -25,11 +25,17 @@ const DB_NAME = 'financial_tracker';
 const DB_USER = 'your_db_user';
 const DB_PASS = 'your_db_password';
 
-// ---- SMTP (used by the password-reset mailer) -----------------------------
+// ---- SMTP (used by the account-verification and password-reset mailer) ----
 const SMTP_HOST = 'smtp.gmail.com';
 const SMTP_PORT = 587;
 const SMTP_USER = 'your_email@gmail.com';
 const SMTP_PASS = 'your_email_password';
+
+// Sender identity. SMTP_USER does not always provide one, so the From: address
+// and its display name are separate constants. Written by install.php — see
+// docs/issues/issue-010.md.
+const MAIL_FROM = 'no-reply@example.com';
+const MAIL_FROM_NAME = 'Financial Tracker';
 
 // ---- Application ----------------------------------------------------------
 

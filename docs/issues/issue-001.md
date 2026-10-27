@@ -46,7 +46,7 @@ Success criteria:
 | 2 | `http://localhost:${APP_PORT}/` is served by LiteSpeed (not by a PHP built-in server) |
 | 3 | The project lives at `/`: `index.php` is reachable at `/index.php`, `assets/` at `/assets/` |
 | 4 | `.htaccess` is honoured, so the front-controller rewrite behaves as in production |
-| 5 | PHP is **8.2** — the version floor declared in `AGENTS.md` |
+| 5 | PHP is **8.5.12** — the version floor declared in `AGENTS.md` |
 | 6 | The database is reachable from the app container under the service name `db` |
 | 7 | `php` on the host still exits **127** — the stack is a convenience, never a dependency |
 | 8 | `docker compose down` preserves the database volume |
@@ -61,7 +61,7 @@ Success criteria:
 | **Docker is development-only** | The app must install and run with Docker entirely out of the picture. Production is plain LiteSpeed + PHP + MariaDB. |
 | **`config.php` is the only configuration source for application code** | No `getenv()`, no `$_ENV`, no `.env` parsing in `includes/`. The compose file configures *containers*, not the application. |
 | **`config.php` is written by `install.php`** | The entrypoint must **not** pre-create it. Pre-creating it would bypass the install gate (`index.php` redirects to the installer when `config.php` is missing). |
-| The image ships **no `composer` and no `git`** | Any third-party PHP library must be vendored into the repository or baked into a custom image. Nothing may be `composer install`-ed at start-up. |
+| The image ships **no `composer` and no `git`** | Any third-party PHP library is installed by a **vendor-time** Composer step outside the container, and the resulting `vendor/` tree is what is deployed. Nothing may be `composer install`-ed at start-up. See [issue-010.md](issue-010.md). |
 | The image has **no `node`** | No npm, no bundler, no build step in the dev container. |
 | The OpenLiteSpeed image seeds `conf/` only when it is empty | `conf` directories must be **named volumes**, not bind mounts — a populated bind mount makes the container exit immediately. |
 | `php`, `composer`, `mysql`, `mariadb` are **not on the host PATH** | Every command runs inside the container. A bare `php file.php` on the host exits **127**. |
@@ -75,8 +75,8 @@ Success criteria:
 ````text
 host
  │
- ├─ :8088 ──► app (litespeedtech/openlitespeed:latest)
- │              LiteSpeed 1.9.2 + LSPHP 8.2.33
+ ├─ :8088 ──► app (litespeedtech/openlitespeed:1.9.4-lsphp85)
+ │              LiteSpeed 1.9.4 + LSPHP 8.5.12
  │              docroot  /var/www/vhosts/localhost/html  ← the project
  │              http://localhost:8088/           → the app front controller
  │              http://localhost:8088/docs/mockup/→ the mockups (read-only)
@@ -95,7 +95,7 @@ host
 
 ### The docroot path is not a free choice
 
-`litespeedtech/openlitespeed:latest` ships a `docker` vhost template whose
+`litespeedtech/openlitespeed:1.9.4-lsphp85` ships a `docker` vhost template whose
 `vhRoot` is `/var/www/vhosts/$VH_NAME/` and whose `docRoot` is
 `$VH_ROOT/html/`, with the member `localhost`. The mount point is therefore
 **`/var/www/vhosts/localhost/html`** — mounting anywhere else yields a 404 for
@@ -105,7 +105,7 @@ Verified in this environment:
 
 | Mount target | Result |
 |---|---|
-| `/var/www/vhosts/localhost/html` | **200**, PHP executes (LSPHP 8.2.33) |
+| `/var/www/vhosts/localhost/html` | **200**, PHP executes (LSPHP 8.5.12) |
 | `/usr/local/lsws/Example/html` | 404 — that path belongs to the unused `Example` vhost |
 | `/var/www/html` | 404 — not a document root in this image |
 
@@ -119,7 +119,7 @@ Four services, one network (`ft-net`), three volumes.
 
 | Key | Value | Reason |
 |---|---|---|
-| `image` | `litespeedtech/openlitespeed:latest` | The stack named in `docs/About.md`. |
+| `image` | `litespeedtech/openlitespeed:1.9.4-lsphp85` | Pinned to the PHP 8.5.12 patch release. The tag is **not** `latest` — a security floor that an upstream tag push can move is not a floor. See [issue-009.md](issue-009.md). |
 | `container_name` | `ft-app` | Stable name for `docker exec`. |
 | `entrypoint` | `["/bin/bash", "/docker-entrypoint.sh"]` | Wrapper adds one symlink, then hands over to the image entrypoint. |
 | `ports` | `"${APP_PORT:-8088}:80"` | The container listens on 80; the host port is configurable. |
@@ -216,7 +216,7 @@ Then: `exec /entrypoint.sh "$@"`.
 - [ ] `docker compose ps` shows `ft-app` on `${APP_PORT}:80`.
 - [ ] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/` returns **404** (not 500) — the project has no `index.php` yet; a 404 proves LiteSpeed is serving the docroot.
 - [ ] A PHP file placed in the project root returns **200** and executes: `curl http://localhost:${APP_PORT}/config.template.php` returns 200 with an empty body (PHP output, not source).
-- [ ] `docker compose exec -T app php -v` reports **PHP 8.2**.
+- [ ] `docker compose exec -T app php -v` reports **PHP 8.5.12**.
 - [ ] `docker compose exec -T app sh -c 'readlink -f /var/www/html'` resolves to `/var/www/vhosts/localhost/html`.
 - [ ] `docker compose exec -T db sh -c 'mysql -u "$MARIADB_USER" -p"$MARIADB_PASSWORD" "$MARIADB_DATABASE" -e "SHOW TABLES;"'` succeeds.
 - [ ] `docker compose exec -T app php -r 'echo gethostbyname("db");'` resolves to the database container.
@@ -330,8 +330,11 @@ gone.
 - **TLS.** The dev stack is HTTP only. A production certificate is a
   deployment concern, not a development one.
 - **A custom application image.** The stock image is used as-is; nothing is
-  baked in. If a third-party PHP library is added later it must be vendored
-  into the repository.
+  baked in. A third-party PHP library is added by a vendor-time Composer step
+  that produces `vendor/` on the host — see [issue-010.md](issue-010.md).
 - **The mockup viewer.** See [issue-002.md](issue-002.md).
 - **Web-root hardening.** See [issue-003.md](issue-003.md).
+- **The PHP version floor.** The image tag is pinned here, but the floor
+  itself and the PHP2Shell remediation are specified in
+  [issue-009.md](issue-009.md).
 - **CI.** There is no CI in this project; tests are run by hand.

@@ -19,7 +19,7 @@ name: financial-tracker
 
 services:
   # ---------------------------------------------------------------------
-  # app — OpenLiteSpeed + LSPHP (PHP 8.2).
+  # app — OpenLiteSpeed + LSPHP (PHP 8.5.12).
   #
   # The whole project is mounted at the vhost docroot, so the application
   # lives at "/" and the URL space matches production exactly:
@@ -33,10 +33,15 @@ services:
   # The docroot path is fixed by the image: the `docker` vhost template
   # resolves vhRoot to /var/www/vhosts/localhost/ and docRoot to
   # /var/www/vhosts/localhost/html/. Verified against
-  # litespeedtech/openlitespeed:latest (LiteSpeed 1.9.2 / LSPHP 8.2.33).
+  # litespeedtech/openlitespeed:1.9.4-lsphp85 (LiteSpeed 1.9.4 / LSPHP
+  # 8.5.12, built 2026-10-21 — the PHP2Shell patch release).
+  #
+  # The tag is PINNED, not `latest`: `latest` can silently move the PHP
+  # version under the repository, and the PHP floor is a security floor.
+  # See docs/issues/issue-009.md.
   # ---------------------------------------------------------------------
   app:
-    image: litespeedtech/openlitespeed:latest
+    image: litespeedtech/openlitespeed:1.9.4-lsphp85
     container_name: ft-app
     restart: unless-stopped
     # The wrapper only creates a compatibility symlink and then hands over to

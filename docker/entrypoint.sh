@@ -7,7 +7,7 @@
 # Why: two different docroot paths are documented for this project and both
 # must keep working.
 #   - AGENTS.md and the dev-stack-ops skill use /var/www/vhosts/localhost/html
-#     (the real vhost docroot of litespeedtech/openlitespeed:latest).
+#     (the real vhost docroot of litespeedtech/openlitespeed:1.9.4-lsphp85).
 #   - .github/skills/dev-stack-ops/scripts/run-tests.sh defaults APP_ROOT to
 #     /var/www/html.
 #
