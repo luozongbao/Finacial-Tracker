@@ -1,0 +1,123 @@
+/* ==========================================================================
+   docs/mockup/assets/components.css
+   --------------------------------------------------------------------------
+   The component vocabulary shared by every mockup screen.
+
+   Naming rule (mirrors .github/instructions/frontend.instructions.md):
+   modifiers use a DOUBLE hyphen — .badge--income, .card--muted.
+   A single hyphen matches nothing and renders unstyled.
+
+   This file is the SKELETON shipped with the dev stack; UX/UI extends it in
+   docs/issues/issue-004.md.
+   ========================================================================== */
+
+/* ---- Page shell ---------------------------------------------------------- */
+.shell {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--sp-6) var(--sp-4);
+}
+
+.shell__header {
+    margin-bottom: var(--sp-6);
+}
+
+.shell__title {
+    margin-bottom: var(--sp-2);
+}
+
+.shell__subtitle {
+    color: var(--gray-700);
+    margin-bottom: 0;
+}
+
+/* ---- Card ---------------------------------------------------------------- */
+.card {
+    background-color: var(--surface);
+    color: var(--gray-900);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-300);
+}
+
+.card__title {
+    margin-bottom: var(--sp-2);
+}
+
+/* ---- Gallery grid -------------------------------------------------------- */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--sp-4);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.gallery__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    background-color: var(--surface);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+}
+
+.gallery__item[aria-disabled="true"] {
+    opacity: 0.6;
+}
+
+.gallery__name {
+    font-weight: 650;
+    color: var(--gray-900);
+}
+
+.gallery__meta {
+    font-size: var(--fs-sm);
+    color: var(--gray-700);
+}
+
+/* ---- Badge --------------------------------------------------------------- */
+.badge {
+    display: inline-block;
+    font-size: var(--fs-xs);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-full);
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+}
+
+.badge--income {
+    background-color: var(--success-100);
+    color: var(--success-700);
+}
+
+.badge--expense {
+    background-color: var(--danger-100);
+    color: var(--danger-700);
+}
+
+.badge--pending {
+    background-color: var(--info-100);
+    color: var(--info-700);
+}
+
+/* ---- Notice -------------------------------------------------------------- */
+.notice {
+    border-left: 4px solid var(--info-500);
+    background-color: var(--info-100);
+    color: var(--info-700);
+    padding: var(--sp-4);
+    border-radius: var(--r-sm);
+    margin-bottom: var(--sp-5);
+}
+
+.notice--warning {
+    border-left-color: var(--warning-500);
+    background-color: var(--warning-100);
+    color: var(--warning-700);
+}

@@ -1,0 +1,51 @@
+# ==========================================================================
+# .htaccess — document root rules for the Financial Tracker dev stack.
+#
+# LiteSpeed honours this file: the `docker` vhost template enables
+# `rewrite { RewriteFile .htaccess }` and `autoLoadHtaccess 1`, so these
+# rules behave identically in dev and in production.
+#
+# PURPOSE
+#   The whole repository is mounted at the document root, which means every
+#   file in it is reachable over HTTP unless it is denied here. Without these
+#   rules the development server hands out:
+#
+#     /.env              -> the MariaDB root password from .env
+#     /.git/config       -> the repository's git metadata
+#     /database/*        -> schema and regression-test sources
+#     /docs/issues/*     -> internal issue write-ups
+#
+#   Every rule below was verified against litespeedtech/openlitespeed:latest
+#   (LiteSpeed 1.9.2 / LSPHP 8.2.33). See docs/issues/issue-003.md.
+#
+# IMPORTANT FOR THE APPLICATION IMPLEMENTER
+#   The front-controller rewrite rules go in THIS file, below the deny block.
+#   Keep the deny block intact — do not replace the file wholesale. A
+#   regression test should assert that /.env still returns 403.
+# ==========================================================================
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # ---- Dotfiles --------------------------------------------------------
+    # .env, .env.*, .git, .github, .gitignore, .htaccess, editor swap files.
+    # .well-known/ stays reachable (it is a standard public path).
+    RewriteRule "(^|/)\.(?!well-known)" - [F,L]
+
+    # ---- Secrets and generated configuration -----------------------------
+    # config.php is executed by PHP when it is included server-side, but the
+    # direct request is denied as defence in depth.
+    RewriteRule "^/?config\.php$" - [F,L]
+
+    # ---- Internal source trees ------------------------------------------
+    # None of these are entry points; they are included or read from disk.
+    RewriteRule "^/?database/"  - [F,L]
+    RewriteRule "^/?includes/"  - [F,L]
+    RewriteRule "^/?docker/"    - [F,L]
+    RewriteRule "^/?vendor/"    - [F,L]
+
+    # ---- Internal documentation -----------------------------------------
+    # docs/mockup/ stays public: it is the UX deliverable, and it is also
+    # served by the standalone mockup container.
+    RewriteRule "^/?docs/issues/" - [F,L]
+</IfModule>

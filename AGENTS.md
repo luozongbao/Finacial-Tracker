@@ -8,10 +8,21 @@ This file holds only what an agent cannot infer from the tree.
 
 ## Status
 
-**Greenfield.** The repo contains `docs/About.md`, `config.template.php`, and
-`database/config_test.php`. The rest of the layout below is the *planned* structure —
-create it, do not go looking for it. No application code has been implemented yet, so no
-command in this file has been executed successfully against this project.
+**Greenfield — the application code does not exist yet, but the development
+infrastructure does.**
+
+| Exists and works | Exists, spec only | Does not exist yet |
+|---|---|---|
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php` | `docs/issues/` (8 issues), `docs/mockup/` (design skeleton + gallery) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql` |
+
+The stack in `docker-compose.yml` has been started and verified. The mockup
+skeleton in `docs/mockup/` is a **deliverable**, not a placeholder — the real
+mockups are specified by the UX issues in `docs/issues/` and are written by
+the UX/UI track.
+
+Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
+every issue, states which track owns it, and shows where the design track
+and the application track meet.
 
 ## Stack
 
@@ -26,29 +37,42 @@ No framework, no ORM, no bundler, no npm, no build step. **The runtime image has
 `composer` and no `git`** — any third-party PHP library must be vendored into the repo or
 baked into a custom image, not `composer install`-ed at start-up.
 
-## Planned layout
+## Layout
 
 ````text
-index.php              # front controller: install gate → route table
-install.php            # web installer; writes config.php (delete it after install)
-config.php             # git-ignored; written by install.php
-config.template.php    # tracked twin — same constant set as config.php
-includes/
-  Database.php         # PDO singleton
-  functions.php        # e(), CSRF, session, redirect, date/period helpers
-  Router.php           # route table — single source of truth for URLs
-  auth.php             # login/register + the ALLOW_REGISTRATION gate
-  header.php / footer.php
-assets/css/ assets/js/
+index.php              # front controller: install gate → route table        [TODO]
+install.php            # web installer; writes config.php (delete it after install)  [TODO]
+config.php             # git-ignored; written by install.php                  [TODO]
+config.template.php    # tracked twin — same constant set as config.php        [exists]
+.htaccess              # web-root deny block + (later) the front-controller rewrite
+.dockerignore  .env  .env.example
+docker-compose.yml     # app + db + phpmyadmin (+ the "mockup" profile)
+docker/
+  entrypoint.sh        # adds the /var/www/html compatibility symlink
+  mockup-nginx.conf    # static viewer for docs/mockup/
+includes/              # [TODO] Database.php, functions.php, Router.php, auth.php, header/footer
+assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
 database/
-  schema.sql           # single source of truth for a fresh install
-  migrations/          # YYYYMMDD_short_name.sql, applied by hand
+  schema.sql           # [TODO] single source of truth for a fresh install
+  migrations/          # [TODO] YYYYMMDD_short_name.sql, applied by hand
   *_test.php           # standalone PHP CLI regression tests
-docs/About.md
+docs/
+  About.md             # the product brief
+  issues/              # issue specifications (8) — see docs/issues/README.md
+  mockup/              # static HTML mockups + the shared assets/ layer
 ````
 
-`config.template.php` and `database/config_test.php` already exist and are the reference
-for the config contract — read them before changing anything about configuration.
+`config.template.php` and `database/config_test.php` are the reference for the config
+contract — read them before changing anything about configuration.
+
+### The web root is the repository root
+
+The app service mounts the repository at
+`/var/www/vhosts/localhost/html`, so the application lives at `/`. **Every file
+in the tree is web-reachable unless `.htaccess` denies it.** The deny block in
+`.htaccess` is load-bearing — read it before adding a directory, and never
+replace the file wholesale. The rules are specified and measured in
+[docs/issues/issue-003.md](docs/issues/issue-003.md).
 
 ## Install and config contract — agent-critical
 
@@ -92,10 +116,11 @@ inside the container. A bare `php file.php` on the host exits **127**.
 
 ````bash
 # Stack
-docker compose up -d
+docker compose up -d                    # app + db + phpmyadmin
+docker compose up -d mockup             # the static mockup viewer (separate profile)
 docker compose ps
 docker compose logs -f app
-docker compose down            # keeps the DB volume
+docker compose down                     # keeps the DB volume — NEVER `-v`
 
 # Lint — always, on every file you touch
 docker compose exec -T app php -l includes/functions.php
@@ -106,6 +131,29 @@ docker compose exec -T app php database/<test>_test.php
 # Whole suite (the helper handles pass/fail detection correctly)
 .github/skills/dev-stack-ops/scripts/run-tests.sh
 ````
+
+### Ports
+
+The host ports are configurable through `.env` (see `.env.example`); the
+defaults are chosen so they do not collide with the sibling projects:
+
+| Service | Host port | Container port | Bind |
+|---|---|---|---|
+| App (LiteSpeed) | `APP_PORT` = **8088** | 80 | all interfaces |
+| Mockup viewer (nginx) | `MOCKUP_PORT` = **8089** | 80 | all interfaces |
+| phpMyAdmin | `PHPMYADMIN_PORT` = **8090** | 80 | all interfaces |
+| LiteSpeed WebAdmin | `OLS_ADMIN_PORT` = **7080** | 7080 | **127.0.0.1 only** |
+
+`docker compose` services are `db`, `app`, `phpmyadmin` (default profile) and
+`mockup` (profile `mockup`). A bare `docker compose up -d` must **not** start
+the mockup viewer.
+
+### Two document-root paths
+
+`AGENTS.md` and the dev-stack-ops skill say `/var/www/vhosts/localhost/html`;
+the `run-tests.sh` helper defaults to `/var/www/html`. **Both work** —
+`docker/entrypoint.sh` creates a symlink from the second to the first. Do not
+"fix" the helper and do not remove the symlink.
 
 `database/config_test.php` guards the config contract (boolean flag, constant spelling,
 and `config.php` / `config.template.php` parity). It needs no database — it is a
@@ -177,5 +225,12 @@ renders blank.
 | Doc | Use it for |
 |---|---|
 | [docs/About.md](docs/About.md) | The product brief: purpose, stack, installation contract. |
+| [docs/issues/README.md](docs/issues/README.md) | The index of all 8 issues — DevOps (001–003) and UX/UI (004–008). |
+| [docs/issues/issue-001.md](docs/issues/issue-001.md) | The Docker Compose stack: services, ports, volumes, env variables. |
+| [docs/issues/issue-002.md](docs/issues/issue-002.md) | The mockup viewer container and the `docs/mockup/` contract. |
+| [docs/issues/issue-003.md](docs/issues/issue-003.md) | The web-root hardening, the `config.php` write path, the CLI harness path. |
+| [docs/issues/issue-004.md](docs/issues/issue-004.md) | The design charter: IA, tokens, shell, accessibility, responsive rules. |
+| [docs/issues/issue-005.md](docs/issues/issue-005.md) – [issue-008.md](docs/issues/issue-008.md) | The per-screen mockup specifications. |
+| [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
 | [.github/instructions/](.github/instructions/) | Scoped conventions for PHP, database, tests, and front-end code. |
