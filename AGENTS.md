@@ -13,12 +13,13 @@ infrastructure does.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php` | `docs/issues/` (8 issues), `docs/mockup/` (design skeleton + gallery) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php`, `database/webroot_hardening_test.php` | `docs/issues/` (the UX/UI issues 004–008), `docs/mockup/` (design skeleton + gallery) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql` |
 
-The stack in `docker-compose.yml` has been started and verified. The mockup
-skeleton in `docs/mockup/` is a **deliverable**, not a placeholder — the real
-mockups are specified by the UX issues in `docs/issues/` and are written by
-the UX/UI track.
+The DevOps track (issues 001–003) is **implemented and verified** — the stack
+runs, the mockup viewer runs, and the web root is hardened with a regression
+test guarding it. The mockup skeleton in `docs/mockup/` is a **deliverable**,
+not a placeholder — the real mockups are specified by the UX issues in
+`docs/issues/` and are written by the UX/UI track.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -54,7 +55,7 @@ includes/              # [TODO] Database.php, functions.php, Router.php, auth.ph
 assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
 database/
   schema.sql           # [TODO] single source of truth for a fresh install
-  migrations/          # [TODO] YYYYMMDD_short_name.sql, applied by hand
+  migrations/          # YYYYMMDD_short_name.sql, applied by hand (README.md = the contract)
   *_test.php           # standalone PHP CLI regression tests
 docs/
   About.md             # the product brief

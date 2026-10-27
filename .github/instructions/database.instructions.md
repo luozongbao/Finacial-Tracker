@@ -59,9 +59,15 @@ Follow all four steps, in order:
 
 | Path | When it runs | Target |
 |---|---|---|
-| `database/schema.sql` mounted at `/docker-entrypoint-initdb.d/01-schema.sql` | Fresh volume only (`docker compose down -v` re-seeds) | **Dev only** |
+| `database/schema.sql` mounted at `/docker-entrypoint-initdb.d/schema.sql` | Fresh volume only (`docker compose down -v` re-seeds) | **Dev only** |
 | `install.php` (loads `schema.sql` during the wizard) | The web install wizard | **Universal** — this is the production path |
 | `database/migrations/*.sql` applied by hand | Every upgrade — **not automatic** | Both |
+
+> The compose file mounts the whole `database/` directory at
+> `/docker-entrypoint-initdb.d`, so the container-side name of the schema is
+> `schema.sql` — the file name is unchanged, only the directory it is seen in.
+> The MariaDB entrypoint processes only the **top level** of that directory, so
+> the `.sql` files under `database/migrations/` are never auto-run.
 
 A schema change must work on **all** paths: a fresh Docker volume, a fresh `install.php`
 wizard run, and a hand-applied migration on an existing production database.

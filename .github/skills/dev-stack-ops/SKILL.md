@@ -26,6 +26,13 @@ The stack is expected to expose three services:
 | `db` | `mariadb:10.11` | MariaDB, internal only |
 | `phpmyadmin` | `phpmyadmin:latest` | admin UI, optional |
 
+A fourth service, `mockup` (static nginx, profile `mockup`), is **not** started by a
+plain `docker compose up -d`. Start it explicitly — see issue-002.md:
+
+````bash
+docker compose up -d mockup   # http://localhost:${MOCKUP_PORT:-8089}/
+````
+
 > The runtime image has **no `composer` and no `git`**. Any third-party PHP library must be
 > vendored into the repo or baked into a custom image.
 
@@ -96,36 +103,57 @@ The DB env vars exist **inside** the database container — reference them there
 exposing secrets on the command line. The container ships the `mysql` client, **not**
 `mariadb`.
 
+> ### The container variables are `MARIADB_*`, not `MYSQL_*`
+>
+> The `mariadb:10.11` image defines `MARIADB_DATABASE`, `MARIADB_USER`,
+> `MARIADB_PASSWORD` and `MARIADB_ROOT_PASSWORD` — and **no** `MYSQL_*` variables
+> at all. Referring to `$MYSQL_DATABASE` inside the container expands to the
+> empty string, and the command degenerates in two dangerous ways:
+>
+> - `-p"$MYSQL_ROOT_PASSWORD"` becomes `-p` with an empty password, so `mysql`
+>   falls back to an **interactive prompt** — which hangs a script and prints a
+>   password prompt into a log.
+> - `"$MYSQL_DATABASE"` becomes an empty database name, so the client connects
+>   with **no database selected**:
+>   `ERROR 1046 (3D000) at line 1: No database selected`.
+>
+> The `MYSQL_ROOT_PASSWORD` name is correct in **`.env`** (the host-side file) —
+> compose maps it to `MARIADB_ROOT_PASSWORD` in the container. Keep the two
+> contexts apart.
+
 ````bash
 # List databases / tables
-docker compose exec db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" -e "SHOW DATABASES;"'
-docker compose exec db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SHOW TABLES;"'
+docker compose exec db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" -e "SHOW DATABASES;"'
+docker compose exec db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "SHOW TABLES;"'
 
 # Run a query
-docker compose exec db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE" -e "SELECT * FROM transactions LIMIT 10;"'
+docker compose exec db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "SELECT * FROM transactions LIMIT 10;"'
 
 # Backup
-docker compose exec db sh -c 'mysqldump -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > backup-$(date +%F).sql
+docker compose exec db sh -c 'mysqldump -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' > backup-$(date +%F).sql
 
 # Restore
-docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' < backup-2026-10-27.sql
+docker compose exec -T db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < backup-2026-10-27.sql
 
 # Apply a migration (migrations are NOT auto-run)
-docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' < database/migrations/<file>.sql
+docker compose exec -T db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < database/migrations/<file>.sql
 ````
 
-phpMyAdmin is reachable at `http://localhost:${PHPMYADMIN_PORT:-8081}` (host `db`, port
-`3306`).
+phpMyAdmin is reachable at `http://localhost:${PHPMYADMIN_PORT:-8090}` (host `db`, port
+`3306`). Log in with `DB_USER` / `DB_PASSWORD` from `.env`.
 
 ## LiteSpeed / LSPHP
 
 - **`.htaccess` works.** The vhost enables `rewrite { RewriteFile .htaccess }`, so the
   front-controller rewrite rules behave the same in dev and production.
-- **LSPHP runs as `nobody:nogroup`** (uid 65534). Files created as root inside the bind
-  mount are not writable by the worker. Repair with:
+- **The LSPHP worker runs as uid/gid 1000** (measured: `posix_geteuid()` returns
+  `1000`; the image sets `setUIDMode 2`). The host tree is owned by the
+  developer's own uid, which is 1000 on a typical Linux host, so `install.php`
+  can write `config.php` with no `chown` at all. Files created as **root**
+  inside the bind mount are *not* writable by the worker — repair with:
 
   ````bash
-  docker compose exec --user root app chown -R nobody:nogroup /var/www/vhosts/localhost/html
+  docker compose exec --user root app chown -R 1000:1000 /var/www/vhosts/localhost/html
   ````
 
 - The PHP config lives at `/usr/local/lsws/lsphp82/etc/php/8.2/litespeed/php.ini`.
@@ -145,8 +173,10 @@ phpMyAdmin is reachable at `http://localhost:${PHPMYADMIN_PORT:-8081}` (host `db
   ````
 
 - The WebAdmin console is on port 7080 — bind it to `127.0.0.1:7080:7080` on a public host
-  and tunnel in. The admin password is regenerated on every container start from
-  `OLS_ADMIN_USER` / `OLS_ADMIN_PASSWORD` in `.env`.
+  and tunnel in. The image does **not** read `OLS_ADMIN_USER` / `OLS_ADMIN_PASSWORD`;
+  the console credentials are the stock ones baked into the image
+  (`/usr/local/lsws/admin/conf/htpasswd`), and the admin `conf/` directory is a named
+  volume, so a password set once survives restarts.
 
 ## The install flow
 
@@ -173,8 +203,10 @@ restart the app, then browse to `http://localhost:<port>/install.php`.
 | Every test "passes" instantly | The test loop is treating a missing interpreter as a pass. Check the exit code. |
 | 403 on the register page | `ALLOW_REGISTRATION` is `false` in `config.php`. Expected behaviour, not a bug. |
 | 404 on every URL | `.htaccess` rewrite is not being applied — confirm it is in the docroot and that the vhost has `RewriteFile .htaccess`. |
-| Permission denied writing `config.php` | The bind mount is owned by root; `chown -R nobody:nogroup` the docroot. |
-| Database connection refused | `.env` (`MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD`) must match `config.php`; the DB host inside Docker is `db`, not `localhost`. |
+| Permission denied writing `config.php` | The bind mount is owned by root; `chown -R 1000:1000` the docroot. |
+| Database connection refused | `.env` (`DB_NAME` / `DB_USER` / `DB_PASSWORD`) must match `config.php`; the DB host inside Docker is `db`, not `localhost`. |
+| `ERROR 1046 (3D000) at line 1: No database selected` | You used `$MYSQL_DATABASE` inside the container. The image only defines `MARIADB_DATABASE`. |
+| The `mysql` client prompts for a password instead of running | Same cause: `-p"$MYSQL_ROOT_PASSWORD"` expands to an empty string. Use `$MARIADB_ROOT_PASSWORD`. |
 | OLS container exits immediately | `conf` directories were bind-mounted and are non-empty → the image only seeds them when empty. Use named volumes `ols_conf` / `ols_admin_conf`. |
 | Migration seems to have no effect | Migrations are **not** auto-run. Apply it by hand (see above). |
 

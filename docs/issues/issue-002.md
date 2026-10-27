@@ -1,6 +1,7 @@
 # Issue-002 — Ops: serve the UX/UI mockups from `docs/mockup/` on a dedicated static container
 
-> **Status:** reference implementation provided — ready for ops pickup and verification.
+> **Status:** **implemented and verified** — every acceptance criterion below was
+> measured against the running stack on 2026-10-27.
 > **Target:** v0.1 (development infrastructure).
 > **Severity:** **n/a** — additive infrastructure, no application impact.
 >

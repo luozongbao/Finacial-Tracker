@@ -1,6 +1,8 @@
 # Issue-003 — Ops: harden the development web root and make `install.php` able to write `config.php`
 
-> **Status:** reference implementation provided — ready for ops pickup and verification.
+> **Status:** **implemented and verified** — every acceptance criterion below was
+> measured against the running stack on 2026-10-27, and the hardening is guarded
+> by `database/webroot_hardening_test.php`.
 > **Target:** v0.1 (development infrastructure).
 > **Severity:** **high** — an unauthenticated credential disclosure existed in the dev stack until this was fixed.
 >

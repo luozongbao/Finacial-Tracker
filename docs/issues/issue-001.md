@@ -1,6 +1,7 @@
 # Issue-001 — Ops: Docker Compose development stack (LiteSpeed + MariaDB + phpMyAdmin)
 
-> **Status:** reference implementation provided — ready for ops pickup and verification.
+> **Status:** **implemented and verified** — every acceptance criterion below was
+> measured against the running stack on 2026-10-27.
 > **Target:** v0.1 (development infrastructure).
 > **Severity:** **n/a** — additive infrastructure, no application impact.
 >
@@ -316,7 +317,8 @@ gone.
 | Blank page in the browser | `display_errors = Off` | `docker compose logs --tail=100 app` and `docker compose exec app tail -50 /usr/local/lsws/logs/error.log`. |
 | The app cannot connect to the database | The wizard was given `localhost` as the database host | Use `db`. |
 | The install wizard cannot write `config.php` | The bind mount is owned by an uid other than the worker uid | `docker compose exec --user root app chown -R nobody:nogroup /var/www/vhosts/localhost/html` — or leave the top-level directory writable for the container user (uid 1000), which is the default in this image. |
-| A migration "had no effect" | Migrations are **not** auto-run | Apply it by hand: `docker compose exec -T db sh -c 'mysql -u root -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' < database/migrations/<file>.sql` |
+| A migration "had no effect" | Migrations are **not** auto-run | Apply it by hand: `docker compose exec -T db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' < database/migrations/<file>.sql` |
+| `ERROR 1046 (3D000) at line 1: No database selected` | The `MYSQL_DATABASE` variable does not exist in the `mariadb` image | Use `MARIADB_DATABASE` (and `MARIADB_ROOT_PASSWORD`) inside the container |
 | Port already in use | Another stack owns the port | Override `APP_PORT` in `.env` and restart. |
 
 ---
