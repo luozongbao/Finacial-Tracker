@@ -198,8 +198,12 @@ $denied = [
     '/docker/entrypoint.sh',
     '/includes/',
     '/vendor/',
+    '/vendor/autoload.php',
+    '/composer.json',
+    '/composer.lock',
 ];
 
+$notDenied = [];
 foreach ($denied as $path) {
     $res = http_get($baseUrl . $path);
     ok(
@@ -207,6 +211,20 @@ foreach ($denied as $path) {
         $res['status'] === 403,
         'got ' . ($res['status'] === null ? 'no response' : (string) $res['status'])
     );
+    if ($res['status'] !== 403) {
+        $notDenied[] = $path;
+    }
+}
+
+// LiteSpeed keeps the parsed .htaccess in memory. A rule that was just added
+// to the file is not enforced until the server re-reads it, so a failure here
+// can mean "the file is right but the server is stale" rather than "the file
+// is wrong". Say so, instead of leaving the operator to guess.
+if (count($notDenied) > 0) {
+    echo "  NOTE: the server answered without 403 for: " . implode(', ', $notDenied) . "\n";
+    echo "        If the deny rule for those paths is present in .htaccess on disk,\n";
+    echo "        the running server is holding a stale copy of it. Restart it:\n";
+    echo "          docker compose restart app\n";
 }
 
 echo "\n## C. The deliverables stay reachable (200)\n";
@@ -298,6 +316,7 @@ if (is_file($htaccess)) {
         'docker/'        => 'docker/ is denied',
         'vendor/'        => 'vendor/ is denied',
         'docs/issues/'   => 'docs/issues/ is denied',
+        'composer\.(json|lock)' => 'the dependency manifest and lock file are denied',
     ];
 
     foreach ($expected as $fragment => $label) {

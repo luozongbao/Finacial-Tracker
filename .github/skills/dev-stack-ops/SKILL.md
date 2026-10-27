@@ -73,6 +73,51 @@ docker compose exec -T app php database/<test>_test.php
 `docker compose exec -T` is preferred over `docker exec <name>` — it applies the project
 namespace from `.env` automatically, and `-T` keeps the command non-interactive.
 
+> ### Use an absolute path inside the container
+>
+> The app container's working directory is **`/var/www/vhosts`** — *not* the docroot.
+> A relative path therefore fails:
+>
+> ````bash
+> docker compose exec -T app php database/config_test.php
+> # Could not open input file: database/config_test.php
+> ````
+>
+> Use the docroot path instead — either form works, because
+> `docker/entrypoint.sh` symlinks `/var/www/html` → `/var/www/vhosts/localhost/html`:
+>
+> ````bash
+> docker compose exec -T app php /var/www/html/database/config_test.php
+> ````
+>
+> The `run-tests.sh` helper already sets the working directory to `APP_ROOT`
+> (`/var/www/html` by default), which is why it works with relative paths.
+
+## Composer — vendor time only
+
+Composer is **not** in the runtime image and the runtime must never mutate itself.
+`composer.json` and `composer.lock` are tracked; `vendor/` is git-ignored and is
+produced **once, deliberately, on the host**:
+
+````bash
+cd /home/zongbao/projects/financial-tracker
+curl -sSL -o /tmp/composer.phar https://getcomposer.org/composer-stable.phar
+docker run --rm -v "$PWD":/app -v /tmp:/w -w /app \
+  --entrypoint php litespeedtech/openlitespeed:1.9.4-lsphp85 \
+  /w/composer.phar install --no-dev --optimize-autoloader --no-interaction
+````
+
+- Never run `composer install` at container start-up, in the installer, or in a
+  request handler.
+- The `app` image has **no `composer` binary** — the `docker run` above mounts
+  `composer.phar` from `/tmp` instead.
+- `vendor/` must exist for the application to boot. `includes/bootstrap.php`
+  throws a `RuntimeException` naming the command to run when the autoloader is
+  missing.
+- `database/mailer_test.php` guards the policy: the manifest is tracked, `vendor/`
+  is ignored, nothing in `includes/` shells out to Composer, and the runtime image
+  ships no Composer binary.
+
 ### The `run-tests.sh` helper
 
 | Flag / env | Purpose |
@@ -149,6 +194,10 @@ phpMyAdmin is reachable at `http://localhost:${PHPMYADMIN_PORT:-8090}` (host `db
 
 - **`.htaccess` works.** The vhost enables `rewrite { RewriteFile .htaccess }`, so the
   front-controller rewrite rules behave the same in dev and production.
+- **LiteSpeed caches the parsed `.htaccess` in memory.** A rule you just added to
+  the file is **not** enforced until the server re-reads it — the live status code
+  will disagree with the file, and the web-root hardening test fails for the wrong
+  reason. After editing `.htaccess`, run `docker compose restart app`.
 - **The LSPHP worker runs as uid/gid 1000** (measured: `posix_geteuid()` returns
   `1000`; the image sets `setUIDMode 2`). The host tree is owned by the
   developer's own uid, which is 1000 on a typical Linux host, so `install.php`
@@ -206,6 +255,9 @@ restart the app, then browse to `http://localhost:<port>/install.php`.
 | Every test "passes" instantly | The test loop is treating a missing interpreter as a pass. Check the exit code. |
 | 403 on the register page | `ALLOW_REGISTRATION` is `false` in `config.php`. Expected behaviour, not a bug. |
 | 404 on every URL | `.htaccess` rewrite is not being applied — confirm it is in the docroot and that the vhost has `RewriteFile .htaccess`. |
+| A new deny rule in `.htaccess` is not enforced | LiteSpeed cached the old `.htaccess`. Run `docker compose restart app`, then re-test. |
+| `Could not open input file: database/x.php` | The container's cwd is `/var/www/vhosts`, not the docroot. Use `/var/www/html/database/x.php`. |
+| Blank page mentioning a missing `vendor/autoload.php` | The vendor-time Composer install has not been run. See "Composer — vendor time only". |
 | Permission denied writing `config.php` | The bind mount is owned by root; `chown -R 1000:1000` the docroot. |
 | Database connection refused | `.env` (`DB_NAME` / `DB_USER` / `DB_PASSWORD`) must match `config.php`; the DB host inside Docker is `db`, not `localhost`. |
 | `ERROR 1046 (3D000) at line 1: No database selected` | You used `$MYSQL_DATABASE` inside the container. The image only defines `MARIADB_DATABASE`. |

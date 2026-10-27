@@ -4,8 +4,12 @@ config.php
 # Local environment for the Docker Compose dev stack.
 .env
 
-# Vendored dependencies, if any are added later.
+# Vendored dependencies — a build artefact, recreated by `composer install`.
+# The manifest (composer.json) and the lock file (composer.lock) ARE tracked.
 vendor/
+
+# The Composer binary is downloaded per machine, never committed.
+composer.phar
 
 # OS / editor noise
 .DS_Store

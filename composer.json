@@ -1,0 +1,17 @@
+{
+    "name": "financial-tracker/app",
+    "description": "Personal finance tracker — record income and spending, then search and sum over a time period.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.5.12",
+        "phpmailer/phpmailer": "^7.1"
+    },
+    "config": {
+        "platform": {
+            "php": "8.5.12"
+        },
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

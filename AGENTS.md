@@ -13,20 +13,22 @@ infrastructure and the design deliverables do.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` (the UX/UI issues 004–008, and the Composer/mailer spec 010) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql`, `composer.json` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` (the UX/UI issues 004–008) | `index.php`, `install.php`, `assets/`, `database/schema.sql` |
 
-The DevOps track (issues 001–003, 009) is **implemented and verified** — the
-stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup viewer
-runs, and the web root is hardened with a regression test guarding it. The
-UX/UI track (issues 004–008) is **implemented and verified** — `docs/mockup/`
+The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
+the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
+viewer runs, the web root is hardened with a regression test guarding it, and
+the third-party PHP dependency is vendored at build time with Composer.
+The UX/UI track (issues 004–008) is **implemented and verified** — `docs/mockup/`
 holds the design-system reference page, all twelve screen mockups and the
 shared token/base/component/JS layer they are built on. The mockups are
 **deliverables, not placeholders**: they specify the design the application is
 built from, and they are the source of truth for the token names the
 application must reuse verbatim. Issue 010 (Composer as a vendor-time tool,
-and the SMTP mailer) is **specified but not implemented** — the dependency
-policy and the install procedure were measured against the real image, but
-the application that would consume the mailer does not exist yet.
+and the SMTP mailer) is **implemented and verified** — the dependency policy
+holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
+guards both. What is still missing is the **application** that consumes them:
+`index.php`, `install.php` and the schema.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -61,16 +63,16 @@ index.php              # front controller: install gate → route table        [
 install.php            # web installer; writes config.php (delete it after install)  [TODO]
 config.php             # git-ignored; written by install.php                  [TODO]
 config.template.php    # tracked twin — same constant set as config.php        [exists]
-composer.json         # tracked — the dependency manifest                      [TODO]
-composer.lock         # tracked — the pinned dependency versions              [TODO]
-vendor/               # git-ignored; produced by the vendor-time install       [TODO]
+composer.json         # tracked — the dependency manifest                      [exists]
+composer.lock         # tracked — the pinned dependency versions              [exists]
+vendor/               # git-ignored; produced by the vendor-time install       [exists]
 .htaccess              # web-root deny block + (later) the front-controller rewrite
 .dockerignore  .env  .env.example
 docker-compose.yml     # app + db + phpmyadmin (+ the "mockup" profile)
 docker/
   entrypoint.sh        # adds the /var/www/html compatibility symlink
   mockup-nginx.conf    # static viewer for docs/mockup/
-includes/              # [TODO] Database.php, functions.php, Router.php, auth.php, header/footer
+includes/              # [partly] mailer.php, bootstrap.php; [TODO] Database.php, functions.php, Router.php, auth.php, header/footer
 assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
 database/
   schema.sql           # [TODO] single source of truth for a fresh install
@@ -93,6 +95,11 @@ in the tree is web-reachable unless `.htaccess` denies it.** The deny block in
 `.htaccess` is load-bearing — read it before adding a directory, and never
 replace the file wholesale. The rules are specified and measured in
 [docs/issues/issue-003.md](docs/issues/issue-003.md).
+
+> **LiteSpeed caches the parsed `.htaccess` in memory.** A rule you just added to
+> the file is **not** enforced until the server re-reads it. After editing
+> `.htaccess`, run `docker compose restart app` — otherwise the live status
+> codes disagree with the file and the hardening test fails for the wrong reason.
 
 ## Install and config contract — agent-critical
 
@@ -145,6 +152,12 @@ They follow the same rule as every other constant: **added to
 `install.php`, and collected by the install wizard. The spec is
 [docs/issues/issue-010.md](docs/issues/issue-010.md) §7.
 
+`includes/mailer.php` already reads them. Its public surface is three
+functions — `mailIsConfigured()`, `createMailer()` and `sendMail()` — and it
+reads **only** `config.php`: no `getenv()`, no `$_ENV`, no `$_SERVER`. The
+wizard collects the two new values in step 2 of
+`docs/mockup/11-install-wizard.html`.
+
 ## Commands
 
 `php`, `composer`, `mysql`, and `mariadb` are **not on the host PATH** — everything runs
@@ -159,10 +172,10 @@ docker compose logs -f app
 docker compose down                     # keeps the DB volume — NEVER `-v`
 
 # Lint — always, on every file you touch
-docker compose exec -T app php -l includes/functions.php
+docker compose exec -T app php -l /var/www/html/includes/functions.php
 
 # One regression test
-docker compose exec -T app php database/<test>_test.php
+docker compose exec -T app php /var/www/html/database/<test>_test.php
 
 # Whole suite (the helper handles pass/fail detection correctly)
 .github/skills/dev-stack-ops/scripts/run-tests.sh
@@ -174,7 +187,20 @@ curl -sSL -o /tmp/composer.phar https://getcomposer.org/composer-stable.phar
 docker run --rm -v "$PWD":/app -v /tmp:/w -w /app \
   --entrypoint php litespeedtech/openlitespeed:1.9.4-lsphp85 \
   /w/composer.phar install --no-dev --optimize-autoloader --no-interaction
+
+# After editing .htaccess — LiteSpeed caches the parsed file in memory
+docker compose restart app
 ````
+
+> `vendor/` must exist for the application to boot. `includes/bootstrap.php`
+> throws a `RuntimeException` naming the command to run when it is missing —
+> the front controller must catch it and show it, or the visitor gets a blank
+> page (the image sets `display_errors = Off`).
+
+> **The container's working directory is `/var/www/vhosts`, not the docroot** — a
+> relative path fails with *"Could not open input file"*. Use the absolute path
+> `/var/www/html/...` in every in-container command (both spellings of the docroot
+> work; `docker/entrypoint.sh` creates the symlink).
 
 ### Ports
 
@@ -287,6 +313,19 @@ Store transaction dates as `DATE` in UTC, and keep the week-start rule in one pl
 The OLS image sets `display_errors = Off`, so PHP errors go to the LiteSpeed error log, not
 to the browser. Check `docker compose logs app` and the container's error log when a page
 renders blank.
+
+### A failed mail is a `false`, not an exception
+
+`sendMail()` returns `true` or `false`. It **never** lets a transport error escape — a
+public "forgot password" form must not become a 500 because the SMTP server was down. A
+failure is also written to the error log, so it is diagnosable.
+
+The two states a caller must distinguish:
+
+| State | How to detect it |
+|---|---|
+| Mail is not configured at all | `mailIsConfigured()` is `false` — the user must be told, and no connection is attempted. |
+| Mail is configured but the send failed | `sendMail()` returned `false` — the user gets a "try again later" message. |
 
 ### Never `docker compose down -v`
 

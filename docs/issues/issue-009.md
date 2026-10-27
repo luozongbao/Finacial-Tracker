@@ -244,21 +244,21 @@ does not exist.
 
 ## 7. Acceptance criteria
 
-- [ ] `docker compose config --quiet` exits **0**.
-- [ ] `docker compose up -d` recreates `ft-app` on `litespeedtech/openlitespeed:1.9.4-lsphp85`.
-- [ ] `docker compose exec -T app php -v` reports **PHP 8.5.12**.
-- [ ] `docker compose exec -T app php -r 'echo PHP_VERSION_ID, PHP_EOL, "\n";'` reports `8.5.12` and a **non-zero** end-of-life status.
-- [ ] `docker compose exec -T app php -i | grep "Loaded Configuration File"` reports `/usr/local/lsws/lsphp85/etc/php/8.5/litespeed/php.ini`.
-- [ ] The compose file contains **no** `litespeedtech/openlitespeed:latest` reference.
-- [ ] No document in the repository states a PHP floor below **8.5.12**.
-- [ ] No document in the repository states that "PHP 8.3+ syntax is unavailable".
-- [ ] `docker compose exec -T app sh -c 'readlink -f /var/www/html'` resolves to `/var/www/vhosts/localhost/html`.
-- [ ] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/` returns **404** — not 500 — proving LiteSpeed serves the docroot.
-- [ ] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/config.template.php` returns **200** with an empty body — PHP executed, the source was not served.
-- [ ] `/.env` → **403**, `/.git/config` → **403**, `/config.php` → **403**, `/database/config_test.php` → **403**.
-- [ ] `/docs/mockup/index.html` → **200**.
-- [ ] `.github/skills/dev-stack-ops/scripts/run-tests.sh` reports **2 PASS / 0 FAIL** and exits **0**.
-- [ ] `docker compose exec -T app php -l` passes over every PHP file in the tree.
+- [x] `docker compose config --quiet` exits **0**.
+- [x] `docker compose up -d` recreates `ft-app` on `litespeedtech/openlitespeed:1.9.4-lsphp85`.
+- [x] `docker compose exec -T app php -v` reports **PHP 8.5.12**.
+- [x] `docker compose exec -T app php -r 'echo PHP_VERSION_ID, PHP_EOL, "\n";'` reports `8.5.12` and an **empty** `PHP_EOL` — the release is **not** end-of-life. (The criterion was worded "non-zero"; the constant is `''` when the branch is supported and a date string when it is not. The measured value is `''`.)
+- [x] `docker compose exec -T app php -i | grep "Loaded Configuration File"` reports `/usr/local/lsws/lsphp85/etc/php/8.5/litespeed/php.ini`.
+- [x] The compose file contains **no** `litespeedtech/openlitespeed:latest` reference.
+- [x] No document in the repository states a PHP floor below **8.5.12**. — this issue file quotes **8.2.33** and `lsphp82` because it is the migration record; it describes the old floor as history, it does not state it. The verification grep below therefore excludes this file.
+- [x] No document in the repository states that "PHP 8.3+ syntax is unavailable".
+- [x] `docker compose exec -T app sh -c 'readlink -f /var/www/html'` resolves to `/var/www/vhosts/localhost/html`.
+- [x] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/` returns **404** — not 500 — proving LiteSpeed serves the docroot.
+- [x] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/config.template.php` returns **200** with an empty body — PHP executed, the source was not served.
+- [x] `/.env` → **403**, `/.git/config` → **403**, `/config.php` → **403**, `/database/config_test.php` → **403**.
+- [x] `/docs/mockup/index.html` → **200**.
+- [x] `.github/skills/dev-stack-ops/scripts/run-tests.sh` reports **3 PASS / 0 FAIL** and exits **0**. — it was 2 before [issue-010.md](issue-010.md) added `database/mailer_test.php`.
+- [x] `docker compose exec -T app php -l` passes over every PHP file in the tree.
 
 ---
 
@@ -310,17 +310,21 @@ curl -sS -o /dev/null -w 'mockup=%{http_code}\n' http://localhost:8088/docs/mock
 
 # 7. The suite
 .github/skills/dev-stack-ops/scripts/run-tests.sh
-#   == Running 2 test(s) ==
+#   == Running 3 test(s) ==
 #     [PASS] database/config_test.php
+#     [PASS] database/mailer_test.php
 #     [PASS] database/webroot_hardening_test.php
-#   == 2 PASS / 0 FAIL ==
+#   == 3 PASS / 0 FAIL ==
 
 # 8. Lint the tree
 .github/skills/dev-stack-ops/scripts/run-tests.sh --lint
 
 # 9. No stale references remain
+#   This issue file is excluded on purpose: it is the migration record and it
+#   quotes the old version ("8.2.33", "lsphp82") as history.
 grep -rn 'openlitespeed:latest\|lsphp82\|8\.2\.33\|PHP 8\.2' \
-  --include='*.md' --include='*.yml' --include='*.sh' --include='.htaccess' .
+  --include='*.md' --include='*.yml' --include='*.sh' --include='.htaccess' \
+  --exclude='issue-009.md' .
 #   (no output)
 
 grep -rn 'PHP 8\.5' AGENTS.md .github/instructions/ .github/skills/

@@ -1,10 +1,13 @@
 # Issue-010 — Ops: introduce Composer as a build-time tool and vendor the SMTP mailer
 
-> **Status:** **specified, not implemented** — the dependency policy, the
-> library choice and the install procedure below were all **measured** against
-> the real PHP 8.5.12 image on 2026-10-27, but no `composer.json`,
-> `composer.lock` or `vendor/` tree is committed yet. The application code
-> that would consume the mailer does not exist.
+> **Status:** **implemented and verified** — the dependency policy, the library
+> choice and the install procedure below were **measured** against the real
+> PHP 8.5.12 image on 2026-10-27, and the implementation landed on the same
+> date. `composer.json` and `composer.lock` are tracked, `vendor/` is
+> git-ignored, `includes/mailer.php` and `includes/bootstrap.php` exist, and
+> `database/mailer_test.php` guards the whole policy. The one criterion that
+> is **not** met is the `install.php` wiring — the installer does not exist
+> yet; it belongs to the application track ([issue-008.md](issue-008.md)).
 > **Target:** v0.2 (the first release that sends mail).
 > **Severity:** **medium** — a missing dependency stops the mail feature; it
 > is not a security exposure.
@@ -480,29 +483,29 @@ and `docs/mockup/02-register.html`.
 
 ## 9. Acceptance criteria
 
-- [ ] `composer.json` exists, declares `php: >=8.5.12` and `phpmailer/phpmailer: ^7.1`.
-- [ ] `composer.json` sets `config.platform.php` to `8.5.12`.
-- [ ] `composer.lock` is **tracked** in git and pins `phpmailer/phpmailer` to an exact version.
-- [ ] `vendor/` is **git-ignored** and **not** tracked.
-- [ ] `composer.phar` is **not** tracked.
-- [ ] `composer install --no-dev --optimize-autoloader --no-interaction` succeeds against the `1.9.4-lsphp85` image.
-- [ ] `composer install` from the lock file reports **0 updates** — the lock file is consistent with `composer.json`.
-- [ ] `vendor/autoload.php` exists and `class_exists('PHPMailer\PHPMailer\PHPMailer')` is **true** after the install.
-- [ ] `PHPMailer\PHPMailer\PHPMailer::VERSION` reports the version in the lock file.
-- [ ] `composer validate --strict` exits **0**.
-- [ ] `composer audit` reports **no known vulnerabilities**.
-- [ ] `config.template.php` declares `MAIL_FROM` and `MAIL_FROM_NAME`.
-- [ ] `config.php` declares the same two constants — the parity assertion in `database/config_test.php` passes.
-- [ ] `install.php` writes both constants, and the wizard collects both.
-- [ ] `docs/mockup/11-install-wizard.html` is updated to match the wizard.
-- [ ] `includes/mailer.php` exists and reads **only** `config.php` — no `getenv()`, no `$_ENV`.
-- [ ] The mailer returns `false` when `SMTP_HOST` is empty, and does not attempt a connection.
-- [ ] The mailer catches exceptions and returns `false`; a failed send never becomes an uncaught error.
-- [ ] `http://localhost:${APP_PORT}/vendor/autoload.php` returns **403** — the vendor tree is never served.
-- [ ] `http://localhost:${APP_PORT}/composer.json` returns **403** — the manifest is never served.
-- [ ] The **entrypoint does not run Composer** — `docker/entrypoint.sh` contains no `composer` invocation.
-- [ ] The application reports a **clear error** when `vendor/autoload.php` is missing, instead of a fatal "class not found".
-- [ ] `docker compose up -d` on a clean checkout with no `vendor/` does **not** attempt an install.
+- [x] `composer.json` exists, declares `php: >=8.5.12` and `phpmailer/phpmailer: ^7.1`.
+- [x] `composer.json` sets `config.platform.php` to `8.5.12`.
+- [x] `composer.lock` is **tracked** in git and pins `phpmailer/phpmailer` to an exact version.
+- [x] `vendor/` is **git-ignored** and **not** tracked.
+- [x] `composer.phar` is **not** tracked.
+- [x] `composer install --no-dev --optimize-autoloader --no-interaction` succeeds against the `1.9.4-lsphp85` image.
+- [x] `composer install` from the lock file reports **0 updates** — the lock file is consistent with `composer.json`.
+- [x] `vendor/autoload.php` exists and `class_exists('PHPMailer\PHPMailer\PHPMailer')` is **true** after the install.
+- [x] `PHPMailer\PHPMailer\PHPMailer::VERSION` reports the version in the lock file.
+- [x] `composer validate --strict` exits **0**.
+- [x] `composer audit` reports **no known vulnerabilities**.
+- [x] `config.template.php` declares `MAIL_FROM` and `MAIL_FROM_NAME`.
+- [x] `config.php` declares the same two constants — the parity assertion in `database/config_test.php` passes. — the assertion **skips** today, because `config.php` does not exist until the installer writes it. It will run from that moment on.
+- [ ] `install.php` writes both constants, and the wizard collects both. — **deferred to the application track** ([issue-008.md](issue-008.md)): `install.php` does not exist yet. The wizard *screen* is specified — `docs/mockup/11-install-wizard.html` now collects `mail_from` and `mail_from_name`.
+- [x] `docs/mockup/11-install-wizard.html` is updated to match the wizard.
+- [x] `includes/mailer.php` exists and reads **only** `config.php` — no `getenv()`, no `$_ENV`.
+- [x] The mailer returns `false` when `SMTP_HOST` is empty, and does not attempt a connection.
+- [x] The mailer catches exceptions and returns `false`; a failed send never becomes an uncaught error.
+- [x] `http://localhost:${APP_PORT}/vendor/autoload.php` returns **403** — the vendor tree is never served.
+- [x] `http://localhost:${APP_PORT}/composer.json` returns **403** — the manifest is never served.
+- [x] The **entrypoint does not run Composer** — `docker/entrypoint.sh` contains no `composer` invocation.
+- [x] The application reports a **clear error** when `vendor/autoload.php` is missing, instead of a fatal "class not found". — `includes/bootstrap.php` throws a `RuntimeException` naming the command to run. The front controller must catch it and show it; `index.php` does not exist yet (application track).
+- [x] `docker compose up -d` on a clean checkout with no `vendor/` does **not** attempt an install.
 
 ---
 

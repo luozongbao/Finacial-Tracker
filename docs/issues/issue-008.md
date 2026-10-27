@@ -41,7 +41,7 @@ Success criteria:
 | # | Criterion |
 |---|---|
 | 1 | `11-install-wizard.html` exists and renders standalone from `file://` |
-| 2 | The wizard collects exactly the eight values the config contract names, and nothing else |
+| 2 | The wizard collects exactly the ten values the config contract names, and nothing else |
 | 3 | Each step's validation and failure states are shown |
 | 4 | The password fields are typed `password` and are **never** echoed back |
 | 5 | The wizard has a clear final state that tells the operator what to do next |
@@ -65,7 +65,7 @@ Success criteria:
 
 | Constraint | Consequence |
 |---|---|
-| `install.php` writes `config.php` from **user input**: database host, database name, database user, database password, SMTP server, SMTP port, email user, SMTP password | Exactly **eight** values. No more. |
+| `install.php` writes `config.php` from **user input**: database host, database name, database user, database password, SMTP server, SMTP port, email user, SMTP password | Exactly **ten** values. No more. — the count grew from eight to ten when [issue-010.md](issue-010.md) added `MAIL_FROM` and `MAIL_FROM_NAME`. |
 | `config.php` also carries `ALLOW_REGISTRATION`, defaulting to `true` | The wizard writes it as a **real boolean**. The design shows it as a switch, defaulting to on, with a clear explanation of what turning it off does. |
 | `config.php` is the **only** configuration source | The wizard writes the file; nothing else reads environment variables. |
 | The installer is **unauthenticated and runs before the app exists** | No app shell, no navigation, no session, no user context. A single centred column. |
@@ -89,6 +89,8 @@ Success criteria:
 | 6 | SMTP port | `SMTP_PORT` | number | no | Default 587. |
 | 7 | Email user | `SMTP_USER` | text | no | |
 | 8 | SMTP password | `SMTP_PASS` | password | no | |
+| 9 | From: address | `MAIL_FROM` | email | yes (once mail is configured) | Pre-filled from `SMTP_USER`. Added by [issue-010.md](issue-010.md). |
+| 10 | From: name | `MAIL_FROM_NAME` | text | no | Default `Financial Tracker`. Added by [issue-010.md](issue-010.md). |
 | — | Registration switch | `ALLOW_REGISTRATION` | switch | no | Defaults to **on**. |
 
 The database host **is** collected, because `config.template.php` declares
@@ -165,6 +167,8 @@ because steps 2 and 3 depend on step 1 succeeding.
 | SMTP port | A number between 1 and 65535. Default 587. | |
 | Email user | Optional; required once the host is set. | |
 | SMTP password | Optional; required once the host is set. | |
+| From: address | Optional until the host is set; required once it is. Pre-filled from the email user. | |
+| From: name | Optional. Defaults to `Financial Tracker`. | |
 
 **Step-level action:** **Skip mail setup and continue** / **Test and continue**.
 Both are present. Skipping is a first-class choice, not a failure.
@@ -173,7 +177,7 @@ Both are present. Skipping is a first-class choice, not a failure.
 
 | State | What is shown |
 |---|---|
-| Partial configuration | A field-level message: "If you set an SMTP host, the user and password are required too." |
+| Partial configuration | A field-level message: "If you set an SMTP host, the user, the password and the From: address are required too." |
 | Connection refused / auth failed | A step-level alert: "Could not connect to the mail server." with a generic message. |
 
 ### Step 3 — Access and summary
@@ -181,7 +185,7 @@ Both are present. Skipping is a first-class choice, not a failure.
 | Element | Content |
 |---|---|
 | The registration switch | **On** by default, with a one-line explanation: "When off, no one can create an account, and the register page returns 403." The design shows **both** switch positions. |
-| The summary | A read-only list of everything that will be written: the database host, the database name, the user, the SMTP host and port, and the registration state. **The database password and the SMTP password are shown as masked, and only in this summary** — the design shows `••••••••` with a note that they are stored as given. |
+| The summary | A read-only list of everything that will be written: the database host, the database name, the user, the SMTP host and port, the sender identity (From: address and From: name), and the registration state. **The database password and the SMTP password are shown as masked, and only in this summary** — the design shows `••••••••` with a note that they are stored as given. |
 
 **Step-level action:** **Install**.
 

@@ -14,6 +14,9 @@
 #     /.git/config       -> the repository's git metadata
 #     /database/*        -> schema and regression-test sources
 #     /docs/issues/*     -> internal issue write-ups
+#     /vendor/*          -> third-party library source
+#     /composer.json     -> the dependency manifest
+#     /composer.lock     -> the exact deployed dependency versions
 #
 #   Every rule below was verified against
 #   litespeedtech/openlitespeed:1.9.4-lsphp85
@@ -44,6 +47,12 @@
     RewriteRule "^/?includes/"  - [F,L]
     RewriteRule "^/?docker/"    - [F,L]
     RewriteRule "^/?vendor/"    - [F,L]
+
+    # ---- Dependency manifest ---------------------------------------------
+    # composer.json and composer.lock describe the dependency tree. They are
+    # not secrets, but they are not part of the public site either — and a
+    # lock file advertises exactly which library versions are deployed.
+    RewriteRule "^/?composer\.(json|lock)$" - [F,L]
 
     # ---- Internal documentation -----------------------------------------
     # docs/mockup/ stays public: it is the UX deliverable, and it is also

@@ -275,6 +275,19 @@
                            autocomplete="new-password" value="">
                 </div>
 
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from">From: address</label>
+                    <input class="input" id="iw-mail-from" name="mail_from" type="email" value="">
+                    <span class="field__hint">The address the message is sent from. Pre-filled from the SMTP user and required once an SMTP host is set.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-name">From: name</label>
+                    <input class="input" id="iw-mail-from-name" name="mail_from_name" type="text"
+                           value="Financial Tracker">
+                    <span class="field__hint">Shown to the recipient next to the address. Optional.</span>
+                </div>
+
                 <div class="btn-group">
                     <button type="button" class="btn btn--primary">Test and continue</button>
                     <button type="button" class="btn btn--secondary">Skip mail setup and continue</button>
@@ -289,6 +302,11 @@
                 and continue, or skip and continue. Skipping is a legitimate
                 choice, not a failure — the password reset page tells the
                 visitor that mail is not configured.
+            </p>
+            <p>
+                The From: address is pre-filled from the SMTP user and stays
+                editable — an SMTP account may authenticate as one address and
+                send on behalf of another.
             </p>
         </div>
     </section>
@@ -326,15 +344,26 @@
                     <input class="input" id="iw-smtp-pass-2" name="smtp_pass" type="password" value="">
                 </div>
 
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-2">From: address</label>
+                    <input class="input" id="iw-mail-from-2" name="mail_from" type="email" value=""
+                           aria-invalid="true" aria-describedby="iw-partial-msg">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-name-2">From: name</label>
+                    <input class="input" id="iw-mail-from-name-2" name="mail_from_name" type="text" value="">
+                </div>
+
                 <div role="alert">
                     <div class="alert alert--danger">
                         <div class="alert__body">
-                            <p class="alert__title">If you set an SMTP host, the user and password are required too.</p>
+                            <p class="alert__title">If you set an SMTP host, the user, the password and the From: address are required too.</p>
                         </div>
                     </div>
                 </div>
 
-                <span class="sr-only" id="iw-partial-msg">If you set an SMTP host, the user and password are required too.</span>
+                <span class="sr-only" id="iw-partial-msg">If you set an SMTP host, the user, the password and the From: address are required too.</span>
 
                 <div class="btn-group">
                     <button type="button" class="btn btn--primary">Test and continue</button>
@@ -388,6 +417,15 @@
                 <div class="field">
                     <label class="field__label" for="iw-smtp-pass-3">SMTP password</label>
                     <input class="input" id="iw-smtp-pass-3" name="smtp_pass" type="password" value="">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-3">From: address</label>
+                    <input class="input" id="iw-mail-from-3" name="mail_from" type="email" value="tracker@example.com">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-name-3">From: name</label>
+                    <input class="input" id="iw-mail-from-name-3" name="mail_from_name" type="text"
+                           value="Financial Tracker">
                 </div>
                 <div class="btn-group">
                     <button type="button" class="btn btn--primary">Test and continue</button>
@@ -476,6 +514,14 @@
                     <dd class="masked">••••••••</dd>
                 </div>
                 <div class="readonly-list__row">
+                    <dt>From: address</dt>
+                    <dd>tracker@example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: name</dt>
+                    <dd>Financial Tracker</dd>
+                </div>
+                <div class="readonly-list__row">
                     <dt>Registration allowed</dt>
                     <dd>Yes</dd>
                 </div>
@@ -497,6 +543,12 @@
                 strings <code>"true"</code> or <code>"false"</code>. A string
                 <code>"false"</code> would compare unequal to
                 <code>false</code> and leave registration <strong>open</strong>.
+            </p>
+            <p>
+                <code>MAIL_FROM</code> and <code>MAIL_FROM_NAME</code> are the
+                <strong>sender identity</strong>, not the SMTP credentials. The
+                SMTP user may authenticate as one address and send on behalf of
+                another, so the two are separate fields.
             </p>
         </div>
     </section>
@@ -558,6 +610,14 @@
                 <div class="readonly-list__row">
                     <dt>SMTP password</dt>
                     <dd class="masked">••••••••</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: address</dt>
+                    <dd>tracker@example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: name</dt>
+                    <dd>Financial Tracker</dd>
                 </div>
                 <div class="readonly-list__row">
                     <dt>Registration allowed</dt>
