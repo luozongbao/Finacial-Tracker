@@ -1,0 +1,14 @@
+# Written by install.php — never committed.
+config.php
+
+# Local environment for the Docker Compose dev stack.
+.env
+
+# Vendored dependencies, if any are added later.
+vendor/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~

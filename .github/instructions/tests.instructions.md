@@ -137,3 +137,7 @@ $rendered = shell_exec('php ' . escapeshellarg($proxy_file) . ' 2>&1');
 
 After adding a test, confirm it actually fails when the behaviour it guards is broken —
 otherwise it is a green test that proves nothing.
+
+`database/config_test.php` is the worked example: break `config.template.php`
+(quote the flag, hyphenate the constant name) and confirm the test exits non-zero, then
+restore it.

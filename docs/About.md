@@ -11,6 +11,6 @@ This project is to record spending andd income for personall use. it should be a
 1. search for config.php if exist goto index.php
 2. if not install
 3. install create config.php, allow user to customize database name, database user, database password, smtp server, smtp port, email user, smtp password
-4. config.php also included ALLOW-REGRISTRATION default 'true', allow user registration. if setto 'false' don't allow user registration, both FE/BE are restricted.
+4. config.php also included ALLOW_REGISTRATION default true, allow user registration. if set to false don't allow user registration, both FE/BE are restricted.
 
 ## 

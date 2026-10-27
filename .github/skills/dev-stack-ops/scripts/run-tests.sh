@@ -46,25 +46,12 @@ for arg in "$@"; do
     esac
 done
 
-if [ "$LINT_ONLY" -eq 1 ]; then
-    echo "== php -l =="
-    # shellcheck disable=SC2016
-    run_in_app sh -c 'find . -name "*.php" -not -path "./vendor/*" -not -path "./.git/*" -print0 \
-        | xargs -0 -n1 php -l' 2>&1
-    exit $?
-fi
-
-if [ "${#TESTS[@]}" -eq 0 ]; then
+if [ "${#TESTS[@]}" -eq 0 ] && [ "$LINT_ONLY" -eq 0 ]; then
     if [ -d "$TEST_DIR" ]; then
         while IFS= read -r f; do
             TESTS+=("$f")
         done < <(find "$TEST_DIR" -maxdepth 1 -name '*_test.php' | sort)
     fi
-fi
-
-if [ "${#TESTS[@]}" -eq 0 ]; then
-    echo "No tests found in $TEST_DIR/ — nothing to run." >&2
-    exit 0
 fi
 
 # --- container plumbing ----------------------------------------------------
@@ -82,6 +69,20 @@ run_in_app() {
         return 127
     fi
 }
+
+# --- lint ------------------------------------------------------------------
+# Must come after run_in_app is defined.
+if [ "$LINT_ONLY" -eq 1 ]; then
+    echo "== php -l =="
+    run_in_app sh -c 'find . -name "*.php" -not -path "./vendor/*" -not -path "./.git/*" -print0 \
+        | xargs -0 -n1 php -l' 2>&1
+    exit $?
+fi
+
+if [ "${#TESTS[@]}" -eq 0 ]; then
+    echo "No tests found in $TEST_DIR/ — nothing to run." >&2
+    exit 0
+fi
 
 # --- run -------------------------------------------------------------------
 PASS=0

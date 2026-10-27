@@ -155,8 +155,10 @@ to `install.php`, which collects the database and SMTP settings and writes `conf
 
 - `config.php` is **git-ignored**. `config.template.php` is the tracked twin and must
   declare the **same constant set**.
-- `config.php` also carries `ALLOW-REGISTRATION`, default `'true'`. When it is `'false'`,
+- `config.php` also carries `ALLOW_REGISTRATION`, default `true`. When it is `false`,
   registration is closed on the front end **and** the back end.
+- `database/config_test.php` checks the flag's type, the constant spelling, and the
+  template/live parity. It needs no database.
 - **Delete or lock `install.php` after a successful install.**
 
 To re-run the installer locally: stop the app, remove `config.php` from the host tree,
@@ -169,7 +171,7 @@ restart the app, then browse to `http://localhost:<port>/install.php`.
 | Blank page, nothing in the browser | `display_errors = Off`. Check `docker compose logs app` and the LiteSpeed error log. |
 | `php: command not found` (exit 127) | You ran PHP on the host. Use `docker compose exec -T app php …`. |
 | Every test "passes" instantly | The test loop is treating a missing interpreter as a pass. Check the exit code. |
-| 403 on the register page | `ALLOW-REGISTRATION` is `'false'` in `config.php`. Expected behaviour, not a bug. |
+| 403 on the register page | `ALLOW_REGISTRATION` is `false` in `config.php`. Expected behaviour, not a bug. |
 | 404 on every URL | `.htaccess` rewrite is not being applied — confirm it is in the docroot and that the vhost has `RewriteFile .htaccess`. |
 | Permission denied writing `config.php` | The bind mount is owned by root; `chown -R nobody:nogroup` the docroot. |
 | Database connection refused | `.env` (`MYSQL_DATABASE` / `MYSQL_USER` / `MYSQL_PASSWORD`) must match `config.php`; the DB host inside Docker is `db`, not `localhost`. |

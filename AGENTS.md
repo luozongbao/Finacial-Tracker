@@ -8,9 +8,10 @@ This file holds only what an agent cannot infer from the tree.
 
 ## Status
 
-**Greenfield.** The repo currently contains only `docs/About.md`. The layout below is the
-*planned* structure — create it, do not go looking for it. Nothing here has been implemented
-yet, so no command in this file has been executed successfully against this project.
+**Greenfield.** The repo contains `docs/About.md`, `config.template.php`, and
+`database/config_test.php`. The rest of the layout below is the *planned* structure —
+create it, do not go looking for it. No application code has been implemented yet, so no
+command in this file has been executed successfully against this project.
 
 ## Stack
 
@@ -36,7 +37,7 @@ includes/
   Database.php         # PDO singleton
   functions.php        # e(), CSRF, session, redirect, date/period helpers
   Router.php           # route table — single source of truth for URLs
-  auth.php             # login/register + the ALLOW-REGISTRATION gate
+  auth.php             # login/register + the ALLOW_REGISTRATION gate
   header.php / footer.php
 assets/css/ assets/js/
 database/
@@ -46,6 +47,9 @@ database/
 docs/About.md
 ````
 
+`config.template.php` and `database/config_test.php` already exist and are the reference
+for the config contract — read them before changing anything about configuration.
+
 ## Install and config contract — agent-critical
 
 This is the one part of the brief that is easy to get subtly wrong.
@@ -54,13 +58,16 @@ This is the one part of the brief that is easy to get subtly wrong.
    exists, the app starts. If it does not, the visitor is sent to the installer.
 2. **`install.php` creates `config.php`** from user input: database name, database user,
    database password, SMTP server, SMTP port, email user, SMTP password.
-3. **`config.php` also carries `ALLOW-REGISTRATION`, default `'true'`.**
-4. **When `ALLOW-REGISTRATION` is `'false'`, registration is closed on the front end *and*
+3. **`config.php` also carries `ALLOW_REGISTRATION`, default `true`.**
+4. **When `ALLOW_REGISTRATION` is `false`, registration is closed on the front end *and*
    the back end.** "Front end" = the register page does not render a form / returns 403.
    "Back end" = the server-side handler rejects the POST regardless of what was rendered.
    A check in only one of the two places is a bug.
-5. The value is the **string** `'true'` / `'false'`, not a PHP boolean. Compare it strictly
-   (`'false'`) — `ALLOW_REGISTRATION === false` never matches the string.
+5. **The value is a real PHP boolean** — `true` / `false`, never the strings `'true'` /
+   `'false'`. Compare with `ALLOW_REGISTRATION === false` (or `! ALLOW_REGISTRATION`).
+6. The constant is spelled with **underscores**: `ALLOW_REGISTRATION`. A hyphen is not
+   legal in a PHP constant name, so `ALLOW-REGISTRATION` could only be read back through
+   `constant('ALLOW-REGISTRATION')` — do not do that.
 
 Consequences that follow from this:
 
@@ -70,6 +77,10 @@ Consequences that follow from this:
 - **`config.php` is git-ignored.** `config.template.php` is the tracked twin and must
   declare the **same constant set** — only the values differ. Add or remove a constant in
   one, add or remove it in the other.
+- **The installer writes `ALLOW_REGISTRATION` as a boolean literal.** `var_export(true, true)`
+  emits `true` and `var_export(false, true)` emits `false`, so the same `var_export()` call
+  used for the string settings also yields a valid boolean for this flag. Never write the
+  strings `'true'` / `'false'`.
 - **Delete or lock `install.php` after a successful install.** A live installer is a
   re-configuration hole.
 - Never add a code path that only works under Docker.
@@ -95,6 +106,10 @@ docker compose exec -T app php database/<test>_test.php
 # Whole suite (the helper handles pass/fail detection correctly)
 .github/skills/dev-stack-ops/scripts/run-tests.sh
 ````
+
+`database/config_test.php` guards the config contract (boolean flag, constant spelling,
+and `config.php` / `config.template.php` parity). It needs no database — it is a
+structural test.
 
 See [the dev-stack-ops skill](.github/skills/dev-stack-ops/SKILL.md) for the full operating
 procedure, database access, and troubleshooting.

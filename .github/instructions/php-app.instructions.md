@@ -19,6 +19,9 @@ the picture (production is plain Litespeed + PHP + MariaDB). Consequences:
 - **Never add a code path that only works under Docker.**
 - If a feature needs a setting, add a `config.php` constant — and add it to
   `config.template.php` in the same change. The two must declare the **same constant set**.
+  `database/config_test.php` enforces this parity; run it after touching either file.
+- `config.template.php` and `database/config_test.php` already exist and are the reference
+  implementation of this contract. Read them before changing it.
 
 ## The install gate
 
@@ -36,16 +39,39 @@ to the installer when it is missing.
   wizard — it does not load `config.php`, so the `DB_*` constants are undefined and any
   such probe is dead code. `config.php` existing is the only real gate.
 
-## The `ALLOW-REGISTRATION` flag
+## The `ALLOW_REGISTRATION` flag
 
-`config.php` carries `ALLOW-REGISTRATION`, default `'true'`.
+`config.php` carries `ALLOW_REGISTRATION`, default `true`.
 
-- The value is the **string** `'true'` / `'false'`, not a boolean. Compare strictly:
-  `ALLOW-REGISTRATION === 'false'`. A boolean comparison never matches the string.
-- When it is `'false'`, registration is closed **on both sides**:
+- The value is a **real PHP boolean** — `true` / `false`. Never the strings `'true'` /
+  `'false'`. A string/boolean mix-up fails **open**: `=== 'false'` never matches a
+  boolean, so registration stays open when the operator meant to close it.
+- The constant is spelled with **underscores**: `ALLOW_REGISTRATION`. A hyphen is not
+  legal in a PHP constant name.
+- Declare it with `const`, not `define()`:
+
+````php
+const ALLOW_REGISTRATION = true;   // in config.php and config.template.php
+````
+
+- Compare with a boolean: `if (ALLOW_REGISTRATION === false) { … }` or the simpler
+  `if (! ALLOW_REGISTRATION) { … }`. Both are correct for a real boolean.
+- When it is `false`, registration is closed **on both sides**:
   - **Front end** — the register page does not render a form and returns 403.
   - **Back end** — the POST handler rejects the request, regardless of what was rendered.
 - A check in only one of the two places is a bug. Write both.
+
+````php
+// includes/auth.php — one helper, called by both sides
+function registrationAllowed(): bool
+{
+    return ALLOW_REGISTRATION === true;
+}
+````
+
+`config.php` is included before any handler runs, so the constant is always defined. A
+missing constant is a fatal `Error` in PHP 8, not a silent default — that is the
+fail-closed behaviour we want.
 
 ## Page skeleton
 
