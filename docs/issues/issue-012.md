@@ -239,7 +239,7 @@ function formatCount(int $count): string
 function asset_url(string $path): string
 {
     $path = ltrim($path, '/');
-    $file = __DIR__ . '/../' . $path;
+    $file = __DIR__ . '/../assets/' . $path;
     $version = is_file($file) ? substr((string) filemtime($file), -6) : '0';
     return '/assets/' . $path . '?v=' . $version;
 }
@@ -250,6 +250,11 @@ function asset_url(string $path): string
   changes. It is **not** a build step and there is no manifest to maintain.
 - The path must be a **hard-coded literal** at every call site. Never pass a
   user-supplied value into it.
+- **The path is relative to the `assets/` directory**, so the file the stamp is
+  read from is looked up under `assets/` as well. The two must agree: when they
+  did not, the stamp silently became `0` and **no asset was ever cache-busted**.
+  (Corrected in issue-013 — the original snippet looked the file up one
+  directory too high.)
 
 ---
 

@@ -11,7 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
-| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011 and 012 are implemented & verified; issues 013–020 are specification only.** |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011–013 are implemented & verified; issues 014–020 are specification only.** |
 
 ---
 
@@ -31,7 +31,7 @@ Two tracks run through this folder:
 | [010](issue-010.md) | Ops: introduce Composer as a vendor-time tool and vendor the SMTP mailer | DevOps | **implemented & verified** | 001, 009 | `composer.json`, `composer.lock`, `includes/mailer.php`, `database/mailer_test.php`, the `MAIL_FROM` / `MAIL_FROM_NAME` config constants |
 | [011](issue-011.md) | App: the schema and the data model | App | **implemented & verified** | 001, 003 | `database/schema.sql` — `users`, `categories`, `transactions`, `password_resets`, `email_verifications` — guarded by `database/schema_test.php` |
 | [012](issue-012.md) | App: the core runtime | App | **implemented & verified** | 011, 013 | `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php` — the helpers every screen uses — guarded by `database/runtime_test.php` |
-| [013](issue-013.md) | App: the design-token layer and the shared shell | App | **specification** | 004 | `assets/css/tokens.css`, `base.css`, `components.css`, `includes/header.php`, `includes/footer.php` |
+| [013](issue-013.md) | App: the design-token layer and the shared shell | App | **implemented & verified** | 004 | `assets/css/tokens.css`, `base.css`, `components.css`, `assets/js/app.js`, `includes/header.php`, `includes/footer.php` — guarded by `database/assets_test.php` |
 | [014](issue-014.md) | App: the front controller and the routing table | App | **specification** | 012 | `index.php` — the install gate, the route table, the 404 and 403 pages |
 | [015](issue-015.md) | App: the install wizard | App | **specification** | 011, 012, 013 | `install.php` — the three-step wizard that writes `config.php` |
 | [016](issue-016.md) | App: authentication and the mailer | App | **specification** | 012, 014, 015 | `includes/auth.php`, the sign-in / register / reset screens, the two-sided registration gate |
@@ -40,13 +40,20 @@ Two tracks run through this folder:
 | [019](issue-019.md) | App: the reports | App | **specification** | 013, 014, 016 | `views/reports.php` — the period selector, the "Over time" and "By category" tables |
 | [020](issue-020.md) | App: the categories and the settings | App | **specification** | 013, 014, 016 | `views/categories.php`, `views/settings.php` — the category list, the profile, the read-only installation card |
 
-> **The Application track has its first issue in.** Issue 011 — the schema and
-> the data model — is **implemented and verified**: `database/schema.sql`
-> creates the five tables, and `database/schema_test.php` guards the column
-> types, the unique keys, the indexes and the foreign-key delete rules against
-> `information_schema`. Issues 012–020 describe the code that has to be
-> written; none of it exists yet. `index.php`, `install.php`, `includes/`,
-> `views/` and `assets/` are still `[TODO]` in
+> **The Application track has its first three issues in.** Issue 011 — the
+> schema and the data model — is **implemented and verified**:
+> `database/schema.sql` creates the five tables, and
+> `database/schema_test.php` guards the column types, the unique keys, the
+> indexes and the foreign-key delete rules against `information_schema`.
+> Issue 012 — the core runtime — is **implemented and verified**: the PDO
+> singleton, the helpers, the session and the route table exist, and
+> `database/runtime_test.php` guards them. Issue 013 — the design-token layer
+> and the shared shell — is **implemented and verified**: the three CSS layers
+> are carried over from the mockup reference verbatim, `assets/js/app.js`
+> holds every behaviour, `includes/header.php` and `includes/footer.php`
+> render the two shells, and `database/assets_test.php` guards all of it.
+> Issues 014–020 describe the code that has to be written; none of it exists
+> yet. `index.php`, `install.php` and `views/` are still `[TODO]` in
 > [`AGENTS.md`](../../AGENTS.md).
 
 ---
@@ -95,6 +102,15 @@ The mockup's `assets/tokens.css` and the application's
 | a screen `NN-name.html` | `assets/css/pages/<page>.css` + the PHP page |
 
 The load order is fixed: **tokens → base → components → page**.
+
+> **Satisfied.** Issue 013 carried the three layers over from
+> `docs/mockup/assets/` verbatim — only the header path comment differs, and
+> the reference is untouched. `database/assets_test.php` diffs the token
+> inventory against the reference and fails if a name is missing, invented or
+> out of order. The page stylesheets arrive with their screen (issue-015 →
+> `install.css`, issue-016 → `auth.css`, issue-017 → `dashboard.css`,
+> issue-018 → `transactions.css`, issue-019 → `reports.css`, issue-020 →
+> `categories.css` and `settings.css`).
 
 > **Resolved.** The mockup introduces `--surface` and `--surface-2` so that
 > the page background and the card surface can differ in dark mode. The
@@ -156,16 +172,20 @@ The implementation copies the shape, not the text.
 > git-ignored and never served, and `includes/mailer.php` is guarded by
 > `database/mailer_test.php`.
 >
-> **The Application track has its first two issues in.** Issue 011 — the schema
+> **The Application track has its first three issues in.** Issue 011 — the schema
 > and the data model — is **implemented and verified**: `database/schema.sql`
 > creates the five tables and `database/schema_test.php` guards them against
 > `information_schema`. Issue 012 — the core runtime — is **implemented and
 > verified**: `includes/Database.php`, `includes/functions.php`,
 > `includes/auth.php` and `includes/Router.php` are the layer every screen is
-> built on, and `database/runtime_test.php` guards them. Issues 013–020 are the
-> specification a developer picks up to build `index.php`, `install.php`,
-> `views/` and `assets/`. The repository itself is still mostly greenfield —
-> those files do not exist yet.
+> built on, and `database/runtime_test.php` guards them. Issue 013 — the
+> design-token layer and the shared shell — is **implemented and verified**:
+> the three CSS layers are carried over from `docs/mockup/assets/` verbatim,
+> `assets/js/app.js` holds every behaviour, `includes/header.php` and
+> `includes/footer.php` render the two shells, and `database/assets_test.php`
+> guards all of it. Issues 014–020 are the specification a developer picks up
+> to build `index.php`, `install.php` and `views/`. The repository itself is
+> still mostly greenfield — those files do not exist yet.
 
 ---
 

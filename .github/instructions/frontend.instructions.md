@@ -32,7 +32,11 @@ assets/css/pages/<page>.css  → per-page stylesheets
 
 - Use the token, not a literal colour or size: `--brand-*`, `--gray-*`,
   `--success/-warning/-danger/-info-{100,500,700}`, `--font-*`, `--fs-*`, `--lh-*`,
-  `--sp-1..20`, `--r-*`, shadows, durations.
+  `--sp-1..8`, `--r-*`, shadows, durations.
+- The spacing scale has **seven** steps — `--sp-1`, `--sp-2`, `--sp-3`, `--sp-4`,
+  `--sp-5`, `--sp-6`, `--sp-8`. **There is no `--sp-7`.** A declaration that
+  uses a token that does not exist is dropped silently, so the mistake is
+  invisible until the layout is wrong.
 - Semantic tints use the `-100` / `-500` / `-700` triple.
 - New tokens go in `tokens.css` as `:root` custom properties.
 

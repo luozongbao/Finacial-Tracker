@@ -111,11 +111,16 @@ function formatCount(int|string $count): string
  *
  * The path must be a hard-coded literal at the call site. A user-supplied
  * value must never reach this function.
+ *
+ * The path is relative to the assets directory — asset_url('css/base.css')
+ * is /assets/css/base.css — so the file the stamp is taken from is looked
+ * up under assets/ as well. The two must agree: when they did not, the
+ * stamp silently became 0 and no asset was ever cache-busted.
  */
 function asset_url(string $path): string
 {
     $path = ltrim($path, '/');
-    $file = __DIR__ . '/../' . $path;
+    $file = __DIR__ . '/../assets/' . $path;
     $version = is_file($file) ? substr((string) filemtime($file), -6) : '0';
 
     return '/assets/' . $path . '?v=' . $version;

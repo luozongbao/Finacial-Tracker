@@ -1,0 +1,16 @@
+One stylesheet per screen, loaded after components.css (issue-013 §7).
+
+The files themselves belong to the screen that needs them, not to the asset
+layer:
+
+  dashboard.css         issue-017 (the dashboard)
+  transactions.css      issue-018 (the transactions list)
+  transaction-form.css  issue-018 (the add / edit form)
+  reports.css           issue-019 (the reports)
+  categories.css        issue-020 (the categories)
+  settings.css          issue-020 (the settings)
+  auth.css              issue-016 (the five guest screens)
+  install.css           issue-015 (the install wizard)
+
+A page stylesheet is OPTIONAL. A screen that needs no rules beyond the
+component layer links none, and that is not a defect.

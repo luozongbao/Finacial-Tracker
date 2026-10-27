@@ -8,13 +8,13 @@ This file holds only what an agent cannot infer from the tree.
 
 ## Status
 
-**Greenfield — the application code barely exists yet: only the schema and
-the core runtime have been written. The development infrastructure and the
-design deliverables are complete.**
+**Greenfield — the application code barely exists yet: only the schema, the
+core runtime and the design-token layer have been written. The development
+infrastructure and the design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 013–020** | `index.php`, `install.php`, `assets/`, `views/` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `assets/css/tokens.css` + `base.css` + `components.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 014–020** | `index.php`, `install.php`, `views/`, `assets/css/pages/` |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -30,7 +30,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first two issues in.** Issue 011
+The **application track (issues 011–020) has its first three issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -39,12 +39,18 @@ delete rules against `information_schema`. Issue 012 (the core runtime) is
 `includes/functions.php` (escaping, money, dates, CSRF, validation, the
 ownership filter), `includes/auth.php` (the session, the guard, the
 registration gate) and `includes/Router.php` (the method-and-path table) exist,
-and `database/runtime_test.php` guards them. The remaining eight issues
-(013–020) are **specified but not written** — they are the specification a
-developer picks up to build the token layer, the front controller, the
-installer, the authentication and the five screens. The repository itself is
-still mostly greenfield — `index.php`, `install.php`, `views/` and `assets/` do
-not exist yet.
+and `database/runtime_test.php` guards them. Issue 013 (the design-token layer
+and the shared shell) is **implemented and verified** — `assets/css/tokens.css`,
+`base.css` and `components.css` are carried over from `docs/mockup/assets/`
+verbatim, `assets/js/app.js` holds every behaviour behind a single
+`DOMContentLoaded` listener, `includes/header.php` and `includes/footer.php`
+render the app and guest shells, and `database/assets_test.php` guards all of
+it. The remaining seven issues (014–020) are **specified but not written** —
+they are the specification a developer picks up to build the front controller,
+the installer, the authentication and the five screens. The repository itself is
+still mostly greenfield — `index.php`, `install.php` and `views/` do not exist
+yet, and the page stylesheets under `assets/css/pages/` arrive with their
+screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -89,9 +95,12 @@ docker/
   entrypoint.sh        # adds the /var/www/html compatibility symlink
   mockup-nginx.conf    # static viewer for docs/mockup/
 includes/              # [exists] mailer.php, bootstrap.php, Database.php, functions.php, auth.php, Router.php
-                       # [TODO] header.php, footer.php                       [issues-013, 014]
+                       # [exists] header.php, footer.php — the two shells   [issue-013]
 views/                 # [TODO] one PHP view per screen                     [issues-017..020]
-assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
+assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
+  pages/               # [TODO] one page stylesheet per screen, with it    [issues-015..020]
+assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
+assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/
   schema.sql           # single source of truth for a fresh install   [issue-011 — exists]
   migrations/          # YYYYMMDD_short_name.sql, applied by hand (README.md = the contract)
@@ -323,6 +332,26 @@ Store transaction dates as `DATE` in UTC, and keep the week-start rule in one pl
 - Validate the CSRF token **before** reading any input, and put the hidden input in
   **every** form: `<input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">`.
 - Ownership is enforced **in the SQL** by filtering on the owning user id.
+
+### The theme travels in a cookie
+
+Dark mode is a **designed** feature: `assets/css/tokens.css` carries four blocks —
+`:root`, the `prefers-color-scheme: dark` media query, `:root[data-theme="dark"]`
+and `:root[data-theme="light"]`. The choice must be in `<html>` **before the first
+paint**, and the application has **no inline script** while the server cannot read
+`localStorage` — so the channel is a **`theme` cookie**.
+
+- The server reads `$_COOKIE['theme']` and **whitelists** it to `dark` / `light`.
+  An unknown value is dropped, and the media query then applies the system
+  preference — which is the correct default.
+- `assets/js/app.js` mirrors the value into `localStorage` **and** writes the cookie
+  back, so the two never disagree.
+- The toggle **always sets** the explicit `data-theme` attribute and **never removes
+  it**. Removing it hands the page back to the system preference, so a system-dark
+  visitor would stay dark after choosing light.
+- The active state is **`aria-current`**, never a class: `page` on the nav and
+  bottom-nav links, `true` on the period links. `components.css` knows no
+  `is-active`.
 
 ### PHP tokenizer traps
 

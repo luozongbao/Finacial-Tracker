@@ -1,0 +1,138 @@
+/* ==========================================================================
+   assets/css/base.css
+   --------------------------------------------------------------------------
+   Element / reset styles for the mockups — issue-004 §6.
+
+   Load order matters (mirrors the application):
+     tokens.css  ->  base.css  ->  components.css  ->  page-specific rules
+
+   RULE: no literal colours, sizes or radii here. Everything comes from a
+   token declared in tokens.css.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    color-scheme: light dark;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-normal);
+    color: var(--gray-900);
+    background-color: var(--surface-2);
+    min-height: 100vh;
+    /* A guard, not a crutch: no screen may scroll sideways. `clip` does not
+       create a scroll container, so `position: sticky` keeps working. */
+    overflow-x: clip;
+}
+
+h1, h2, h3, h4 {
+    margin: 0 0 var(--sp-3);
+    line-height: var(--lh-tight);
+    font-weight: 650;
+}
+
+h1 { font-size: var(--fs-2xl); }
+h2 { font-size: var(--fs-xl); }
+h3 { font-size: var(--fs-lg); }
+
+p {
+    margin: 0 0 var(--sp-4);
+}
+
+a {
+    color: var(--brand-500);
+    text-decoration: none;
+}
+
+a:hover,
+a:focus-visible {
+    text-decoration: underline;
+}
+
+code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background-color: var(--surface-2);
+    border-radius: var(--r-sm);
+    padding: 0.1em 0.35em;
+}
+
+:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+th, td {
+    text-align: left;
+    padding: var(--sp-2) var(--sp-3);
+    border-bottom: 1px solid var(--gray-300);
+}
+
+th {
+    font-weight: 650;
+    color: var(--gray-700);
+}
+
+ul, ol {
+    margin: 0 0 var(--sp-4);
+    padding-left: var(--sp-5);
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid var(--gray-300);
+    margin: var(--sp-6) 0;
+}
+
+img {
+    max-width: 100%;
+}
+
+fieldset {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+legend {
+    padding: 0;
+    font-weight: 650;
+}
+
+/* Screen-reader-only text — used by labels, table captions and helpers. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* --------------------------------------------------------------------------
+   An explicit theme override, used by the design-system page to show light
+   and dark side by side. The tokens themselves live in tokens.css; this
+   block only re-declares the media query as a plain selector.
+   -------------------------------------------------------------------------- */
+@media (prefers-color-scheme: light) {
+    :root[data-theme="dark"] {
+        color-scheme: dark;
+    }
+}

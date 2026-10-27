@@ -1,7 +1,8 @@
 # Issue-013 — App: the design-token layer and the shared shell
 
-> **Status:** **specified, not implemented** — `assets/` does not exist yet; the
-> reference implementation lives in `docs/mockup/assets/`.
+> **Status:** **implemented and verified** — every acceptance criterion below was
+> measured against the running stack on 2026-10-27, and the layer is guarded by
+> `database/assets_test.php`.
 > **Target:** v0.2 (the application) — the visual foundation every screen renders inside.
 > **Severity:** **medium** — a wrong token name renders the component unstyled, and
 > the failure is silent.
@@ -20,7 +21,43 @@
 
 ---
 
+## Implementation notes — 2026-10-27
+
+The specification and the reference implementation disagreed in six places. In every
+case the **reference wins**: `docs/mockup/assets/` is the design, and
+`components.css` is carried over unchanged. Each decision is now guarded by
+`database/assets_test.php`, so a later screen cannot quietly reintroduce the
+name the reference does not use.
+
+| # | The spec said | The reference has | The decision |
+|---|---|---|---|
+| 1 | `is-active` marks the active link (§8, §9) | `aria-current` — `.nav__link[aria-current="page"]`, `.bottom-nav__link[aria-current="page"]`, `.period__link[aria-current="true"]`, `.stepper__item[aria-current="step"]` | **`aria-current` only.** The active link carries `aria-current="page"`, the active period link `aria-current="true"`. `is-active` appears nowhere in the application. |
+| 2 | `alert--info` is in the vocabulary (§10) | `.alert` (the base) plus `--success` `--warning` `--danger` `--neutral` | **The info alert is the base `.alert`.** `components.css` was not touched, and the test asserts that `.alert--info` does not exist. |
+| 3 | The transaction row has a colour modifier (`tx--income`, §10) | `.tx` has no modifier; the colour comes from `.amount--income` / `.amount--expense` | **No `.tx--*` class exists.** The row takes `.amount--income` / `.amount--expense` on the amount. |
+| 4 | The page stylesheets are listed in §3 | The screen issues each own theirs | **The eight page stylesheets arrive with their screen**, not with this issue. issue-013 creates `assets/css/pages/` and nothing else. |
+| 5 | The stored theme is applied before first paint by an inline attribute or a tiny head script (§9) | — | **The theme travels in a cookie.** The server renders `<html data-theme="…">` from a `theme` cookie whitelisted to `dark` / `light`; `app.js` mirrors the value into `localStorage` and writes the cookie back. No inline script, no flash. |
+| 6 | The theme snippet removes the attribute when going dark → light (§9) | `:root[data-theme="light"]` is a real block | **The attribute is always set explicitly** and never removed. Removing it hands the page back to the system preference, so a system-dark visitor would stay in dark mode after choosing light. |
+
+Two further facts belong on the record:
+
+- **The `.app` wrapper.** The reference's `components.css` styles `.app` as a flex
+  column with `min-height: 100vh`, and `.app__main` as `flex: 1 1 auto` — the
+  footer sits at the bottom of the viewport. The shell therefore wraps the bar,
+  the main column and the footer in `<div class="app">`; the mobile bottom
+  navigation stays outside it, exactly as in the reference mockup.
+- **`asset_url()` never cache-busted anything.** The helper in
+  [issue-012.md](issue-012.md) built the URL as `/assets/<path>` but looked the
+  file up at `__DIR__ . '/../' . $path` — one directory too high. Every stamp was
+  `?v=0`. This issue is the first consumer of `asset_url()`, which is where the
+  bug surfaced; it is fixed, and issue-012's snippet now shows the corrected
+  lookup.
+
+---
+
 ## Table of contents
+
+*Implementation notes — 2026-10-27* (the six places where the specification and
+the reference disagreed, and how each was resolved)
 
 1. Objective
 2. Constraints
@@ -29,15 +66,14 @@
 5. Specification — `assets/css/base.css`
 6. Specification — `assets/css/components.css`
 7. Specification — `assets/css/pages/`
-8. Specification — `includes/header.php`
-9. Specification — `includes/footer.php`
-10. Specification — `assets/js/app.js`
-11. The component vocabulary
-12. Acceptance criteria
-13. Verification
-14. Rollback
-15. Risks
-16. Out of scope
+8. Specification — `includes/header.php` and `includes/footer.php`
+9. Specification — `assets/js/app.js`
+10. The component vocabulary
+11. Acceptance criteria
+12. Verification
+13. Rollback
+14. Risks
+15. Out of scope
 
 ---
 
@@ -322,6 +358,15 @@ rules live here — nothing that another page would also need.
 A page stylesheet is **optional**. If a screen needs no rules beyond the component
 layer, it links no page stylesheet — that is not a defect.
 
+> **Ownership.** The eight files above arrive with the screen that needs them,
+> not with this issue: issue-015 → `install.css`, issue-016 → `auth.css`,
+> issue-017 → `dashboard.css`, issue-018 → `transactions.css`,
+> issue-019 → `reports.css`, issue-020 → `categories.css` and `settings.css`.
+> issue-013 creates the **directory** (`assets/css/pages/`, with a `.gitkeep`),
+> and the shell links a page stylesheet only when the caller sets `$pageCss`.
+> A screen with no page stylesheet yet links nothing — the stamp is `?v=0`,
+> which is `asset_url()` saying "that file is not there".
+
 ---
 
 ## 8. Specification — `includes/header.php`
@@ -363,7 +408,7 @@ if (!isset($active)) { $active = ''; }
   <div class="app__bar-inner">
     <a class="app__brand" href="/dashboard">Financial Tracker</a>
     <nav class="nav" aria-label="Main">
-      <a class="nav__link<?= $active === 'dashboard' ? ' is-active' : '' ?>" href="/dashboard">Dashboard</a>
+      <a class="nav__link" href="/dashboard" aria-current="page">Dashboard</a>
       …
     </nav>
     <div class="app__spacer"></div>
@@ -385,6 +430,17 @@ if (!isset($active)) { $active = ''; }
 | `e()` on the title, the user name and every asset path | No exception, no "safe" subset. |
 | The app bar renders **only** for an authenticated user | The auth screens use `includes/auth.php`, a different shell. |
 | The mobile bottom navigation is rendered too | `.bottom-nav` / `.bottom-nav__inner` / `.bottom-nav__link` — it appears below 640 px. |
+
+> **The `.app` wrapper.** The reference's `components.css` styles `.app` as a flex
+> column with `min-height: 100vh`, and `.app__main` as `flex: 1 1 auto` — the
+> footer sits at the bottom of the viewport. The shell therefore wraps the app
+> bar, the main column and the footer in `<div class="app">`. The mobile bottom
+> navigation stays **outside** that wrapper, exactly as in the reference mockup.
+>
+> **The `$shell` variable.** The header renders one of two frames, chosen by
+> `$shell`: `'app'` (the default) or `'auth'`. `includes/footer.php` closes
+> whichever frame was opened, so the two files must always be included
+> together.
 
 ### The auth shell
 
@@ -436,7 +492,7 @@ from it.
 |---|---|---|
 | `initPasswordReveal()` | `[data-reveal-target]` | Toggles the password field's `type` between `password` and `text`, and flips `aria-pressed`. |
 | `initRequiredToggle()` | `[data-disable-until-filled]` + `[data-toggle-submit]` | Disables the submit button until the required fields are filled. |
-| `initPeriodMarker()` | `[data-period-group]` + `[data-period]` | Marks the active period link with `is-active`. |
+| `initPeriodMarker()` | `[data-period-group]` + `[data-period]` | Marks the active period link with `aria-current="true"`. |
 | `initPeriodPresets()` | `[data-preset-from]` / `[data-preset-to]` | Fills the date inputs from the preset's `data-preset-start` / `data-preset-end`. |
 | `initModals()` | `[data-modal-open]` / `[data-modal-close]` | Opens and closes the delete-confirmation modal. |
 | `initThemeToggle()` | `[data-theme-toggle]` | Flips `data-theme` on `<html>` between `dark` and `light`. |
@@ -463,17 +519,12 @@ function initThemeToggle() {
         button.addEventListener('click', function () {
             var root = document.documentElement;
             var isDark = root.getAttribute('data-theme') === 'dark';
-            try {
-                if (isDark) {
-                    root.removeAttribute('data-theme');
-                    localStorage.setItem('theme', 'light');
-                } else {
-                    root.setAttribute('data-theme', 'dark');
-                    localStorage.setItem('theme', 'dark');
-                }
-            } catch (err) {
-                /* private mode — the toggle still works for this page */
-            }
+            // The attribute is ALWAYS set — never removed. Removing it hands
+            // the page back to the system preference, so a system-dark
+            // visitor would stay dark after choosing light.
+            var theme = isDark ? 'light' : 'dark';
+            root.setAttribute('data-theme', theme);
+            storeTheme(theme);
         });
     });
 }
@@ -483,10 +534,14 @@ function initThemeToggle() {
 stored in the browser: the session is a server-side session, and there is no token
 in `localStorage`.
 
-> The stored value is applied to `<html>` **before** first paint — an inline
-> `data-theme` attribute set server-side from the same preference, or a tiny script
-> in the `<head>`. The `?v=` asset stamp makes a flash acceptable; a wrong theme for
-> a whole session is not.
+> The stored value is applied to `<html>` **before** first paint. The server
+> cannot read `localStorage`, and this application has **no inline script**, so
+> the preference travels in a **cookie**: the server renders
+> `<html data-theme="dark">` from the `theme` cookie (whitelisted to `dark` or
+> `light` — an unknown value is dropped and the system preference applies), and
+> `app.js` mirrors the value into `localStorage` and writes the cookie back.
+> The `?v=` asset stamp makes a flash acceptable; a wrong theme for a whole
+> session is not.
 
 ---
 
@@ -526,8 +581,8 @@ either used with its real name or not used at all.
 **Transaction row** — `tx` `tx__date` `tx__desc` `tx__desc-title` `tx__desc-meta`
 `tx__amount` `tx__actions`
 
-**Feedback** — `alert` `alert--info` `alert--success` `alert--warning`
-`alert--danger` `alert__title` `alert__body` · `empty` `empty__title` `empty__body` ·
+**Feedback** — `alert` `alert--success` `alert--warning`
+`alert--danger` `alert--neutral` `alert__title` `alert__body` · `empty` `empty__title` `empty__body` ·
 `toast` `notice` `notice--warning` · `modal` `modal__title` `modal__actions`
 
 **States** — `skeleton` `skeleton--tile` `skeleton--title` `skeleton--line`
@@ -541,6 +596,12 @@ either used with its real name or not used at all.
 > `spec-note` and `state` exist for the **mockups** — they label the mockup's own
 > states. The application does not render them; the application renders the states
 > themselves.
+>
+> **Two names in this list do not exist in the reference**, and the application
+> does not use them: `alert--info` (the info alert is the base `.alert`) and any
+> `tx--*` modifier (the transaction row takes `.amount--income` /
+> `.amount--expense` on its amount). The vocabulary above is the reference's, not
+> an invitation to invent.
 
 ---
 
@@ -557,6 +618,9 @@ either used with its real name or not used at all.
       `docs/mockup/assets/` **unchanged**, apart from any asset path.
 - [ ] The component vocabulary in §10 is present in `components.css` — in
       particular the **double-hyphen** modifiers.
+- [ ] The **active** state is expressed with `aria-current` (`page` on the nav
+      links, `true` on the period links) — the reference knows no `is-active`
+      class, and the application does not invent one.
 - [ ] The `<link>` order in `includes/header.php` is exactly
       `tokens → base → components → pages/<page>`.
 - [ ] `includes/header.php` renders `app__bar`, `nav` with the four links in the
@@ -575,12 +639,23 @@ either used with its real name or not used at all.
 - [ ] The JS reads user data from `dataset` only — no value is concatenated into a JS
       string.
 - [ ] Every `localStorage` access is inside a `try/catch`.
+- [ ] The theme toggle **always sets** the explicit `data-theme` attribute and
+      never removes it, so the `:root[data-theme="light"]` block is honoured.
+- [ ] The theme preference reaches the server through a **`theme` cookie**
+      whitelisted to `dark` / `light`, so `<html data-theme>` is rendered before
+      the first paint without an inline script.
 - [ ] `base.css` uses `overflow-x: clip` on `body` — **not** `hidden`.
 - [ ] The page content sits inside `.app__main`, which caps at `var(--content-max)`
       and centres with `margin: 0 auto`.
+- [ ] `assets/css/pages/` exists; the page stylesheet is linked only when the
+      caller sets `$pageCss`, and the eight page stylesheets arrive with their
+      screen (issues 015–020).
 - [ ] `.github/instructions/frontend.instructions.md` is corrected to list the
       spacing scale as `--sp-1..8`.
 - [ ] `docs/mockup/assets/` is **not** modified by this issue.
+- [ ] `database/assets_test.php` guards the whole layer — the token inventory, the
+      carry-over, the responsive contract, the script, both shells, the theme
+      cookie and the escaping — and exits `0`.
 
 ---
 
@@ -621,18 +696,28 @@ grep -q 'max-width: 639px' assets/css/components.css && echo "bp-640: ok"
 grep -q 'max-width: 1023px' assets/css/components.css && echo "bp-1024: ok"
 
 # 8 — the data-label contract is honoured by the views that render tables
-grep -rn 'data-label=' includes/views/ | head -20
+grep -rn 'data-label=' views/ | head -20
 
 # 9 — lint the shell
 docker compose exec -T app php -l /var/www/html/includes/header.php
 docker compose exec -T app php -l /var/www/html/includes/footer.php
+
+# 10 — the regression test that guards this issue
+docker compose exec -T app php /var/www/html/database/assets_test.php
 ```
 
 Expected: steps 1–2 list the files and show only `:root` selectors, step 3 prints
 `tokens: identical to the reference`, step 4 prints three `ok` lines, step 5 lists
 the stylesheets in the order `tokens → base → components → pages/…`, step 6 prints
-`no-inline-script: ok`, step 7 prints three `ok` lines, step 9 prints
-`No syntax errors detected` twice.
+`no-inline-script: ok`, step 7 prints three `ok` lines, step 8 prints nothing
+until the views exist (the `data-label` contract lands with issues 018–020),
+step 9 prints `No syntax errors detected` twice, and step 10 prints
+`ALL ASSERTIONS PASSED` and exits `0`.
+
+> **Step 6 greps the whole file, comments included.** A comment that *mentions*
+> a script tag would match, so the shell never spells the tag literally in its
+> prose — the phrase is written as "inline script block". The one match the
+> filter removes is the external tag in the footer, whose `src` names `app.js`.
 
 ---
 
