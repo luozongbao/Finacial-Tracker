@@ -11,7 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
-| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Specification only — none of it is implemented yet.** |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issue 011 is implemented & verified; issues 012–020 are specification only.** |
 
 ---
 
@@ -29,7 +29,7 @@ Two tracks run through this folder:
 | [008](issue-008.md) | UX/UI: install wizard screen | UX/UI | **implemented & verified** | 004 | `11-install-wizard.html` |
 | [009](issue-009.md) | Ops: upgrade the runtime to PHP 8.5.12 (PHP2Shell remediation) | DevOps | **implemented & verified** | 001 | the pinned `litespeedtech/openlitespeed:1.9.4-lsphp85` image, and the PHP floor in every document |
 | [010](issue-010.md) | Ops: introduce Composer as a vendor-time tool and vendor the SMTP mailer | DevOps | **implemented & verified** | 001, 009 | `composer.json`, `composer.lock`, `includes/mailer.php`, `database/mailer_test.php`, the `MAIL_FROM` / `MAIL_FROM_NAME` config constants |
-| [011](issue-011.md) | App: the schema and the data model | App | **specification** | 001, 003 | `database/schema.sql` — `users`, `categories`, `transactions`, `password_resets`, `email_verifications` |
+| [011](issue-011.md) | App: the schema and the data model | App | **implemented & verified** | 001, 003 | `database/schema.sql` — `users`, `categories`, `transactions`, `password_resets`, `email_verifications` — guarded by `database/schema_test.php` |
 | [012](issue-012.md) | App: the core runtime | App | **specification** | 011, 013 | `includes/functions.php`, `includes/Database.php`, `includes/helpers.php` — the helpers every screen uses |
 | [013](issue-013.md) | App: the design-token layer and the shared shell | App | **specification** | 004 | `assets/css/tokens.css`, `base.css`, `components.css`, `includes/header.php`, `includes/footer.php` |
 | [014](issue-014.md) | App: the front controller and the routing table | App | **specification** | 012 | `index.php` — the install gate, the route table, the 404 and 403 pages |
@@ -40,10 +40,14 @@ Two tracks run through this folder:
 | [019](issue-019.md) | App: the reports | App | **specification** | 013, 014, 016 | `views/reports.php` — the period selector, the "Over time" and "By category" tables |
 | [020](issue-020.md) | App: the categories and the settings | App | **specification** | 013, 014, 016 | `views/categories.php`, `views/settings.php` — the category list, the profile, the read-only installation card |
 
-> **The Application track is specification only.** Issues 011–020 describe the
-> code that has to be written; none of it exists yet. `index.php`,
-> `install.php`, `includes/`, `views/`, `assets/` and `database/schema.sql` are
-> still `[TODO]` in [`AGENTS.md`](../../AGENTS.md).
+> **The Application track has its first issue in.** Issue 011 — the schema and
+> the data model — is **implemented and verified**: `database/schema.sql`
+> creates the five tables, and `database/schema_test.php` guards the column
+> types, the unique keys, the indexes and the foreign-key delete rules against
+> `information_schema`. Issues 012–020 describe the code that has to be
+> written; none of it exists yet. `index.php`, `install.php`, `includes/`,
+> `views/` and `assets/` are still `[TODO]` in
+> [`AGENTS.md`](../../AGENTS.md).
 
 ---
 
@@ -150,10 +154,13 @@ The implementation copies the shape, not the text.
 > git-ignored and never served, and `includes/mailer.php` is guarded by
 > `database/mailer_test.php`.
 >
-> The **application track is specified but not written**. Issues 011–020 are
-> the specification a developer picks up to build `index.php`, `install.php`,
-> `includes/`, `views/`, `assets/` and `database/schema.sql`. The repository
-> itself is still greenfield — those files do not exist yet.
+> The **application track has its first issue in**. Issue 011 — the schema and
+> the data model — is **implemented and verified**: `database/schema.sql`
+> creates the five tables and `database/schema_test.php` guards them against
+> `information_schema`. Issues 012–020 are the specification a developer picks
+> up to build `index.php`, `install.php`, `includes/`, `views/` and `assets/`.
+> The repository itself is still mostly greenfield — those files do not exist
+> yet.
 
 ---
 

@@ -8,12 +8,13 @@ This file holds only what an agent cannot infer from the tree.
 
 ## Status
 
-**Greenfield — the application code does not exist yet, but the development
-infrastructure and the design deliverables do.**
+**Greenfield — the application code barely exists yet: only the schema has
+been written. The development infrastructure and the design deliverables are
+complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 011–020** | `index.php`, `install.php`, `assets/`, `views/`, `includes/Database.php`, `includes/functions.php`, `database/schema.sql` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 011–020** | `index.php`, `install.php`, `assets/`, `views/`, `includes/Database.php`, `includes/functions.php` |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -29,12 +30,16 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) is specified but not written.** Those
-ten issues are the specification a developer picks up to build the schema, the
-runtime, the token layer, the front controller, the installer, the
-authentication and the five screens. The repository itself is still greenfield —
-`index.php`, `install.php`, `includes/`, `views/`, `assets/` and
-`database/schema.sql` do not exist yet.
+The **application track (issues 011–020) has its first issue in.** Issue 011
+(the schema and the data model) is **implemented and verified** —
+`database/schema.sql` creates the five tables, and `database/schema_test.php`
+guards the column types, the unique keys, the indexes and the foreign-key
+delete rules against `information_schema`. The remaining nine issues (012–020)
+are **specified but not written** — they are the specification a developer
+picks up to build the runtime, the token layer, the front controller, the
+installer, the authentication and the five screens. The repository itself is
+still mostly greenfield — `index.php`, `install.php`, `includes/`, `views/` and
+`assets/` do not exist yet.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -82,7 +87,7 @@ includes/              # [partly] mailer.php, bootstrap.php; [TODO] Database.php
 views/                 # [TODO] one PHP view per screen                     [issues-017..020]
 assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
 database/
-  schema.sql           # [TODO] single source of truth for a fresh install   [issue-011]
+  schema.sql           # single source of truth for a fresh install   [issue-011 — exists]
   migrations/          # YYYYMMDD_short_name.sql, applied by hand (README.md = the contract)
   *_test.php           # standalone PHP CLI regression tests
 docs/
@@ -183,6 +188,12 @@ docker compose exec -T app php -l /var/www/html/includes/functions.php
 
 # One regression test
 docker compose exec -T app php /var/www/html/database/<test>_test.php
+
+# Apply the schema to the dev database — what a fresh volume does on its own.
+# The file selects the database it is given, so it can also be piped into a
+# scratch database (mariadb <db> < database/schema.sql).
+docker compose exec -T db mariadb -u root -p"$MYSQL_ROOT_PASSWORD" financial_tracker \
+    < database/schema.sql
 
 # Whole suite (the helper handles pass/fail detection correctly)
 .github/skills/dev-stack-ops/scripts/run-tests.sh

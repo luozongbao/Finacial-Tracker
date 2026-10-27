@@ -1,6 +1,8 @@
 # Issue-011 — App: the schema and the data model
 
-> **Status:** **specified, not implemented** — `database/schema.sql` does not exist yet.
+> **Status:** **implemented and verified** — every acceptance criterion below was
+> measured against the running stack on 2026-10-27, and the schema is guarded
+> by `database/schema_test.php`.
 > **Target:** v0.2 (the application) — the foundation every other application issue depends on.
 > **Severity:** **high** — every screen in the product reads or writes these tables; a
 > wrong schema here is expensive to unwind later.

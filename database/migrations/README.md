@@ -38,6 +38,57 @@ docker compose exec -T db sh -c 'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARI
    values.
 5. Nullable-first, `NOT NULL` later, when a backfill is required.
 
+## The shape of a migration file
+
+Every file carries a header block like this one — the purpose, the exact run
+command, and the note that MariaDB DDL implicitly commits:
+
+````sql
+-- Financial Tracker — migration: add category_id to transactions.
+-- Purpose:  let a transaction exist without a category.
+-- Run:      docker compose exec -T db sh -c \
+--              'mysql -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE"' \
+--              < database/migrations/20261027_add_category_id.sql
+--
+-- MariaDB DDL implicitly commits, so there is no START TRANSACTION here:
+-- a half-applied migration is the only outcome a transaction could not have
+-- improved.
+--
+-- Idempotent: re-running this file changes nothing.
+````
+
+### The idempotency guard
+
+The canonical pattern. Probe `information_schema` first, and run the DDL only
+when the change is missing:
+
+````sql
+SET @column_exists := (
+    SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'transactions'
+      AND COLUMN_NAME = 'category_id'
+);
+SET @ddl := IF(@column_exists = 0,
+    'ALTER TABLE transactions ADD COLUMN category_id INT NULL AFTER occurred_on',
+    'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+````
+
+The same shape guards an index (`information_schema.STATISTICS`), a constraint
+(`information_schema.TABLE_CONSTRAINTS`) and a table
+(`information_schema.TABLES`).
+
+> `Database::execute()` cannot run a migration file: `EMULATE_PREPARES` is
+> off, so one call is one statement. Apply the file with the `mariadb` client,
+> as the run command above does.
+
+## The initial schema is not a migration
+
+`database/schema.sql` is the starting state of every database — it is applied
+by the fresh-volume path and by `install.php`, never by a migration. A
+migration only exists for a change made **after** a database was created.
+
 ## Checklist for a schema change
 
 1. Add the migration here.
