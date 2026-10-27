@@ -20,7 +20,7 @@ docker compose up -d mockup
 
 The mockup container is independent of the application stack: it has no
 database, no PHP and no dependency on `app` or `db`. See
-[docs/issues/issue-002.md](../../issues/issue-002.md).
+[docs/issues/issue-002.md](../issues/issue-002.md).
 
 While the application stack is running, the same files are also reachable at
 `http://localhost:8088/docs/mockup/` — that path is convenient, but the
@@ -123,7 +123,7 @@ rules.
 The tokens defined in `00-design-system.html` are the **same** tokens the
 application uses (`assets/css/tokens.css`). The application front-end
 conventions are in
-[.github/instructions/frontend.instructions.md](../../../.github/instructions/frontend.instructions.md):
+[.github/instructions/frontend.instructions.md](../../.github/instructions/frontend.instructions.md):
 
 - colours are referenced by token, never by literal value,
 - semantic tints come in a `-100` / `-500` / `-700` triple,

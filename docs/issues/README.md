@@ -11,6 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Specification only — none of it is implemented yet.** |
 
 ---
 
@@ -28,6 +29,21 @@ Two tracks run through this folder:
 | [008](issue-008.md) | UX/UI: install wizard screen | UX/UI | **implemented & verified** | 004 | `11-install-wizard.html` |
 | [009](issue-009.md) | Ops: upgrade the runtime to PHP 8.5.12 (PHP2Shell remediation) | DevOps | **implemented & verified** | 001 | the pinned `litespeedtech/openlitespeed:1.9.4-lsphp85` image, and the PHP floor in every document |
 | [010](issue-010.md) | Ops: introduce Composer as a vendor-time tool and vendor the SMTP mailer | DevOps | **implemented & verified** | 001, 009 | `composer.json`, `composer.lock`, `includes/mailer.php`, `database/mailer_test.php`, the `MAIL_FROM` / `MAIL_FROM_NAME` config constants |
+| [011](issue-011.md) | App: the schema and the data model | App | **specification** | 001, 003 | `database/schema.sql` — `users`, `categories`, `transactions`, `password_resets`, `email_verifications` |
+| [012](issue-012.md) | App: the core runtime | App | **specification** | 011, 013 | `includes/functions.php`, `includes/Database.php`, `includes/helpers.php` — the helpers every screen uses |
+| [013](issue-013.md) | App: the design-token layer and the shared shell | App | **specification** | 004 | `assets/css/tokens.css`, `base.css`, `components.css`, `includes/header.php`, `includes/footer.php` |
+| [014](issue-014.md) | App: the front controller and the routing table | App | **specification** | 012 | `index.php` — the install gate, the route table, the 404 and 403 pages |
+| [015](issue-015.md) | App: the install wizard | App | **specification** | 011, 012, 013 | `install.php` — the three-step wizard that writes `config.php` |
+| [016](issue-016.md) | App: authentication and the mailer | App | **specification** | 012, 014, 015 | `includes/auth.php`, the sign-in / register / reset screens, the two-sided registration gate |
+| [017](issue-017.md) | App: the dashboard | App | **specification** | 013, 014, 016 | `views/dashboard.php` — the period tiles, the recent card, the empty states |
+| [018](issue-018.md) | App: the transaction list and the transaction form | App | **specification** | 013, 014, 016 | `views/transactions.php`, `views/transaction_form.php` — the filters, the presets, the table, the validation |
+| [019](issue-019.md) | App: the reports | App | **specification** | 013, 014, 016 | `views/reports.php` — the period selector, the "Over time" and "By category" tables |
+| [020](issue-020.md) | App: the categories and the settings | App | **specification** | 013, 014, 016 | `views/categories.php`, `views/settings.php` — the category list, the profile, the read-only installation card |
+
+> **The Application track is specification only.** Issues 011–020 describe the
+> code that has to be written; none of it exists yet. `index.php`,
+> `install.php`, `includes/`, `views/`, `assets/` and `database/schema.sql` are
+> still `[TODO]` in [`AGENTS.md`](../../AGENTS.md).
 
 ---
 
@@ -97,10 +113,33 @@ The implementation copies the shape, not the text.
 | If you are… | Read |
 |---|---|
 | picking up the DevOps work | 001 → 002 → 003 → 009 → 010 — **all implemented and verified** |
-| picking up the UX/UI work | 004 → 005 → 006 → 007 → 008 |
-| writing the application | 001, 003, 009 (the runtime), 010 (the dependencies and the mailer), then 004 → 008 (the design), then `AGENTS.md` and `docs/About.md` |
-| reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor), 010 (the vendored dependency tree) |
+| picking up the UX/UI work | 004 → 005 → 006 → 007 → 008 — **all implemented and verified** |
+| writing the application | 001, 003, 009 (the runtime), 010 (the dependencies and the mailer), then 004 → 008 (the design), then `AGENTS.md` and `docs/About.md`, then **011 → 020** (the application specification) |
+| starting the application from the schema | **011** (the schema) → **012** (the runtime) → **013** (the tokens and the shell) → **014** (the front controller) → **015** (the installer) |
+| building the screens | **016** (authentication) → **017** (the dashboard) → **018** (transactions) → **019** (the reports) → **020** (categories and settings) |
+| reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor), 010 (the vendored dependency tree), 015 (the install gate), 016 (the two-sided registration gate), 020 (the installation card) |
 | adding a third-party PHP library | 010 (Composer as a vendor-time tool) |
+
+### The application track, in order
+
+| Issue | Builds | Depends on |
+|---|---|---|
+| [011](issue-011.md) | `database/schema.sql` | the runtime and the web-root rules |
+| [012](issue-012.md) | `includes/functions.php`, `includes/Database.php`, `includes/helpers.php` | 011 |
+| [013](issue-013.md) | `assets/css/`, `includes/header.php`, `includes/footer.php` | the mockup's `assets/` layer |
+| [014](issue-014.md) | `index.php` | 012 |
+| [015](issue-015.md) | `install.php` | 011, 012, 013 |
+| [016](issue-016.md) | `includes/auth.php`, the auth screens | 012, 014, 015 |
+| [017](issue-017.md) | `views/dashboard.php` | 013, 014, 016 |
+| [018](issue-018.md) | `views/transactions.php`, `views/transaction_form.php` | 013, 014, 016 |
+| [019](issue-019.md) | `views/reports.php` | 013, 014, 016 |
+| [020](issue-020.md) | `views/categories.php`, `views/settings.php` | 013, 014, 016 |
+
+> **Two known contradictions between the issues**, both flagged in place:
+> issue-012's route table lists `GET /transactions/{id}/edit`, which issue-018
+> §3 replaces with `GET /transactions/edit?id=<id>`; and the mockups' figures do
+> not reconcile — issue-019 §13 lists the four contradictions and the
+> corrected figure set.
 
 > The DevOps track is done: the stack runs **on PHP 8.5.12**, the mockup viewer
 > runs, and the web root is hardened with a regression test that guards it. The
@@ -109,8 +148,12 @@ The implementation copies the shape, not the text.
 > 320 px viewport without sideways scrolling. Issue 010 is **implemented and
 > verified** — `composer.json` and `composer.lock` are tracked, `vendor/` is
 > git-ignored and never served, and `includes/mailer.php` is guarded by
-> `database/mailer_test.php`. The one thing left is the `install.php` wiring,
-> which belongs to the application track that has not started yet.
+> `database/mailer_test.php`.
+>
+> The **application track is specified but not written**. Issues 011–020 are
+> the specification a developer picks up to build `index.php`, `install.php`,
+> `includes/`, `views/`, `assets/` and `database/schema.sql`. The repository
+> itself is still greenfield — those files do not exist yet.
 
 ---
 

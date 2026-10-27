@@ -13,7 +13,7 @@ infrastructure and the design deliverables do.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` (the UX/UI issues 004–008) | `index.php`, `install.php`, `assets/`, `database/schema.sql` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `includes/mailer.php`, `includes/bootstrap.php`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 011–020** | `index.php`, `install.php`, `assets/`, `views/`, `includes/Database.php`, `includes/functions.php`, `database/schema.sql` |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -27,8 +27,14 @@ built from, and they are the source of truth for the token names the
 application must reuse verbatim. Issue 010 (Composer as a vendor-time tool,
 and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
-guards both. What is still missing is the **application** that consumes them:
-`index.php`, `install.php` and the schema.
+guards both.
+
+The **application track (issues 011–020) is specified but not written.** Those
+ten issues are the specification a developer picks up to build the schema, the
+runtime, the token layer, the front controller, the installer, the
+authentication and the five screens. The repository itself is still greenfield —
+`index.php`, `install.php`, `includes/`, `views/`, `assets/` and
+`database/schema.sql` do not exist yet.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -59,9 +65,9 @@ See [docs/issues/issue-010.md](docs/issues/issue-010.md) for the full policy.
 ## Layout
 
 ````text
-index.php              # front controller: install gate → route table        [TODO]
-install.php            # web installer; writes config.php (delete it after install)  [TODO]
-config.php             # git-ignored; written by install.php                  [TODO]
+index.php              # front controller: install gate → route table        [TODO — issue-014]
+install.php            # web installer; writes config.php (delete it after install)  [TODO — issue-015]
+config.php             # git-ignored; written by install.php                  [TODO — issue-015]
 config.template.php    # tracked twin — same constant set as config.php        [exists]
 composer.json         # tracked — the dependency manifest                      [exists]
 composer.lock         # tracked — the pinned dependency versions              [exists]
@@ -73,14 +79,15 @@ docker/
   entrypoint.sh        # adds the /var/www/html compatibility symlink
   mockup-nginx.conf    # static viewer for docs/mockup/
 includes/              # [partly] mailer.php, bootstrap.php; [TODO] Database.php, functions.php, Router.php, auth.php, header/footer
+views/                 # [TODO] one PHP view per screen                     [issues-017..020]
 assets/css/ assets/js/  # [TODO] tokens → base → components → pages/<page>.css
 database/
-  schema.sql           # [TODO] single source of truth for a fresh install
+  schema.sql           # [TODO] single source of truth for a fresh install   [issue-011]
   migrations/          # YYYYMMDD_short_name.sql, applied by hand (README.md = the contract)
   *_test.php           # standalone PHP CLI regression tests
 docs/
   About.md             # the product brief
-  issues/              # issue specifications (10) — see docs/issues/README.md
+  issues/              # issue specifications (20) — see docs/issues/README.md
   mockup/              # static HTML mockups + the shared assets/ layer
 ````
 
@@ -336,7 +343,7 @@ The two states a caller must distinguish:
 | Doc | Use it for |
 |---|---|
 | [docs/About.md](docs/About.md) | The product brief: purpose, stack, installation contract. |
-| [docs/issues/README.md](docs/issues/README.md) | The index of all 10 issues — DevOps (001–003, 009–010) and UX/UI (004–008). |
+| [docs/issues/README.md](docs/issues/README.md) | The index of all 20 issues — DevOps (001–003, 009–010), UX/UI (004–008) and the application (011–020). |
 | [docs/issues/issue-001.md](docs/issues/issue-001.md) | The Docker Compose stack: services, ports, volumes, env variables. |
 | [docs/issues/issue-002.md](docs/issues/issue-002.md) | The mockup viewer container and the `docs/mockup/` contract. |
 | [docs/issues/issue-003.md](docs/issues/issue-003.md) | The web-root hardening, the `config.php` write path, the CLI harness path. |
@@ -344,6 +351,7 @@ The two states a caller must distinguish:
 | [docs/issues/issue-005.md](docs/issues/issue-005.md) – [issue-008.md](docs/issues/issue-008.md) | The per-screen mockup specifications. |
 | [docs/issues/issue-009.md](docs/issues/issue-009.md) | The PHP 8.5.12 runtime floor: PHP2Shell, the pinned image tag, the paths that move. |
 | [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
+| [docs/issues/issue-011.md](docs/issues/issue-011.md) – [issue-020.md](docs/issues/issue-020.md) | The application specification: the schema, the runtime, the tokens, the front controller, the installer, the authentication and the five screens. |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
 | [.github/instructions/](.github/instructions/) | Scoped conventions for PHP, database, tests, and front-end code. |
