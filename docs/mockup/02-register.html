@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Create an account — Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body>
+
+<main class="auth">
+
+    <header class="auth__brand">
+        <h1 class="auth__brand-name">Financial Tracker</h1>
+        <p class="auth__brand-note">Record income and spending, then sum it over any period.</p>
+    </header>
+
+    <!-- ==============================================================
+         STATE — empty (default)
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-empty-h">
+        <p class="state__label" id="r-empty-h">State — empty (default)</p>
+
+        <div class="card">
+            <h2>Create an account</h2>
+
+            <div class="field">
+                <label class="field__label" for="reg-user">Username</label>
+                <span class="field__hint" id="reg-user-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                <input class="input" id="reg-user" name="username" type="text"
+                       autocomplete="username" aria-describedby="reg-user-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email">Email</label>
+                <span class="field__hint" id="reg-email-hint">Used for the password reset link. It must be unique.</span>
+                <input class="input" id="reg-email" name="email" type="email"
+                       autocomplete="email" aria-describedby="reg-email-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass">Password</label>
+                <span class="field__hint" id="reg-pass-hint">At least 10 characters.</span>
+                <input class="input" id="reg-pass" name="password" type="password"
+                       autocomplete="new-password" aria-describedby="reg-pass-hint">
+                <p class="field__hint">
+                    <button type="button" class="btn btn--ghost btn--sm"
+                            data-reveal-target="reg-pass" aria-pressed="false">Show</button>
+                </p>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass2">Confirm password</label>
+                <input class="input" id="reg-pass2" name="password_confirmation" type="password"
+                       autocomplete="new-password">
+                <p class="field__hint">
+                    <button type="button" class="btn btn--ghost btn--sm"
+                            data-reveal-target="reg-pass2" aria-pressed="false">Show</button>
+                </p>
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Create account</button>
+
+            <div class="auth__links">
+                <a href="01-login.html">I already have an account</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — client-side validation
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-invalid-h">
+        <p class="state__label" id="r-invalid-h">State — client-side validation</p>
+
+        <div class="card">
+            <h2>Create an account</h2>
+
+            <div class="field">
+                <label class="field__label" for="reg-user-2">Username</label>
+                <span class="field__hint" id="reg-user-2-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                <input class="input" id="reg-user-2" name="username" type="text"
+                       autocomplete="username" value="a" aria-invalid="true"
+                       aria-describedby="reg-user-2-hint reg-user-2-msg">
+                <span class="field__error" id="reg-user-2-msg">The username must be at least 3 characters long.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email-2">Email</label>
+                <span class="field__hint" id="reg-email-2-hint">Used for the password reset link. It must be unique.</span>
+                <input class="input" id="reg-email-2" name="email" type="email"
+                       autocomplete="email" value="not-an-address" aria-invalid="true"
+                       aria-describedby="reg-email-2-hint reg-email-2-msg">
+                <span class="field__error" id="reg-email-2-msg">Enter a valid email address.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass-3">Password</label>
+                <span class="field__hint" id="reg-pass-3-hint">At least 10 characters.</span>
+                <input class="input" id="reg-pass-3" name="password" type="password"
+                       autocomplete="new-password" value="short" aria-invalid="true"
+                       aria-describedby="reg-pass-3-hint reg-pass-3-msg">
+                <span class="field__error" id="reg-pass-3-msg">The password must be at least 10 characters long.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass4">Confirm password</label>
+                <input class="input" id="reg-pass4" name="password_confirmation" type="password"
+                       autocomplete="new-password" value="different" aria-invalid="true"
+                       aria-describedby="reg-pass4-msg">
+                <span class="field__error" id="reg-pass4-msg">The two passwords do not match.</span>
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Create account</button>
+
+            <div class="auth__links">
+                <a href="01-login.html">I already have an account</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — server rejection: username taken
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-user-taken-h">
+        <p class="state__label" id="r-user-taken-h">State — server rejection, username taken</p>
+
+        <div class="card">
+            <h2>Create an account</h2>
+
+            <div class="field">
+                <label class="field__label" for="reg-user-3">Username</label>
+                <span class="field__hint" id="reg-user-3-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                <input class="input" id="reg-user-3" name="username" type="text"
+                       autocomplete="username" value="demo" aria-invalid="true"
+                       aria-describedby="reg-user-3-hint reg-user-3-msg">
+                <span class="field__error" id="reg-user-3-msg">That username is already taken.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email-3">Email</label>
+                <span class="field__hint" id="reg-email-3-hint">Used for the password reset link. It must be unique.</span>
+                <input class="input" id="reg-email-3" name="email" type="email"
+                       autocomplete="email" value="demo@example.com" aria-describedby="reg-email-3-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass-5">Password</label>
+                <span class="field__hint" id="reg-pass-5-hint">At least 10 characters.</span>
+                <input class="input" id="reg-pass-5" name="password" type="password"
+                       autocomplete="new-password" aria-describedby="reg-pass-5-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass6">Confirm password</label>
+                <input class="input" id="reg-pass6" name="password_confirmation" type="password"
+                       autocomplete="new-password">
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Create account</button>
+
+            <div class="auth__links">
+                <a href="01-login.html">I already have an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Security rule</span>
+            <p>
+                The message says the username is taken and nothing more. It does
+                <strong>not</strong> confirm whether a matching email address
+                exists, and it does not link to a sign-in form that would let
+                the visitor guess further.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — server rejection: email taken
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-mail-taken-h">
+        <p class="state__label" id="r-mail-taken-h">State — server rejection, email taken</p>
+
+        <div class="card">
+            <h2>Create an account</h2>
+
+            <div class="field">
+                <label class="field__label" for="reg-user-4">Username</label>
+                <span class="field__hint" id="reg-user-4-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                <input class="input" id="reg-user-4" name="username" type="text"
+                       autocomplete="username" value="newuser" aria-describedby="reg-user-4-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email-4">Email</label>
+                <span class="field__hint" id="reg-email-4-hint">Used for the password reset link. It must be unique.</span>
+                <input class="input" id="reg-email-4" name="email" type="email"
+                       autocomplete="email" value="taken@example.com" aria-invalid="true"
+                       aria-describedby="reg-email-4-hint reg-email-4-msg">
+                <span class="field__error" id="reg-email-4-msg">That email address is already registered.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass-7">Password</label>
+                <span class="field__hint" id="reg-pass-7-hint">At least 10 characters.</span>
+                <input class="input" id="reg-pass-7" name="password" type="password"
+                       autocomplete="new-password" aria-describedby="reg-pass-7-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass8">Confirm password</label>
+                <input class="input" id="reg-pass8" name="password_confirmation" type="password"
+                       autocomplete="new-password">
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Create account</button>
+
+            <div class="auth__links">
+                <a href="01-login.html">I already have an account</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — server rejection: password too weak
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-weak-h">
+        <p class="state__label" id="r-weak-h">State — server rejection, password too weak</p>
+
+        <div class="card">
+            <h2>Create an account</h2>
+
+            <div class="field">
+                <label class="field__label" for="reg-user-5">Username</label>
+                <span class="field__hint" id="reg-user-5-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                <input class="input" id="reg-user-5" name="username" type="text"
+                       autocomplete="username" value="newuser" aria-describedby="reg-user-5-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email-5">Email</label>
+                <span class="field__hint" id="reg-email-5-hint">Used for the password reset link. It must be unique.</span>
+                <input class="input" id="reg-email-5" name="email" type="email"
+                       autocomplete="email" value="demo@example.com" aria-describedby="reg-email-5-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass-9">Password</label>
+                <span class="field__hint" id="reg-pass-9-hint">At least 10 characters.</span>
+                <input class="input" id="reg-pass-9" name="password" type="password"
+                       autocomplete="new-password" value="short" aria-invalid="true"
+                       aria-describedby="reg-pass-9-hint reg-pass-9-msg">
+                <span class="field__error" id="reg-pass-9-msg">The password must be at least 10 characters long.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-pass10">Confirm password</label>
+                <input class="input" id="reg-pass10" name="password_confirmation" type="password"
+                       autocomplete="new-password">
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Create account</button>
+
+            <div class="auth__links">
+                <a href="01-login.html">I already have an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The server owns the password rule. The client-side hint is
+                advisory; the server's rejection is authoritative and is
+                rendered in exactly the same place.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — success
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-ok-h">
+        <p class="state__label" id="r-ok-h">State — success</p>
+
+        <div class="card">
+            <div role="status" aria-live="polite">
+                <div class="alert alert--success">
+                    <div class="alert__body">
+                        <p class="alert__title">Your account is ready.</p>
+                        <p>You can now sign in and record your first transaction.</p>
+                    </div>
+                </div>
+            </div>
+
+            <p class="auth__brand-note">
+                The form is replaced by the confirmation.
+            </p>
+
+            <a class="btn btn--primary btn--block" href="01-login.html">Go to sign in</a>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The application may sign the new user in directly instead; the
+                mockup shows the <strong>sign-in</strong> outcome, because
+                the copy must not promise an automatic session that the
+                server does not create.
+            </p>
+        </div>
+    </section>
+
+    <footer class="auth__footer">
+        <p>Personal finance tracker · your data stays on your server.</p>
+    </footer>
+
+</main>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

@@ -337,6 +337,9 @@ the responsive behaviour is specified rather than improvised per screen.
 - [ ] The **semantic colour mapping** in §6.1 is shown as a table — including the "net zero is neutral" rule.
 - [ ] `index.html` lists every file in §5, and shows a status badge per screen (`ready` / `pending`).- [ ] **Gallery rule:** a screen that **exists** is a live `<a href="NN-name.html">`; a screen that does **not yet exist** is rendered as text with `aria-disabled="true"` and a `pending` badge. **When you deliver a screen, flip its gallery entry from text to a link and the badge from `pending` to `ready`.** The gallery is maintained by hand — there is no build step to regenerate it.- [ ] `index.html` lists, per screen, the issue that specifies it.
 - [ ] No literal colour, font size, spacing value or radius appears in any mockup CSS outside `tokens.css`.
+      The **one** documented exception is the hex column of the token table in
+      `00-design-system.html` — §10 requires every token to be shown with its
+      light and dark value, and the hex is the content there, not a style.
 - [ ] `assets/tokens.css` contains **no selectors other than `:root`** (and its dark-mode `:root` block).
 - [ ] Both a light and a dark rendering are shown, side by side, in the design-system page.
 - [ ] Every screen the other UX issues deliver uses the shell and the component vocabulary — no screen invents a button style.
@@ -360,7 +363,13 @@ grep -RIn 'href="/\|src="/' docs/mockup/ && echo "FAIL: absolute path found" || 
 grep -nE '^\s*[.#a-zA-Z][^{]*\{' docs/mockup/assets/tokens.css | grep -v ':root' && echo "FAIL: selector in tokens.css" || echo "OK: tokens.css is :root-only"
 
 # 4. No literal colours outside tokens.css
-grep -RInE '#[0-9a-fA-F]{3,8}\b' docs/mockup/assets/base.css docs/mockup/assets/components.css docs/mockup/*.html && echo "FAIL: literal colour" || echo "OK"
+#    00-design-system.html is excluded on purpose: that page is the
+#    *documentation* of the token values, and §10 requires every token to be
+#    shown with its light-mode and dark-mode hex value. The hex there is the
+#    content, not a styling decision. Every other file must be token-only.
+grep -RInE '#[0-9a-fA-F]{3,8}\b' docs/mockup/assets/base.css docs/mockup/assets/components.css docs/mockup/*.html \
+  | grep -v 'docs/mockup/00-design-system.html' \
+  && echo "FAIL: literal colour" || echo "OK"
 
 # 5. No inline script blocks
 grep -RIn '<script>' docs/mockup/*.html && echo "FAIL: inline script" || echo "OK"

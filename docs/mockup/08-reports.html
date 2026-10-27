@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reports — Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body data-screen="reports">
+
+<header class="app__bar">
+    <div class="app__bar-inner">
+        <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
+        <nav class="nav" aria-label="Primary">
+            <a class="nav__link" href="05-dashboard.html">Dashboard</a>
+            <a class="nav__link" href="06-transactions.html">Transactions</a>
+            <a class="nav__link" href="08-reports.html" aria-current="page">Reports</a>
+            <a class="nav__link" href="09-categories.html">Categories</a>
+        </nav>
+        <span class="app__spacer"></span>
+        <span class="app__user">signed in as <strong>demo</strong></span>
+        <a class="nav__link" href="10-settings.html">Settings</a>
+    </div>
+</header>
+
+<main class="app">
+
+    <div class="page__header">
+        <div>
+            <h1 class="page__title">Reports</h1>
+            <p class="page__subtitle">Summed over a period, then broken down by time and by category.</p>
+        </div>
+    </div>
+
+    <!-- ==============================================================
+         STATE — populated (monthly rollup + category breakdown)
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-pop-h">
+        <p class="state__label" id="r-pop-h">State — populated</p>
+
+        <div class="period" data-period-group="month">
+            <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
+            <a class="period__link" href="08-reports.html?period=week" data-period="week">Week</a>
+            <a class="period__link" href="08-reports.html?period=month" data-period="month" aria-current="true">Month</a>
+            <a class="period__link" href="08-reports.html?period=year" data-period="year">Year</a>
+            <a class="period__link" href="08-reports.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <p class="pagination__status">October 2026 · 18 transactions</p>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">+1,200.00</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">−1,041.80</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+            <div class="tile tile--net tile--net-positive">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">+158.20</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+        </div>
+
+        <h2>Over time</h2>
+
+        <div class="card card--flush">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <caption class="sr-only">Income, spending and net for each week of October 2026</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Week of</th>
+                            <th scope="col" class="num">Income</th>
+                            <th scope="col" class="num">Spending</th>
+                            <th scope="col" class="num">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row"><a href="06-transactions.html?from=2026-10-05&amp;to=2026-10-11">Week of 5 October 2026</a> <span class="tx__desc-meta">to 11 October 2026</span></th>
+                            <td class="num amount amount--income">+0.00</td>
+                            <td class="num amount amount--expense">−312.40</td>
+                            <td class="num amount amount--expense">−312.40</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><a href="06-transactions.html?from=2026-10-12&amp;to=2026-10-18">Week of 12 October 2026</a> <span class="tx__desc-meta">to 18 October 2026</span></th>
+                            <td class="num amount amount--income">+29.99</td>
+                            <td class="num amount amount--expense">−102.75</td>
+                            <td class="num amount amount--expense">−72.76</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><a href="06-transactions.html?from=2026-10-19&amp;to=2026-10-25">Week of 19 October 2026</a> <span class="tx__desc-meta">to 25 October 2026</span></th>
+                            <td class="num amount amount--income">+1,200.00</td>
+                            <td class="num amount amount--expense">−626.65</td>
+                            <td class="num amount amount--income">+573.35</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h2>By category</h2>
+
+        <div class="card card--flush">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <caption class="sr-only">Income, spending, net and share for each category in October 2026</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Category</th>
+                            <th scope="col" class="num">Transactions</th>
+                            <th scope="col" class="num">Income</th>
+                            <th scope="col" class="num">Spending</th>
+                            <th scope="col" class="num">Net</th>
+                            <th scope="col" class="num">Share</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row"><span class="badge badge--neutral"><a href="06-transactions.html?category=salary">Salary</a></span></th>
+                            <td class="num">1</td>
+                            <td class="num amount amount--income">+1,200.00</td>
+                            <td class="num amount amount--muted">—</td>
+                            <td class="num amount amount--income">+1,200.00</td>
+                            <td class="num">100.0%</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><span class="badge badge--neutral"><a href="06-transactions.html?category=groceries">Groceries</a></span></th>
+                            <td class="num">8</td>
+                            <td class="num amount amount--muted">—</td>
+                            <td class="num amount amount--expense">−342.60</td>
+                            <td class="num amount amount--expense">−342.60</td>
+                            <td class="num">32.9%</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><span class="badge badge--neutral"><a href="06-transactions.html?category=utilities">Utilities</a></span></th>
+                            <td class="num">5</td>
+                            <td class="num amount amount--muted">—</td>
+                            <td class="num amount amount--expense">−418.25</td>
+                            <td class="num amount amount--expense">−418.25</td>
+                            <td class="num">40.1%</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><span class="badge badge--neutral"><a href="06-transactions.html?category=eating-out">Eating out</a></span></th>
+                            <td class="num">3</td>
+                            <td class="num amount amount--muted">—</td>
+                            <td class="num amount amount--expense">−86.95</td>
+                            <td class="num amount amount--expense">−86.95</td>
+                            <td class="num">8.3%</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><span class="badge badge--neutral"><a href="06-transactions.html?category=uncategorised">Uncategorised</a></span></th>
+                            <td class="num">1</td>
+                            <td class="num amount amount--income">+29.99</td>
+                            <td class="num amount amount--muted">—</td>
+                            <td class="num amount amount--income">+29.99</td>
+                            <td class="num">2.5%</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th scope="row">Total</th>
+                            <td class="num">18</td>
+                            <td class="num amount amount--income">+1,230.00</td>
+                            <td class="num amount amount--expense">−847.80</td>
+                            <td class="num amount amount--income">+382.20</td>
+                            <td class="num">100.0%</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                Every row in both tables is a <strong>link</strong> to the
+                transactions that make it up. The week labels start on
+                <strong>Monday</strong> — "Week of 19 October 2026", running
+                to 25 October — and the same <code>WEEK_START</code> constant
+                drives the label and the query.
+            </p>
+            <p>
+                The category table <strong>reconciles</strong>: the row totals
+                add up to the period total, and the shares add up to 100%. The
+                "Uncategorised" row is present because entries without a
+                category still belong in the report.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — year view (monthly rollup)
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-year-h">
+        <p class="state__label" id="r-year-h">State — the year view, one row per month</p>
+
+        <div class="period" data-period-group="year">
+            <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
+            <a class="period__link" href="08-reports.html?period=week" data-period="week">Week</a>
+            <a class="period__link" href="08-reports.html?period=month" data-period="month">Month</a>
+            <a class="period__link" href="08-reports.html?period=year" data-period="year" aria-current="true">Year</a>
+            <a class="period__link" href="08-reports.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <p class="pagination__status">2026 · 34 transactions</p>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">+14,850.00</span>
+                <span class="tile__period">2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">−9,213.45</span>
+                <span class="tile__period">2026</span>
+            </div>
+            <div class="tile tile--net tile--net-positive">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">+5,636.55</span>
+                <span class="tile__period">2026</span>
+            </div>
+        </div>
+
+        <div class="card card--flush">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <caption class="sr-only">Income, spending and net for each month of 2026</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col">Month</th>
+                            <th scope="col" class="num">Income</th>
+                            <th scope="col" class="num">Spending</th>
+                            <th scope="col" class="num">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th scope="row"><a href="08-reports.html?period=month&amp;month=2026-08">August 2026</a></th>
+                            <td class="num amount amount--income">+3,650.00</td>
+                            <td class="num amount amount--expense">−2,100.35</td>
+                            <td class="num amount amount--income">+1,549.65</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><a href="08-reports.html?period=month&amp;month=2026-09">September 2026</a></th>
+                            <td class="num amount amount--income">+3,650.00</td>
+                            <td class="num amount amount--expense">−2,364.70</td>
+                            <td class="num amount amount--income">+1,285.30</td>
+                        </tr>
+                        <tr>
+                            <th scope="row"><a href="08-reports.html?period=month&amp;month=2026-10">October 2026</a></th>
+                            <td class="num amount amount--income">+1,230.00</td>
+                            <td class="num amount amount--expense">−847.80</td>
+                            <td class="num amount amount--income">+382.20</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                A period with no transactions simply <strong>omits</strong> its
+                row. The table does not carry a row of zeros for every month
+                of the year — an empty month is an absence, not a fact.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — custom range
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-custom-h">
+        <p class="state__label" id="r-custom-h">State — custom range</p>
+
+        <div class="period" data-period-group="custom">
+            <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
+            <a class="period__link" href="08-reports.html?period=week" data-period="week">Week</a>
+            <a class="period__link" href="08-reports.html?period=month" data-period="month">Month</a>
+            <a class="period__link" href="08-reports.html?period=year" data-period="year">Year</a>
+            <a class="period__link" href="08-reports.html?period=custom" data-period="custom" aria-current="true">Custom</a>
+        </div>
+
+        <form class="filters" aria-label="Custom date range">
+            <div class="filters__from">
+                <label class="field__label" for="rep-from">From</label>
+                <input class="input" id="rep-from" name="from" type="date" value="2026-10-01">
+            </div>
+            <div class="filters__to">
+                <label class="field__label" for="rep-to">To</label>
+                <input class="input" id="rep-to" name="to" type="date" value="2026-10-31">
+            </div>
+            <div class="filters__actions">
+                <button type="button" class="btn btn--primary">Apply range</button>
+            </div>
+        </form>
+
+        <p class="pagination__status">1 – 31 October 2026 · 18 transactions</p>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">+1,200.00</span>
+                <span class="tile__period">1 – 31 October 2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">−1,041.80</span>
+                <span class="tile__period">1 – 31 October 2026</span>
+            </div>
+            <div class="tile tile--net tile--net-positive">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">+158.20</span>
+                <span class="tile__period">1 – 31 October 2026</span>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                A custom range with the start date after the end date is
+                rejected by the server with the message "The start date must
+                be on or before the end date." — see the invalid-range state
+                below.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — invalid custom range
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-badrange-h">
+        <p class="state__label" id="r-badrange-h">State — the start date is after the end date</p>
+
+        <form class="filters" aria-label="Custom date range">
+            <div class="filters__from">
+                <label class="field__label" for="rep-from-2">From</label>
+                <input class="input" id="rep-from-2" name="from" type="date"
+                       value="2026-10-31" aria-invalid="true" aria-describedby="rep-range-msg">
+            </div>
+            <div class="filters__to">
+                <label class="field__label" for="rep-to-2">To</label>
+                <input class="input" id="rep-to-2" name="to" type="date"
+                       value="2026-10-01" aria-invalid="true" aria-describedby="rep-range-msg">
+            </div>
+            <div class="filters__actions">
+                <button type="button" class="btn btn--primary">Apply range</button>
+            </div>
+        </form>
+
+        <div role="alert">
+            <div class="alert alert--danger">
+                <div class="alert__body">
+                    <p class="alert__title">The start date must be on or before the end date.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No report</h3>
+                <p class="empty__body">Correct the dates to see a report.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — empty period
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-empty-h">
+        <p class="state__label" id="r-empty-h">State — the period has no transactions</p>
+
+        <div class="period" data-period-group="week">
+            <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
+            <a class="period__link" href="08-reports.html?period=week" data-period="week" aria-current="true">Week</a>
+            <a class="period__link" href="08-reports.html?period=month" data-period="month">Month</a>
+            <a class="period__link" href="08-reports.html?period=year" data-period="year">Year</a>
+            <a class="period__link" href="08-reports.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <p class="pagination__status">19 – 25 October 2026 · 0 transactions</p>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">19 – 25 October 2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">19 – 25 October 2026</span>
+            </div>
+            <div class="tile tile--net tile--net-zero">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">19 – 25 October 2026</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No transactions in this period.</h3>
+                <p class="empty__body">Nothing was recorded between 19 and 25 October 2026.</p>
+                <a class="btn btn--secondary" href="08-reports.html?period=month">Look at this month</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                Here a zero <strong>is</strong> the truth: the query ran and
+                summed nothing. The tiles render and the tables are omitted
+                entirely.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — loading
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-load-h">
+        <p class="state__label" id="r-load-h">State — loading</p>
+
+        <div class="tiles" aria-hidden="true">
+            <div class="tile">
+                <span class="tile__label">Income</span>
+                <span class="skeleton skeleton--tile"></span>
+                <span class="tile__period">&nbsp;</span>
+            </div>
+            <div class="tile">
+                <span class="tile__label">Spending</span>
+                <span class="skeleton skeleton--tile"></span>
+                <span class="tile__period">&nbsp;</span>
+            </div>
+            <div class="tile">
+                <span class="tile__label">Net</span>
+                <span class="skeleton skeleton--tile"></span>
+                <span class="tile__period">&nbsp;</span>
+            </div>
+        </div>
+
+        <div class="card" aria-hidden="true">
+            <div class="card__body">
+                <span class="skeleton skeleton--title"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line skeleton--short"></span>
+            </div>
+        </div>
+
+        <p class="sr-only" role="status" aria-live="polite">Loading the report…</p>
+    </section>
+
+    <!-- ==============================================================
+         STATE — error
+         ============================================================== -->
+    <section class="state" aria-labelledby="r-err-h">
+        <p class="state__label" id="r-err-h">State — the report could not be loaded</p>
+
+        <div role="alert">
+            <div class="alert alert--danger">
+                <div class="alert__body">
+                    <p class="alert__title">The report could not be loaded.</p>
+                    <p>Please try again.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No report available</h3>
+                <p class="empty__body">The totals could not be retrieved, so no figures are shown.</p>
+                <button type="button" class="btn btn--secondary">Try again</button>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                The error state shows <strong>no</strong> zeroed tiles. A
+                failed query and a query that summed nothing must never look
+                the same on screen.
+            </p>
+        </div>
+    </section>
+
+</main>
+
+<footer class="app__footer">
+    <p>Financial Tracker · personal use.</p>
+</footer>
+
+<nav class="bottom-nav" aria-label="Primary, mobile">
+    <div class="bottom-nav__inner">
+        <a class="bottom-nav__link" href="05-dashboard.html">Dashboard</a>
+        <a class="bottom-nav__link" href="06-transactions.html">Transactions</a>
+        <a class="bottom-nav__link" href="08-reports.html" aria-current="page">Reports</a>
+        <a class="bottom-nav__link" href="09-categories.html">Categories</a>
+    </div>
+</nav>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

@@ -9,17 +9,20 @@ This file holds only what an agent cannot infer from the tree.
 ## Status
 
 **Greenfield — the application code does not exist yet, but the development
-infrastructure does.**
+infrastructure and the design deliverables do.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php`, `database/webroot_hardening_test.php` | `docs/issues/` (the UX/UI issues 004–008), `docs/mockup/` (design skeleton + gallery) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql` |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening), `config.template.php`, `database/config_test.php`, `database/webroot_hardening_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` (the UX/UI issues 004–008) | `index.php`, `install.php`, `includes/`, `assets/`, `database/schema.sql` |
 
 The DevOps track (issues 001–003) is **implemented and verified** — the stack
 runs, the mockup viewer runs, and the web root is hardened with a regression
-test guarding it. The mockup skeleton in `docs/mockup/` is a **deliverable**,
-not a placeholder — the real mockups are specified by the UX issues in
-`docs/issues/` and are written by the UX/UI track.
+test guarding it. The UX/UI track (issues 004–008) is **implemented and
+verified** — `docs/mockup/` holds the design-system reference page, all twelve
+screen mockups and the shared token/base/component/JS layer they are built
+on. The mockups are **deliverables, not placeholders**: they specify the
+design the application is built from, and they are the source of truth for
+the token names the application must reuse verbatim.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track

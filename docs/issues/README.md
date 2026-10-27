@@ -21,11 +21,11 @@ Two tracks run through this folder:
 | [001](issue-001.md) | DevOps: the Docker Compose development stack | DevOps | **implemented & verified** | — | `docker-compose.yml`, `docker/entrypoint.sh`, `.env.example` |
 | [002](issue-002.md) | DevOps: the static mockup viewer container | DevOps | **implemented & verified** | 001 | `docker/mockup-nginx.conf`, the `mockup` compose profile |
 | [003](issue-003.md) | DevOps: harden the web root; `config.php` write path; CLI harness path | DevOps | **implemented & verified** | 001 | `.htaccess` deny block, the `/var/www/html` symlink, `database/webroot_hardening_test.php` |
-| [004](issue-004.md) | UX/UI: mockup charter — IA, tokens, shared shell | UX/UI | ready for pickup | — | `index.html`, `00-design-system.html`, the `assets/` layer |
-| [005](issue-005.md) | UX/UI: authentication screens | UX/UI | ready for pickup | 004 | `01-login.html`, `02-register.html`, `03-register-closed.html`, `04-forgot-password.html` |
-| [006](issue-006.md) | UX/UI: dashboard and transaction screens | UX/UI | ready for pickup | 004 | `05-dashboard.html`, `06-transactions.html`, `07-transaction-form.html` |
-| [007](issue-007.md) | UX/UI: reports, categories and settings screens | UX/UI | ready for pickup | 004 | `08-reports.html`, `09-categories.html`, `10-settings.html` |
-| [008](issue-008.md) | UX/UI: install wizard screen | UX/UI | ready for pickup | 004 | `11-install-wizard.html` |
+| [004](issue-004.md) | UX/UI: mockup charter — IA, tokens, shared shell | UX/UI | **implemented & verified** | — | `index.html`, `00-design-system.html`, the `assets/` layer |
+| [005](issue-005.md) | UX/UI: authentication screens | UX/UI | **implemented & verified** | 004 | `01-login.html`, `02-register.html`, `03-register-closed.html`, `04-forgot-password.html` |
+| [006](issue-006.md) | UX/UI: dashboard and transaction screens | UX/UI | **implemented & verified** | 004 | `05-dashboard.html`, `06-transactions.html`, `07-transaction-form.html` |
+| [007](issue-007.md) | UX/UI: reports, categories and settings screens | UX/UI | **implemented & verified** | 004 | `08-reports.html`, `09-categories.html`, `10-settings.html` |
+| [008](issue-008.md) | UX/UI: install wizard screen | UX/UI | **implemented & verified** | 004 | `11-install-wizard.html` |
 
 ---
 
@@ -74,11 +74,12 @@ The mockup's `assets/tokens.css` and the application's
 
 The load order is fixed: **tokens → base → components → page**.
 
-> **Open decision.** The mockup skeleton introduces `--surface` and
-> `--surface-2` so that the page background and the card surface can differ
-> in dark mode. The application must either adopt these two names or replace
-> them — before the first application screen is written. This is recorded in
-> issue-004 §6.1.
+> **Resolved.** The mockup introduces `--surface` and `--surface-2` so that
+> the page background and the card surface can differ in dark mode. The
+> decision was to **adopt both names** — issue-004 §6.1 required an explicit
+> choice, and the neutral ramp is inverted in dark mode, so the two surfaces
+> need distinct tokens rather than a derived shade. The application must
+> declare the same two names in the same position in its token block.
 
 ### Point 2 — the data shape
 

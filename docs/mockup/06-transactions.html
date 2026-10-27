@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transactions — Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body data-screen="transactions">
+
+<header class="app__bar">
+    <div class="app__bar-inner">
+        <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
+        <nav class="nav" aria-label="Primary">
+            <a class="nav__link" href="05-dashboard.html">Dashboard</a>
+            <a class="nav__link" href="06-transactions.html" aria-current="page">Transactions</a>
+            <a class="nav__link" href="08-reports.html">Reports</a>
+            <a class="nav__link" href="09-categories.html">Categories</a>
+        </nav>
+        <span class="app__spacer"></span>
+        <span class="app__user">signed in as <strong>demo</strong></span>
+        <a class="nav__link" href="10-settings.html">Settings</a>
+    </div>
+</header>
+
+<main class="app">
+
+    <div class="page__header">
+        <div>
+            <h1 class="page__title">Transactions</h1>
+            <p class="page__subtitle">Search, filter and sum your entries over any period.</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--primary" href="07-transaction-form.html">Add transaction</a>
+        </div>
+    </div>
+
+    <!-- ==============================================================
+         STATE — populated
+         ============================================================== -->
+    <section class="state" aria-labelledby="t-pop-h">
+        <p class="state__label" id="t-pop-h">State — populated</p>
+
+        <form class="filters" role="search" aria-label="Filter transactions">
+            <div class="filters__search">
+                <label class="field__label" for="tx-search">Search</label>
+                <input class="input" id="tx-search" name="q" type="search"
+                       placeholder="Search the description">
+            </div>
+
+            <div class="filters__type">
+                <label class="field__label" for="tx-type">Type</label>
+                <select class="select" id="tx-type" name="type">
+                    <option value="">All types</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Spending</option>
+                </select>
+            </div>
+
+            <div class="filters__cat">
+                <label class="field__label" for="tx-cat">Category</label>
+                <select class="select" id="tx-cat" name="category">
+                    <option value="">All categories</option>
+                    <option value="groceries">Groceries</option>
+                    <option value="utilities">Utilities</option>
+                    <option value="salary">Salary</option>
+                    <option value="">Uncategorised</option>
+                </select>
+            </div>
+
+            <div class="filters__from">
+                <label class="field__label" for="tx-from">From</label>
+                <input class="input" id="tx-from" name="from" type="date" value="2026-10-01">
+            </div>
+
+            <div class="filters__to">
+                <label class="field__label" for="tx-to">To</label>
+                <input class="input" id="tx-to" name="to" type="date" value="2026-10-31">
+            </div>
+
+            <div class="filters__actions">
+                <div class="filters__presets" role="group" aria-label="Period presets">
+                    <button type="button" class="btn btn--secondary btn--sm"
+                            data-preset-from="2026-10-01" data-preset-to="2026-10-31">This month</button>
+                    <button type="button" class="btn btn--secondary btn--sm"
+                            data-preset-from="2026-10-19" data-preset-to="2026-10-25">This week</button>
+                    <button type="button" class="btn btn--secondary btn--sm"
+                            data-preset-from="2026-01-01" data-preset-to="2026-12-31">This year</button>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Apply filters</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Clear filters</a>
+                </div>
+            </div>
+        </form>
+
+        <p class="pagination__status">18 transactions · 1 – 31 October 2026</p>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">+1,200.00</span>
+                <span class="tile__period">filtered total</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">−1,041.80</span>
+                <span class="tile__period">filtered total</span>
+            </div>
+            <div class="tile tile--net tile--net-positive">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">+158.20</span>
+                <span class="tile__period">filtered total</span>
+            </div>
+        </div>
+
+        <div class="card card--flush">
+            <div class="table-wrap">
+                <table class="data-table">
+                    <caption class="sr-only">Transactions from 1 to 31 October 2026</caption>
+                    <thead>
+                        <tr>
+                            <th scope="col"><a class="data-table__sort" href="06-transactions.html?sort=date">Date <span aria-hidden="true">↓</span><span class="sr-only">sorted by date, newest first</span></a></th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Type</th>
+                            <th scope="col" class="num"><a class="data-table__sort" href="06-transactions.html?sort=amount">Amount</a></th>
+                            <th scope="col"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>2026-10-24</td>
+                            <td>Weekly groceries</td>
+                            <td><span class="badge badge--neutral">Groceries</span></td>
+                            <td><span class="badge badge--expense">Spending</span></td>
+                            <td class="num amount amount--expense">−42.80</td>
+                            <td>
+                                <span class="tx__actions">
+                                    <a href="07-transaction-form.html?id=1">Edit</a>
+                                    <button type="button" class="btn btn--ghost btn--sm"
+                                            data-modal-open="t-del-1">Delete</button>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2026-10-20</td>
+                            <td>Salary</td>
+                            <td><span class="badge badge--neutral">Salary</span></td>
+                            <td><span class="badge badge--income">Income</span></td>
+                            <td class="num amount amount--income">+1,200.00</td>
+                            <td>
+                                <span class="tx__actions">
+                                    <a href="07-transaction-form.html?id=2">Edit</a>
+                                    <button type="button" class="btn btn--ghost btn--sm"
+                                            data-modal-open="t-del-2">Delete</button>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2026-10-18</td>
+                            <td><span aria-hidden="true">—</span><span class="sr-only">No description</span></td>
+                            <td><span class="badge badge--neutral">Uncategorised</span></td>
+                            <td><span class="badge badge--expense">Spending</span></td>
+                            <td class="num amount amount--expense">−18.00</td>
+                            <td>
+                                <span class="tx__actions">
+                                    <a href="07-transaction-form.html?id=3">Edit</a>
+                                    <button type="button" class="btn btn--ghost btn--sm"
+                                            data-modal-open="t-del-3">Delete</button>
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>2026-10-16</td>
+                            <td>Coffee with a colleague</td>
+                            <td><span class="badge badge--neutral">Eating out</span></td>
+                            <td><span class="badge badge--expense">Spending</span></td>
+                            <td class="num amount amount--expense">−6.40</td>
+                            <td>
+                                <span class="tx__actions">
+                                    <a href="07-transaction-form.html?id=4">Edit</a>
+                                    <button type="button" class="btn btn--ghost btn--sm"
+                                            data-modal-open="t-del-4">Delete</button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card__footer">
+                <div class="pagination">
+                    <button type="button" class="btn btn--secondary btn--sm" disabled>Previous</button>
+                    <span class="pagination__status">Showing 1–25 of 18 transactions</span>
+                    <button type="button" class="btn btn--secondary btn--sm" disabled>Next</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The trio shows the <strong>filtered</strong> totals, not the
+                account's all-time totals — the SQL carries the same
+                <code>WHERE</code> clause as the row query. The table sorts
+                newest first by default. Pagination is 25 rows per page.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — filters match nothing
+         ============================================================== -->
+    <section class="state" aria-labelledby="t-none-h">
+        <p class="state__label" id="t-none-h">State — the filters match nothing</p>
+
+        <form class="filters" role="search" aria-label="Filter transactions">
+            <div class="filters__search">
+                <label class="field__label" for="tx-search-2">Search</label>
+                <input class="input" id="tx-search-2" name="q" type="search" value="vacation">
+            </div>
+            <div class="filters__type">
+                <label class="field__label" for="tx-type-2">Type</label>
+                <select class="select" id="tx-type-2" name="type">
+                    <option value="">All types</option>
+                    <option value="income">Income</option>
+                    <option value="expense" selected>Spending</option>
+                </select>
+            </div>
+            <div class="filters__cat">
+                <label class="field__label" for="tx-cat-2">Category</label>
+                <select class="select" id="tx-cat-2" name="category">
+                    <option value="">All categories</option>
+                    <option value="groceries" selected>Groceries</option>
+                </select>
+            </div>
+            <div class="filters__from">
+                <label class="field__label" for="tx-from-2">From</label>
+                <input class="input" id="tx-from-2" name="from" type="date" value="2026-10-01">
+            </div>
+            <div class="filters__to">
+                <label class="field__label" for="tx-to-2">To</label>
+                <input class="input" id="tx-to-2" name="to" type="date" value="2026-10-31">
+            </div>
+            <div class="filters__actions">
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Apply filters</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Clear filters</a>
+                </div>
+            </div>
+        </form>
+
+        <p class="pagination__status">0 transactions · 1 – 31 October 2026</p>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No transactions match these filters.</h3>
+                <p class="empty__body">Try widening the date range or clearing the filters.</p>
+                <a class="btn btn--secondary" href="06-transactions.html">Clear filters</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                This message says the <strong>filters</strong> matched nothing.
+                It is deliberately different from "You have no transactions
+                yet." — that one appears only when the account has no
+                transactions at all.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — the account has no transactions yet
+         ============================================================== -->
+    <section class="state" aria-labelledby="t-empty-h">
+        <p class="state__label" id="t-empty-h">State — the account has no transactions yet</p>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">You have no transactions yet.</h3>
+                <p class="empty__body">Record your first entry to start building your history.</p>
+                <a class="btn btn--primary" href="07-transaction-form.html">Add transaction</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — loading
+         ============================================================== -->
+    <section class="state" aria-labelledby="t-load-h">
+        <p class="state__label" id="t-load-h">State — loading</p>
+
+        <div class="card card--flush" aria-hidden="true">
+            <div class="card__body">
+                <span class="skeleton skeleton--title"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line skeleton--short"></span>
+            </div>
+        </div>
+
+        <p class="sr-only" role="status" aria-live="polite">Loading transactions…</p>
+    </section>
+
+    <!-- ==============================================================
+         STATE — error
+         ============================================================== -->
+    <section class="state" aria-labelledby="t-err-h">
+        <p class="state__label" id="t-err-h">State — the list could not be loaded</p>
+
+        <div role="alert">
+            <div class="alert alert--danger">
+                <div class="alert__body">
+                    <p class="alert__title">The transactions could not be loaded.</p>
+                    <p>Please try again.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No results available</h3>
+                <p class="empty__body">The request failed, so no list is shown. This is not an empty result.</p>
+                <button type="button" class="btn btn--secondary">Try again</button>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                The error state must <strong>not</strong> be a misleading empty
+                state. "No transactions match these filters" would tell the
+                visitor their filters are wrong when the truth is that the
+                server failed.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — delete confirmation
+         ============================================================== -->
+    <section class="state" aria-labelledby="t-del-h">
+        <p class="state__label" id="t-del-h">State — delete confirmation</p>
+
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-del-title" id="t-del-1">
+            <h3 class="modal__title" id="t-del-title">Delete this transaction?</h3>
+            <p>
+                <strong>Weekly groceries</strong><br>
+                24 October 2026 · <span class="amount amount--expense">−42.80</span>
+            </p>
+            <p>
+                This cannot be undone.
+            </p>
+            <div class="modal__actions">
+                <button type="button" class="btn btn--secondary" data-modal-close="t-del-1">Cancel</button>
+                <button type="button" class="btn btn--danger">Delete transaction</button>
+            </div>
+        </div>
+
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="t-del2-title" id="t-del-2">
+            <h3 class="modal__title" id="t-del2-title">Delete this transaction?</h3>
+            <p>
+                <strong>Salary</strong><br>
+                20 October 2026 · <span class="amount amount--income">+1,200.00</span>
+            </p>
+            <p>
+                This cannot be undone.
+            </p>
+            <div class="modal__actions">
+                <button type="button" class="btn btn--secondary" data-modal-close="t-del-2">Cancel</button>
+                <button type="button" class="btn btn--danger">Delete transaction</button>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                The confirmation names the <strong>date, the description and
+                the amount</strong>, so the visitor can recognise the row
+                without relying on memory.
+            </p>
+        </div>
+    </section>
+
+</main>
+
+<footer class="app__footer">
+    <p>Financial Tracker · personal use.</p>
+</footer>
+
+<nav class="bottom-nav" aria-label="Primary, mobile">
+    <div class="bottom-nav__inner">
+        <a class="bottom-nav__link" href="05-dashboard.html">Dashboard</a>
+        <a class="bottom-nav__link" href="06-transactions.html" aria-current="page">Transactions</a>
+        <a class="bottom-nav__link" href="08-reports.html">Reports</a>
+        <a class="bottom-nav__link" href="09-categories.html">Categories</a>
+    </div>
+</nav>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

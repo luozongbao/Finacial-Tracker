@@ -239,7 +239,12 @@ grep -In '<script>' docs/mockup/11-install-wizard.html && echo "FAIL: inline scr
 grep -c 'type="password"' docs/mockup/11-install-wizard.html    # must be >= 2
 
 # 5. No secret value in the source (only a mask)
-grep -oE 'value="[^"]{3,}"' docs/mockup/11-install-wizard.html | grep -viE 'financial_tracker|587|localhost|smtp|mail|user' && echo "FAIL: literal value" || echo "OK"
+#    The allow-list covers the NON-secret values that legitimately appear:
+#    the database name, the port, the database/SMTP user names and the
+#    example mail host. A password may never appear as a literal value.
+grep -oE 'value="[^"]{3,}"' docs/mockup/11-install-wizard.html \
+  | grep -viE 'financial_tracker|587|localhost|smtp|mail|user|tracker' \
+  && echo "FAIL: literal value" || echo "OK"
 
 # 6. The delete-installer instruction is present
 grep -i 'delete' docs/mockup/11-install-wizard.html | head -3

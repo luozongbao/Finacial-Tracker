@@ -42,10 +42,11 @@ static container is the sanctioned viewer.
 | Gallery is kept current | When a screen is delivered, its entry in `index.html` becomes a live link and its badge flips from `pending` to `ready`. The gallery is maintained by hand — there is no build step. |
 | No links outside this folder | The viewer serves `docs/mockup/` only, so a link to `../issues/…` would 404 in the viewer and 403 in the app container. The gallery names the issues by **number** instead. |
 
-### Planned file inventory
+### Delivered file inventory
 
 The screens below are specified in the UX/UI issues. File names are fixed —
-the implementation issue refers to them.
+the implementation issue refers to them. **All twelve screens are delivered**
+and linked from the gallery.
 
 | File | Screen | Issue |
 |---|---|---|
@@ -64,13 +65,22 @@ the implementation issue refers to them.
 | `11-install-wizard.html` | First-run installer | [issue-008](../issues/issue-008.md) |
 
 `assets/` holds the shared stylesheet and script. Its exact file names are
-fixed in [issue-004](../issues/issue-004.md).
+fixed in [issue-004](../issues/issue-004.md):
+
+| Asset | Role |
+|---|---|
+| `assets/tokens.css` | The design tokens. `:root` blocks only — no other selectors. |
+| `assets/base.css` | Reset and element defaults (body, headings, forms, `.sr-only`). |
+| `assets/components.css` | The component vocabulary (shell, cards, tables, badges, forms). |
+| `assets/mockup.js` | All behaviour. No inline `<script>` blocks anywhere. |
+
+Load order is fixed: `tokens.css` → `base.css` → `components.css`.
 
 ---
 
 ## The index gallery
 
-`index.html` is the entry point of the folder: it lists every planned mockup,
+`index.html` is the entry point of the folder: it lists every mockup,
 states which issue specifies it, and marks each one `ready` or `pending`. A
 screen that has been delivered is a **live link**; one that has not is plain
 text with a `pending` badge. **When you deliver a screen, flip its gallery

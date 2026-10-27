@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body data-screen="dashboard">
+
+<header class="app__bar">
+    <div class="app__bar-inner">
+        <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
+        <nav class="nav" aria-label="Primary">
+            <a class="nav__link" href="05-dashboard.html" aria-current="page">Dashboard</a>
+            <a class="nav__link" href="06-transactions.html">Transactions</a>
+            <a class="nav__link" href="08-reports.html">Reports</a>
+            <a class="nav__link" href="09-categories.html">Categories</a>
+        </nav>
+        <span class="app__spacer"></span>
+        <span class="app__user">signed in as <strong>demo</strong></span>
+        <a class="nav__link" href="10-settings.html">Settings</a>
+    </div>
+</header>
+
+<main class="app">
+
+    <div class="page__header">
+        <div>
+            <h1 class="page__title">Dashboard</h1>
+            <p class="page__subtitle">Your income, spending and net for the selected period.</p>
+        </div>
+        <div class="page__actions">
+            <a class="btn btn--primary" href="07-transaction-form.html">Add transaction</a>
+        </div>
+    </div>
+
+    <!-- ==============================================================
+         STATE — populated
+         ============================================================== -->
+    <section class="state" aria-labelledby="d-pop-h">
+        <p class="state__label" id="d-pop-h">State — populated</p>
+
+        <div class="period" data-period-group="month">
+            <a class="period__link" href="05-dashboard.html?period=today" data-period="today">Today</a>
+            <a class="period__link" href="05-dashboard.html?period=week" data-period="week">This week</a>
+            <a class="period__link" href="05-dashboard.html?period=month" data-period="month" aria-current="true">This month</a>
+            <a class="period__link" href="05-dashboard.html?period=year" data-period="year">This year</a>
+            <a class="period__link" href="05-dashboard.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">+1,200.00</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">−1,041.80</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+            <div class="tile tile--net tile--net-positive">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">+158.20</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card__header">
+                <h2>Recent transactions</h2>
+                <a href="06-transactions.html">View all transactions →</a>
+            </div>
+
+            <div class="card__body">
+                <div class="tx">
+                    <span class="tx__date">2026-10-24</span>
+                    <span class="tx__desc">
+                        <span class="tx__desc-title">Weekly groceries</span><br>
+                        <span class="tx__desc-meta"><span class="badge badge--neutral">Groceries</span></span>
+                    </span>
+                    <span class="tx__amount amount--expense">−42.80</span>
+                </div>
+                <div class="tx">
+                    <span class="tx__date">2026-10-20</span>
+                    <span class="tx__desc">
+                        <span class="tx__desc-title">Salary</span><br>
+                        <span class="tx__desc-meta"><span class="badge badge--neutral">Salary</span></span>
+                    </span>
+                    <span class="tx__amount amount--income">+1,200.00</span>
+                </div>
+                <div class="tx">
+                    <span class="tx__date">2026-10-18</span>
+                    <span class="tx__desc">
+                        <span class="tx__desc-title">Electricity bill</span><br>
+                        <span class="tx__desc-meta"><span class="badge badge--neutral">Utilities</span></span>
+                    </span>
+                    <span class="tx__amount amount--expense">−78.35</span>
+                </div>
+                <div class="tx">
+                    <span class="tx__date">2026-10-16</span>
+                    <span class="tx__desc">
+                        <span class="tx__desc-title">Coffee with a colleague</span><br>
+                        <span class="tx__desc-meta"><span class="badge badge--neutral">Eating out</span></span>
+                    </span>
+                    <span class="tx__amount amount--expense">−6.40</span>
+                </div>
+                <div class="tx">
+                    <span class="tx__date">2026-10-14</span>
+                    <span class="tx__desc">
+                        <span class="tx__desc-title">Refund — cancelled order</span><br>
+                        <span class="tx__desc-meta"><span class="badge badge--neutral">Uncategorised</span></span>
+                    </span>
+                    <span class="tx__amount amount--income">+29.99</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The three tiles and the recent list are the <em>same</em>
+                query the server already runs for the period — the browser
+                never sums anything. The recent list is capped at ten rows.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — no transactions at all
+         ============================================================== -->
+    <section class="state" aria-labelledby="d-none-h">
+        <p class="state__label" id="d-none-h">State — no transactions at all</p>
+
+        <div class="period" data-period-group="month">
+            <a class="period__link" href="05-dashboard.html?period=today" data-period="today">Today</a>
+            <a class="period__link" href="05-dashboard.html?period=week" data-period="week">This week</a>
+            <a class="period__link" href="05-dashboard.html?period=month" data-period="month" aria-current="true">This month</a>
+            <a class="period__link" href="05-dashboard.html?period=year" data-period="year">This year</a>
+            <a class="period__link" href="05-dashboard.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+            <div class="tile tile--net tile--net-zero">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">October 2026</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No transactions yet</h3>
+                <p class="empty__body">Record your first entry to start tracking this period.</p>
+                <a class="btn btn--primary" href="07-transaction-form.html">Add transaction</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                The tiles still render, and a net of exactly zero is
+                <strong>neutral</strong>, not green. A zero here is a real
+                sum of nothing, not a loading placeholder.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — no transactions in this period
+         ============================================================== -->
+    <section class="state" aria-labelledby="d-period-h">
+        <p class="state__label" id="d-period-h">State — transactions exist, but none in this period</p>
+
+        <div class="period" data-period-group="week">
+            <a class="period__link" href="05-dashboard.html?period=today" data-period="today">Today</a>
+            <a class="period__link" href="05-dashboard.html?period=week" data-period="week" aria-current="true">This week</a>
+            <a class="period__link" href="05-dashboard.html?period=month" data-period="month">This month</a>
+            <a class="period__link" href="05-dashboard.html?period=year" data-period="year">This year</a>
+            <a class="period__link" href="05-dashboard.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <div class="tiles">
+            <div class="tile tile--income">
+                <span class="tile__label">Income</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">19 – 25 October 2026</span>
+            </div>
+            <div class="tile tile--spending">
+                <span class="tile__label">Spending</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">19 – 25 October 2026</span>
+            </div>
+            <div class="tile tile--net tile--net-zero">
+                <span class="tile__label">Net</span>
+                <span class="tile__amount">0.00</span>
+                <span class="tile__period">19 – 25 October 2026</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No transactions this week.</h3>
+                <p class="empty__body">Nothing was recorded between 19 and 25 October 2026.</p>
+                <a class="btn btn--secondary" href="06-transactions.html?period=month">Look at this month</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                This is a <strong>different</strong> message from "No
+                transactions yet". The account has data; the selected period
+                simply has none. The week label starts on <strong>Monday</strong>.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — loading
+         ============================================================== -->
+    <section class="state" aria-labelledby="d-load-h">
+        <p class="state__label" id="d-load-h">State — loading</p>
+
+        <div class="period" data-period-group="month">
+            <a class="period__link" href="05-dashboard.html?period=today" data-period="today">Today</a>
+            <a class="period__link" href="05-dashboard.html?period=week" data-period="week">This week</a>
+            <a class="period__link" href="05-dashboard.html?period=month" data-period="month" aria-current="true">This month</a>
+            <a class="period__link" href="05-dashboard.html?period=year" data-period="year">This year</a>
+            <a class="period__link" href="05-dashboard.html?period=custom" data-period="custom">Custom</a>
+        </div>
+
+        <div class="tiles" aria-hidden="true">
+            <div class="tile">
+                <span class="tile__label">Income</span>
+                <span class="skeleton skeleton--tile"></span>
+                <span class="tile__period">&nbsp;</span>
+            </div>
+            <div class="tile">
+                <span class="tile__label">Spending</span>
+                <span class="skeleton skeleton--tile"></span>
+                <span class="tile__period">&nbsp;</span>
+            </div>
+            <div class="tile">
+                <span class="tile__label">Net</span>
+                <span class="skeleton skeleton--tile"></span>
+                <span class="tile__period">&nbsp;</span>
+            </div>
+        </div>
+
+        <div class="card" aria-hidden="true">
+            <div class="card__header"><h2>Recent transactions</h2></div>
+            <div class="card__body">
+                <span class="skeleton skeleton--title"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line"></span>
+                <span class="skeleton skeleton--line skeleton--short"></span>
+            </div>
+        </div>
+
+        <p class="sr-only" role="status" aria-live="polite">Loading the summary…</p>
+    </section>
+
+    <!-- ==============================================================
+         STATE — error
+         ============================================================== -->
+    <section class="state" aria-labelledby="d-err-h">
+        <p class="state__label" id="d-err-h">State — the summary could not be loaded</p>
+
+        <div role="alert">
+            <div class="alert alert--danger">
+                <div class="alert__body">
+                    <p class="alert__title">The summary could not be loaded.</p>
+                    <p>Please try again.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="empty">
+                <h3 class="empty__title">No summary available</h3>
+                <p class="empty__body">The numbers could not be retrieved, so nothing is shown here.</p>
+                <button type="button" class="btn btn--secondary">Try again</button>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                An error is <strong>never</strong> rendered as
+                <code>0.00</code>. A zero is a claim about the data; an error
+                is a claim about the request. They must never look alike.
+            </p>
+        </div>
+    </section>
+
+</main>
+
+<footer class="app__footer">
+    <p>Financial Tracker · personal use.</p>
+</footer>
+
+<nav class="bottom-nav" aria-label="Primary, mobile">
+    <div class="bottom-nav__inner">
+        <a class="bottom-nav__link" href="05-dashboard.html" aria-current="page">Dashboard</a>
+        <a class="bottom-nav__link" href="06-transactions.html">Transactions</a>
+        <a class="bottom-nav__link" href="08-reports.html">Reports</a>
+        <a class="bottom-nav__link" href="09-categories.html">Categories</a>
+    </div>
+</nav>
+
+<script src="assets/mockup.js"></script>
+</body>
+</html>

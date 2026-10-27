@@ -1,15 +1,19 @@
 /* ==========================================================================
    docs/mockup/assets/tokens.css
    --------------------------------------------------------------------------
-   Design tokens for the mockups. This file is the SKELETON shipped with the
-   dev stack — UX/UI completes it in docs/issues/issue-004.md.
+   Design tokens for the Financial Tracker mockups — issue-004 §6.
 
    RULE (mirrors .github/instructions/frontend.instructions.md):
    tokens.css holds :root custom properties ONLY. No selectors, no rules.
    If you need a rule, it belongs in base.css or components.css.
 
-   The token NAMES are fixed, because the application stylesheet
-   (assets/css/tokens.css) must be able to reuse them verbatim.
+   The token NAMES are fixed. The application stylesheet
+   (assets/css/tokens.css) reuses them verbatim, in the same order.
+
+   DECISION (issue-004 §6.1): the `--surface` / `--surface-2` extension IS
+   adopted. The neutral ramp inverts in dark mode, so it cannot double as
+   "page background" and "card surface". The application must adopt these
+   two names before the first application screen is written.
    ========================================================================== */
 
 :root {
@@ -28,10 +32,8 @@
     /* ---- Surfaces ----------------------------------------------------- */
     /* The neutral ramp inverts in dark mode, so it cannot double as a
        "page background" and a "card surface" at the same time. These two
-       tokens are the mockup's proposed extension to the application's
-       token set — issue-004 requires assets/css/tokens.css to adopt the
-       same names, or to replace them with the application's own
-       convention before any screen is built on top of them. */
+       tokens ARE adopted — the application must declare the same names in
+       assets/css/tokens.css before the first application screen. */
     --surface: #ffffff;
     --surface-2: #eef0f4;
 
@@ -90,12 +92,22 @@
     /* ---- Motion ------------------------------------------------------- */
     --dur-fast: 120ms;
     --dur-base: 200ms;
+
+    /* ---- Layout ------------------------------------------------------- */
+    --content-max: 1100px;
+    --auth-max: 420px;
+    --tap-min: 44px;
 }
 
 /* --------------------------------------------------------------------------
    Dark mode is a designed feature, not an accident.
    Every token above is re-declared here — no rule in this file may reference
    a literal colour.
+
+   The second block is the EXPLICIT override used by the design-system page
+   to show light and dark side by side. It carries the same values as the
+   media query, so a forced "dark" panel renders exactly like a system-dark
+   rendering.
    -------------------------------------------------------------------------- */
 @media (prefers-color-scheme: dark) {
     :root {
@@ -131,4 +143,81 @@
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
         --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
     }
+}
+
+/* --------------------------------------------------------------------------
+   Explicit dark override — the design-system page uses it to show a forced
+   dark rendering next to a forced light one. Same values as the media
+   query above, so both renderings are identical.
+   -------------------------------------------------------------------------- */
+:root[data-theme="dark"] {
+    --brand-100: #1b2a4a;
+    --brand-500: #6f9dff;
+    --brand-700: #a8c4ff;
+
+    --gray-100: #21252b;
+    --gray-300: #3a4049;
+    --gray-500: #8f959e;
+    --gray-700: #c2c7ce;
+    --gray-900: #f2f4f7;
+
+    --surface: #1a1d22;
+    --surface-2: #23272e;
+
+    --success-100: #14301f;
+    --success-500: #4cc27d;
+    --success-700: #9adfb6;
+
+    --warning-100: #35280f;
+    --warning-500: #e6a53a;
+    --warning-700: #f3ce8c;
+
+    --danger-100: #3a1a1a;
+    --danger-500: #f07b7b;
+    --danger-700: #f6b6b6;
+
+    --info-100: #12293a;
+    --info-500: #62b2e8;
+    --info-700: #a9d6f2;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.40);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   Explicit light override — the mirror image, so a forced light panel stays
+   light even when the operating system asks for dark.
+   -------------------------------------------------------------------------- */
+:root[data-theme="light"] {
+    --brand-100: #e8f0fe;
+    --brand-500: #2f6fed;
+    --brand-700: #1b4bb8;
+
+    --gray-100: #f5f6f8;
+    --gray-300: #d9dce1;
+    --gray-500: #8a8f98;
+    --gray-700: #4a4f57;
+    --gray-900: #1c1f24;
+
+    --surface: #ffffff;
+    --surface-2: #eef0f4;
+
+    --success-100: #e4f5ec;
+    --success-500: #1f9d55;
+    --success-700: #14713c;
+
+    --warning-100: #fdf3e0;
+    --warning-500: #d98a12;
+    --warning-700: #9c6108;
+
+    --danger-100: #fdeaea;
+    --danger-500: #d64545;
+    --danger-700: #9c2b2b;
+
+    --info-100: #e7f3fb;
+    --info-500: #2b8ecf;
+    --info-700: #1c6699;
+
+    --shadow-sm: 0 1px 2px rgba(28, 31, 36, 0.08);
+    --shadow-md: 0 4px 12px rgba(28, 31, 36, 0.10);
 }
