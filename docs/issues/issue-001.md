@@ -178,7 +178,7 @@ automatically.
 | `DB_USER` | `ft_user` | same | Application database user. |
 | `DB_PASSWORD` | `ft_password` | same | Application database password. |
 | `MYSQL_ROOT_PASSWORD` | `ft_root_password` | `db` container | Root password — init and `db` client only. |
-| `SMTP_*` | empty | the installer | Password-reset mailer. |
+| `SMTP_*` | empty | the installer | Mailer (account verification, password reset). |
 
 > ### The database host is `db`, not `localhost`
 >

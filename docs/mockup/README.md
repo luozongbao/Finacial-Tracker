@@ -39,6 +39,8 @@ static container is the sanctioned viewer.
 | No frameworks | Vanilla CSS and vanilla JS only. No CDN dependency for anything structural; a CDN icon font may be used but the layout must survive without it. |
 | Placeholder data only | Never real credentials, real names or real amounts. |
 | States must be visible | Empty, loading, validation error, success and permission-denied states are part of the screen, not separate files. |
+| No sideways scrolling | A screen must fit its viewport at 320&nbsp;px. Nothing overflows horizontally at any width. |
+| Labelled table cells | Every `<td>` in a data table carries a `data-label` attribute holding the column name. Below 640&nbsp;px the table becomes stacked cards and the label is repeated next to the value — without it the column names disappear on a phone. |
 | Gallery is kept current | When a screen is delivered, its entry in `index.html` becomes a live link and its badge flips from `pending` to `ready`. The gallery is maintained by hand — there is no build step. |
 | No links outside this folder | The viewer serves `docs/mockup/` only, so a link to `../issues/…` would 404 in the viewer and 403 in the app container. The gallery names the issues by **number** instead. |
 
@@ -87,6 +89,32 @@ text with a `pending` badge. **When you deliver a screen, flip its gallery
 entry to a link and the badge to `ready`** — the gallery is maintained by
 hand, because there is no build step. It is the file the DevOps acceptance
 test checks (`GET /` returns 200 with the gallery).
+
+---
+
+## The mobile contract
+
+Every screen is designed for a phone first and a desktop second. The shared
+`assets/components.css` owns the breakpoints so a screen does not have to:
+
+| Width | What changes |
+|---|---|
+| `< 640 px` | Single column. The app navigation moves to a fixed bottom bar. Data tables become stacked cards. Card and modal padding tightens. Page headers stack their actions under the title. |
+| `640–1023 px` | Single column with wider gutters; the top navigation stays. |
+| `≥ 1024 px` | Content is capped at `--content-max` (1100&nbsp;px) and centred; the dashboard may use two columns. |
+
+Two rules make this work:
+
+- **Centred, capped, gutters on both sides.** The application screens wrap
+  their content in `.app__main`, which is `max-width: var(--content-max)`
+  with `margin: 0 auto`. A screen that puts its content directly in
+  `<body>` has no page margin — that is the defect this rule exists to catch.
+- **Tables re-lay out, they do not scroll.** The `data-label` attribute on
+  every `<td>` supplies the column name that the hidden `<thead>` can no
+  longer show.
+
+The `00-design-system.html` page is the reference implementation of both
+rules.
 
 ---
 

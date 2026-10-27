@@ -84,8 +84,9 @@ This is the one part of the brief that is easy to get subtly wrong.
 
 1. **`config.php` presence is the install gate.** `index.php` checks for `config.php`; if it
    exists, the app starts. If it does not, the visitor is sent to the installer.
-2. **`install.php` creates `config.php`** from user input: database name, database user,
-   database password, SMTP server, SMTP port, email user, SMTP password.
+2. **`install.php` creates `config.php`** from user input: database host (default
+   `localhost`), database name, database user, database password, SMTP server, SMTP port,
+   email user, SMTP password.
 3. **`config.php` also carries `ALLOW_REGISTRATION`, default `true`.**
 4. **When `ALLOW_REGISTRATION` is `false`, registration is closed on the front end *and*
    the back end.** "Front end" = the register page does not render a form / returns 403.

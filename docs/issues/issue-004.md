@@ -327,6 +327,17 @@ These are acceptance criteria, not aspirations.
 The design-system page must show **at least one component at two widths**, so
 the responsive behaviour is specified rather than improvised per screen.
 
+Two rules make the mobile layout work, and both are part of this spec:
+
+1. **No screen scrolls sideways.** Content fits the viewport at 320 px. The
+   application screens centre their content in a capped, gutter-padded
+   container (`.app__main`, `max-width: var(--content-max)`); a screen whose
+   content sits directly in `<body>` has no page margin and is a defect.
+2. **Tables re-lay out; they do not scroll.** Below 640 px each row becomes a
+   stacked card and the `<thead>` is hidden visually, so the column name is
+   carried by a `data-label` attribute on every `<td>`. The attribute is
+   required, not optional: without it the column names vanish on a phone.
+
 ---
 
 ## 10. Acceptance criteria

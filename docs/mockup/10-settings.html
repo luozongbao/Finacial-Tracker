@@ -10,428 +10,430 @@
 </head>
 <body data-screen="settings">
 
-<header class="app__bar">
-    <div class="app__bar-inner">
-        <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
-        <nav class="nav" aria-label="Primary">
-            <a class="nav__link" href="05-dashboard.html">Dashboard</a>
-            <a class="nav__link" href="06-transactions.html">Transactions</a>
-            <a class="nav__link" href="08-reports.html">Reports</a>
-            <a class="nav__link" href="09-categories.html">Categories</a>
-        </nav>
-        <span class="app__spacer"></span>
-        <span class="app__user">signed in as <strong>demo</strong></span>
-        <a class="nav__link" href="10-settings.html" aria-current="page">Settings</a>
-    </div>
-</header>
-
-<main class="app">
-
-    <div class="page__header">
-        <div>
-            <h1 class="page__title">Settings</h1>
-            <p class="page__subtitle">Your account, your password and a read-only view of this installation.</p>
+<div class="app">
+    <header class="app__bar">
+        <div class="app__bar-inner">
+            <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
+            <nav class="nav" aria-label="Primary">
+                <a class="nav__link" href="05-dashboard.html">Dashboard</a>
+                <a class="nav__link" href="06-transactions.html">Transactions</a>
+                <a class="nav__link" href="08-reports.html">Reports</a>
+                <a class="nav__link" href="09-categories.html">Categories</a>
+            </nav>
+            <span class="app__spacer"></span>
+            <span class="app__user">signed in as <strong>demo</strong></span>
+            <a class="nav__link" href="10-settings.html" aria-current="page">Settings</a>
         </div>
-    </div>
+    </header>
 
-    <!-- ==============================================================
-         STATE — profile
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-prof-h">
-        <p class="state__label" id="s-prof-h">State — profile</p>
+    <main class="app__main">
 
-        <div class="card">
-            <h2>Profile</h2>
-
-            <form aria-label="Profile">
-                <div class="field">
-                    <label class="field__label" for="set-user">Username</label>
-                    <span class="field__hint" id="set-user-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
-                    <input class="input" id="set-user" name="username" type="text"
-                           autocomplete="username" value="demo" aria-describedby="set-user-hint">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="set-mail">Email</label>
-                    <span class="field__hint" id="set-mail-hint">Used for the password reset link. It must be unique.</span>
-                    <input class="input" id="set-mail" name="email" type="email"
-                           autocomplete="email" value="demo@example.com" aria-describedby="set-mail-hint">
-                </div>
-
-                <div class="field">
-                    <span class="field__label" id="set-created-label">Created</span>
-                    <dl class="readonly-list" aria-labelledby="set-created-label">
-                        <div class="readonly-list__row">
-                            <dt>Account created</dt>
-                            <dd>12 March 2026</dd>
-                        </div>
-                    </dl>
-                </div>
-
-                <button type="button" class="btn btn--primary">Save changes</button>
-            </form>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — profile validation error
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-prof-err-h">
-        <p class="state__label" id="s-prof-err-h">State — profile validation error</p>
-
-        <div class="card">
-            <h2>Profile</h2>
-
-            <form aria-label="Profile">
-                <div class="field">
-                    <label class="field__label" for="set-user-2">Username</label>
-                    <span class="field__hint" id="set-user-2-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
-                    <input class="input" id="set-user-2" name="username" type="text"
-                           autocomplete="username" value="administrator" aria-invalid="true"
-                           aria-describedby="set-user-2-hint set-user-2-msg">
-                    <span class="field__error" id="set-user-2-msg">That username is already taken.</span>
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="set-mail-2">Email</label>
-                    <span class="field__hint" id="set-mail-2-hint">Used for the password reset link. It must be unique.</span>
-                    <input class="input" id="set-mail-2" name="email" type="email"
-                           autocomplete="email" value="demo@example.com" aria-describedby="set-mail-2-hint">
-                </div>
-
-                <button type="button" class="btn btn--primary">Save changes</button>
-            </form>
+        <div class="page__header">
+            <div>
+                <h1 class="page__title">Settings</h1>
+                <p class="page__subtitle">Your account, your password and a read-only view of this installation.</p>
+            </div>
         </div>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                The uniqueness check belongs to the server. The email field is
-                <strong>not</strong> rejected when the username conflicts —
-                the error is attached to the offending field only.
-            </p>
-        </div>
-    </section>
+        <!-- ==============================================================
+             STATE — profile
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-prof-h">
+            <p class="state__label" id="s-prof-h">State — profile</p>
 
-    <!-- ==============================================================
-         STATE — password change
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-pass-h">
-        <p class="state__label" id="s-pass-h">State — change password</p>
+            <div class="card">
+                <h2>Profile</h2>
 
-        <div class="card">
-            <h2>Change password</h2>
-
-            <form aria-label="Change password">
-                <div class="field">
-                    <label class="field__label" for="pw-current">Current password</label>
-                    <input class="input" id="pw-current" name="current_password" type="password"
-                           autocomplete="current-password">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new">New password</label>
-                    <span class="field__hint" id="pw-new-hint">At least 10 characters.</span>
-                    <input class="input" id="pw-new" name="password" type="password"
-                           autocomplete="new-password" aria-describedby="pw-new-hint">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new2">Confirm new password</label>
-                    <input class="input" id="pw-new2" name="password_confirmation" type="password"
-                           autocomplete="new-password">
-                </div>
-
-                <button type="button" class="btn btn--primary">Change password</button>
-            </form>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — password change: wrong current password
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-pw-cur-h">
-        <p class="state__label" id="s-pw-cur-h">State — the current password is wrong</p>
-
-        <div class="card">
-            <h2>Change password</h2>
-
-            <form aria-label="Change password">
-                <div class="field">
-                    <label class="field__label" for="pw-current-2">Current password</label>
-                    <input class="input" id="pw-current-2" name="current_password" type="password"
-                           autocomplete="current-password" aria-invalid="true"
-                           aria-describedby="pw-current-2-msg">
-                    <span class="field__error" id="pw-current-2-msg">Your current password is not correct.</span>
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new-3">New password</label>
-                    <span class="field__hint" id="pw-new-3-hint">At least 10 characters.</span>
-                    <input class="input" id="pw-new-3" name="password" type="password"
-                           autocomplete="new-password" aria-describedby="pw-new-3-hint">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new4">Confirm new password</label>
-                    <input class="input" id="pw-new4" name="password_confirmation" type="password"
-                           autocomplete="new-password">
-                </div>
-
-                <button type="button" class="btn btn--primary">Change password</button>
-            </form>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — password change: the two new passwords differ
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-pw-mm-h">
-        <p class="state__label" id="s-pw-mm-h">State — the two new passwords do not match</p>
-
-        <div class="card">
-            <h2>Change password</h2>
-
-            <form aria-label="Change password">
-                <div class="field">
-                    <label class="field__label" for="pw-current-3">Current password</label>
-                    <input class="input" id="pw-current-3" name="current_password" type="password"
-                           autocomplete="current-password">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new-5">New password</label>
-                    <span class="field__hint" id="pw-new-5-hint">At least 10 characters.</span>
-                    <input class="input" id="pw-new-5" name="password" type="password"
-                           autocomplete="new-password" value="correct horse battery" aria-describedby="pw-new-5-hint">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new6">Confirm new password</label>
-                    <input class="input" id="pw-new6" name="password_confirmation" type="password"
-                           autocomplete="new-password" value="different value" aria-invalid="true"
-                           aria-describedby="pw-new6-msg">
-                    <span class="field__error" id="pw-new6-msg">The two passwords do not match.</span>
-                </div>
-
-                <button type="button" class="btn btn--primary">Change password</button>
-            </form>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — password change succeeded
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-pw-ok-h">
-        <p class="state__label" id="s-pw-ok-h">State — the password was changed</p>
-
-        <div class="card">
-            <h2>Change password</h2>
-
-            <div role="status" aria-live="polite">
-                <div class="alert alert--success">
-                    <div class="alert__body">
-                        <p class="alert__title">Your password was changed.</p>
-                        <p>Use it the next time you sign in.</p>
+                <form aria-label="Profile">
+                    <div class="field">
+                        <label class="field__label" for="set-user">Username</label>
+                        <span class="field__hint" id="set-user-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                        <input class="input" id="set-user" name="username" type="text"
+                               autocomplete="username" value="demo" aria-describedby="set-user-hint">
                     </div>
-                </div>
+
+                    <div class="field">
+                        <label class="field__label" for="set-mail">Email</label>
+                        <span class="field__hint" id="set-mail-hint">Used for the password reset link. It must be unique.</span>
+                        <input class="input" id="set-mail" name="email" type="email"
+                               autocomplete="email" value="demo@example.com" aria-describedby="set-mail-hint">
+                    </div>
+
+                    <div class="field">
+                        <span class="field__label" id="set-created-label">Created</span>
+                        <dl class="readonly-list" aria-labelledby="set-created-label">
+                            <div class="readonly-list__row">
+                                <dt>Account created</dt>
+                                <dd>12 March 2026</dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Save changes</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — profile validation error
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-prof-err-h">
+            <p class="state__label" id="s-prof-err-h">State — profile validation error</p>
+
+            <div class="card">
+                <h2>Profile</h2>
+
+                <form aria-label="Profile">
+                    <div class="field">
+                        <label class="field__label" for="set-user-2">Username</label>
+                        <span class="field__hint" id="set-user-2-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                        <input class="input" id="set-user-2" name="username" type="text"
+                               autocomplete="username" value="administrator" aria-invalid="true"
+                               aria-describedby="set-user-2-hint set-user-2-msg">
+                        <span class="field__error" id="set-user-2-msg">That username is already taken.</span>
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="set-mail-2">Email</label>
+                        <span class="field__hint" id="set-mail-2-hint">Used for the password reset link. It must be unique.</span>
+                        <input class="input" id="set-mail-2" name="email" type="email"
+                               autocomplete="email" value="demo@example.com" aria-describedby="set-mail-2-hint">
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Save changes</button>
+                </form>
             </div>
 
-            <form aria-label="Change password">
-                <div class="field">
-                    <label class="field__label" for="pw-current-4">Current password</label>
-                    <input class="input" id="pw-current-4" name="current_password" type="password"
-                           autocomplete="current-password" value="">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new-7">New password</label>
-                    <span class="field__hint" id="pw-new-7-hint">At least 10 characters.</span>
-                    <input class="input" id="pw-new-7" name="password" type="password"
-                           autocomplete="new-password" value="" aria-describedby="pw-new-7-hint">
-                </div>
-
-                <div class="field">
-                    <label class="field__label" for="pw-new8">Confirm new password</label>
-                    <input class="input" id="pw-new8" name="password_confirmation" type="password"
-                           autocomplete="new-password" value="">
-                </div>
-
-                <button type="button" class="btn btn--primary">Change password</button>
-            </form>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                All three fields are <strong>cleared</strong> after a
-                successful change — no password value lingers in the page.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — sign out
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-out-h">
-        <p class="state__label" id="s-out-h">State — sign out</p>
-
-        <div class="card">
-            <h2>Session</h2>
-            <p class="field__hint">
-                You are signed in as <strong>demo</strong>. Signing out ends
-                this session on this device.
-            </p>
-            <a class="btn btn--secondary" href="01-login.html">Sign out</a>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                Sign out is a <strong>secondary</strong> action, never a
-                primary button. It is deliberately less prominent than
-                "Save changes" — signing out should not be a tap-away.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — the read-only installation section
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-inst-h">
-        <p class="state__label" id="s-inst-h">State — the read-only installation section</p>
-
-        <div class="card">
-            <h2>Installation</h2>
-            <p class="field__hint">
-                These values come from the configuration file. They are shown
-                for reference and cannot be changed here.
-            </p>
-
-            <dl class="readonly-list">
-                <div class="readonly-list__row">
-                    <dt>Database name</dt>
-                    <dd>financial_tracker</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>Database user</dt>
-                    <dd>tracker</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>SMTP host</dt>
-                    <dd>smtp.example.com</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>SMTP port</dt>
-                    <dd>587</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>SMTP user</dt>
-                    <dd>tracker@example.com</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>Registration allowed</dt>
-                    <dd>Yes</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>Week start</dt>
-                    <dd>Monday</dd>
-                </div>
-            </dl>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Security rule — the strictest on this screen</span>
-            <p>
-                This section has <strong>no inputs</strong> — it is a
-                definition list, not a form. And the database password and the
-                SMTP password are <strong>absent</strong> from the HTML
-                source altogether: not masked-and-present, not truncated, not
-                empty-looking. A secret in the source is a secret in the
-                view-source window.
-            </p>
-            <p>
-                The only values that may appear are the ones that are safe to
-                show: the database name, the database user, the SMTP host,
-                the SMTP port, the SMTP user, whether registration is
-                allowed, and the week start.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — registration is closed
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-reg-h">
-        <p class="state__label" id="s-reg-h">State — registration is closed on this installation</p>
-
-        <div class="card">
-            <h2>Installation</h2>
-
-            <dl class="readonly-list">
-                <div class="readonly-list__row">
-                    <dt>Database name</dt>
-                    <dd>financial_tracker</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>Database user</dt>
-                    <dd>tracker</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>SMTP host</dt>
-                    <dd>smtp.example.com</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>SMTP port</dt>
-                    <dd>587</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>SMTP user</dt>
-                    <dd>tracker@example.com</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>Registration allowed</dt>
-                    <dd>No</dd>
-                </div>
-                <div class="readonly-list__row">
-                    <dt>Week start</dt>
-                    <dd>Monday</dd>
-                </div>
-            </dl>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                This value comes from <code>ALLOW_REGISTRATION</code> in
-                <code>config.php</code> and is rendered as a real boolean
-                check, never as the string <code>"true"</code> or
-                <code>"false"</code>.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — empty (no profile yet)
-         ============================================================== -->
-    <section class="state" aria-labelledby="s-empty-h">
-        <p class="state__label" id="s-empty-h">State — empty profile</p>
-
-        <div class="card">
-            <div class="empty">
-                <h3 class="empty__title">No profile yet</h3>
-                <p class="empty__body">
-                    This account has no username or email address yet.
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    The uniqueness check belongs to the server. The email field is
+                    <strong>not</strong> rejected when the username conflicts —
+                    the error is attached to the offending field only.
                 </p>
             </div>
-        </div>
-    </section>
+        </section>
 
-</main>
+        <!-- ==============================================================
+             STATE — password change
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-pass-h">
+            <p class="state__label" id="s-pass-h">State — change password</p>
 
-<footer class="app__footer">
-    <p>Financial Tracker · personal use.</p>
-</footer>
+            <div class="card">
+                <h2>Change password</h2>
+
+                <form aria-label="Change password">
+                    <div class="field">
+                        <label class="field__label" for="pw-current">Current password</label>
+                        <input class="input" id="pw-current" name="current_password" type="password"
+                               autocomplete="current-password">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new">New password</label>
+                        <span class="field__hint" id="pw-new-hint">At least 10 characters.</span>
+                        <input class="input" id="pw-new" name="password" type="password"
+                               autocomplete="new-password" aria-describedby="pw-new-hint">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new2">Confirm new password</label>
+                        <input class="input" id="pw-new2" name="password_confirmation" type="password"
+                               autocomplete="new-password">
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Change password</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — password change: wrong current password
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-pw-cur-h">
+            <p class="state__label" id="s-pw-cur-h">State — the current password is wrong</p>
+
+            <div class="card">
+                <h2>Change password</h2>
+
+                <form aria-label="Change password">
+                    <div class="field">
+                        <label class="field__label" for="pw-current-2">Current password</label>
+                        <input class="input" id="pw-current-2" name="current_password" type="password"
+                               autocomplete="current-password" aria-invalid="true"
+                               aria-describedby="pw-current-2-msg">
+                        <span class="field__error" id="pw-current-2-msg">Your current password is not correct.</span>
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new-3">New password</label>
+                        <span class="field__hint" id="pw-new-3-hint">At least 10 characters.</span>
+                        <input class="input" id="pw-new-3" name="password" type="password"
+                               autocomplete="new-password" aria-describedby="pw-new-3-hint">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new4">Confirm new password</label>
+                        <input class="input" id="pw-new4" name="password_confirmation" type="password"
+                               autocomplete="new-password">
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Change password</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — password change: the two new passwords differ
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-pw-mm-h">
+            <p class="state__label" id="s-pw-mm-h">State — the two new passwords do not match</p>
+
+            <div class="card">
+                <h2>Change password</h2>
+
+                <form aria-label="Change password">
+                    <div class="field">
+                        <label class="field__label" for="pw-current-3">Current password</label>
+                        <input class="input" id="pw-current-3" name="current_password" type="password"
+                               autocomplete="current-password">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new-5">New password</label>
+                        <span class="field__hint" id="pw-new-5-hint">At least 10 characters.</span>
+                        <input class="input" id="pw-new-5" name="password" type="password"
+                               autocomplete="new-password" value="correct horse battery" aria-describedby="pw-new-5-hint">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new6">Confirm new password</label>
+                        <input class="input" id="pw-new6" name="password_confirmation" type="password"
+                               autocomplete="new-password" value="different value" aria-invalid="true"
+                               aria-describedby="pw-new6-msg">
+                        <span class="field__error" id="pw-new6-msg">The two passwords do not match.</span>
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Change password</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — password change succeeded
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-pw-ok-h">
+            <p class="state__label" id="s-pw-ok-h">State — the password was changed</p>
+
+            <div class="card">
+                <h2>Change password</h2>
+
+                <div role="status" aria-live="polite">
+                    <div class="alert alert--success">
+                        <div class="alert__body">
+                            <p class="alert__title">Your password was changed.</p>
+                            <p>Use it the next time you sign in.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form aria-label="Change password">
+                    <div class="field">
+                        <label class="field__label" for="pw-current-4">Current password</label>
+                        <input class="input" id="pw-current-4" name="current_password" type="password"
+                               autocomplete="current-password" value="">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new-7">New password</label>
+                        <span class="field__hint" id="pw-new-7-hint">At least 10 characters.</span>
+                        <input class="input" id="pw-new-7" name="password" type="password"
+                               autocomplete="new-password" value="" aria-describedby="pw-new-7-hint">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="pw-new8">Confirm new password</label>
+                        <input class="input" id="pw-new8" name="password_confirmation" type="password"
+                               autocomplete="new-password" value="">
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Change password</button>
+                </form>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    All three fields are <strong>cleared</strong> after a
+                    successful change — no password value lingers in the page.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — sign out
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-out-h">
+            <p class="state__label" id="s-out-h">State — sign out</p>
+
+            <div class="card">
+                <h2>Session</h2>
+                <p class="field__hint">
+                    You are signed in as <strong>demo</strong>. Signing out ends
+                    this session on this device.
+                </p>
+                <a class="btn btn--secondary" href="01-login.html">Sign out</a>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    Sign out is a <strong>secondary</strong> action, never a
+                    primary button. It is deliberately less prominent than
+                    "Save changes" — signing out should not be a tap-away.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — the read-only installation section
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-inst-h">
+            <p class="state__label" id="s-inst-h">State — the read-only installation section</p>
+
+            <div class="card">
+                <h2>Installation</h2>
+                <p class="field__hint">
+                    These values come from the configuration file. They are shown
+                    for reference and cannot be changed here.
+                </p>
+
+                <dl class="readonly-list">
+                    <div class="readonly-list__row">
+                        <dt>Database name</dt>
+                        <dd>financial_tracker</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>Database user</dt>
+                        <dd>tracker</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>SMTP host</dt>
+                        <dd>smtp.example.com</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>SMTP port</dt>
+                        <dd>587</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>SMTP user</dt>
+                        <dd>tracker@example.com</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>Registration allowed</dt>
+                        <dd>Yes</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>Week start</dt>
+                        <dd>Monday</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Security rule — the strictest on this screen</span>
+                <p>
+                    This section has <strong>no inputs</strong> — it is a
+                    definition list, not a form. And the database password and the
+                    SMTP password are <strong>absent</strong> from the HTML
+                    source altogether: not masked-and-present, not truncated, not
+                    empty-looking. A secret in the source is a secret in the
+                    view-source window.
+                </p>
+                <p>
+                    The only values that may appear are the ones that are safe to
+                    show: the database name, the database user, the SMTP host,
+                    the SMTP port, the SMTP user, whether registration is
+                    allowed, and the week start.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — registration is closed
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-reg-h">
+            <p class="state__label" id="s-reg-h">State — registration is closed on this installation</p>
+
+            <div class="card">
+                <h2>Installation</h2>
+
+                <dl class="readonly-list">
+                    <div class="readonly-list__row">
+                        <dt>Database name</dt>
+                        <dd>financial_tracker</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>Database user</dt>
+                        <dd>tracker</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>SMTP host</dt>
+                        <dd>smtp.example.com</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>SMTP port</dt>
+                        <dd>587</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>SMTP user</dt>
+                        <dd>tracker@example.com</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>Registration allowed</dt>
+                        <dd>No</dd>
+                    </div>
+                    <div class="readonly-list__row">
+                        <dt>Week start</dt>
+                        <dd>Monday</dd>
+                    </div>
+                </dl>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    This value comes from <code>ALLOW_REGISTRATION</code> in
+                    <code>config.php</code> and is rendered as a real boolean
+                    check, never as the string <code>"true"</code> or
+                    <code>"false"</code>.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — empty (no profile yet)
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-empty-h">
+            <p class="state__label" id="s-empty-h">State — empty profile</p>
+
+            <div class="card">
+                <div class="empty">
+                    <h3 class="empty__title">No profile yet</h3>
+                    <p class="empty__body">
+                        This account has no username or email address yet.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="app__footer">
+        <p>Financial Tracker · personal use.</p>
+    </footer>
+</div>
 
 <nav class="bottom-nav" aria-label="Primary, mobile">
     <div class="bottom-nav__inner">

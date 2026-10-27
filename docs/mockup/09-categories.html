@@ -10,459 +10,461 @@
 </head>
 <body data-screen="categories">
 
-<header class="app__bar">
-    <div class="app__bar-inner">
-        <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
-        <nav class="nav" aria-label="Primary">
-            <a class="nav__link" href="05-dashboard.html">Dashboard</a>
-            <a class="nav__link" href="06-transactions.html">Transactions</a>
-            <a class="nav__link" href="08-reports.html">Reports</a>
-            <a class="nav__link" href="09-categories.html" aria-current="page">Categories</a>
-        </nav>
-        <span class="app__spacer"></span>
-        <span class="app__user">signed in as <strong>demo</strong></span>
-        <a class="nav__link" href="10-settings.html">Settings</a>
-    </div>
-</header>
-
-<main class="app">
-
-    <div class="page__header">
-        <div>
-            <h1 class="page__title">Categories</h1>
-            <p class="page__subtitle">Optional labels that group your transactions in the reports.</p>
+<div class="app">
+    <header class="app__bar">
+        <div class="app__bar-inner">
+            <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
+            <nav class="nav" aria-label="Primary">
+                <a class="nav__link" href="05-dashboard.html">Dashboard</a>
+                <a class="nav__link" href="06-transactions.html">Transactions</a>
+                <a class="nav__link" href="08-reports.html">Reports</a>
+                <a class="nav__link" href="09-categories.html" aria-current="page">Categories</a>
+            </nav>
+            <span class="app__spacer"></span>
+            <span class="app__user">signed in as <strong>demo</strong></span>
+            <a class="nav__link" href="10-settings.html">Settings</a>
         </div>
-    </div>
+    </header>
 
-    <!-- ==============================================================
-         STATE — populated
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-pop-h">
-        <p class="state__label" id="c-pop-h">State — populated</p>
+    <main class="app__main">
 
-        <div class="card">
-            <h2>New category</h2>
-
-            <form aria-label="Create a category">
-                <div class="field">
-                    <label class="field__label" for="cat-name">Name</label>
-                    <span class="field__hint" id="cat-name-hint">Up to 60 characters. The name must be unique.</span>
-                    <input class="input" id="cat-name" name="name" type="text"
-                           maxlength="60" aria-describedby="cat-name-hint">
-                </div>
-
-                <div class="field">
-                    <span class="field__label" id="cat-type-label">Type</span>
-                    <div class="radio-group" role="radiogroup" aria-labelledby="cat-type-label">
-                        <label class="radio radio--income" for="cat-in">
-                            <input type="radio" id="cat-in" name="type" value="income">
-                            Income
-                        </label>
-                        <label class="radio radio--expense" for="cat-out">
-                            <input type="radio" id="cat-out" name="type" value="expense" checked>
-                            Expense
-                        </label>
-                    </div>
-                </div>
-
-                <button type="button" class="btn btn--primary">Add category</button>
-            </form>
-        </div>
-
-        <div class="card card--flush">
-            <div class="table-wrap">
-                <table class="data-table">
-                    <caption class="sr-only">Your categories</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Name</th>
-                            <th scope="col">Type</th>
-                            <th scope="col" class="num">Transactions</th>
-                            <th scope="col" class="num">Total</th>
-                            <th scope="col"><span class="sr-only">Actions</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <th scope="row">Groceries</th>
-                            <td><span class="badge badge--expense">Expense</span></td>
-                            <td class="num">8</td>
-                            <td class="num amount amount--expense">−342.60</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--ghost btn--sm">Rename</button>
-                                    <button type="button" class="btn btn--ghost btn--sm"
-                                            data-modal-open="cat-del-groceries">Delete</button>
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Utilities</th>
-                            <td><span class="badge badge--expense">Expense</span></td>
-                            <td class="num">5</td>
-                            <td class="num amount amount--expense">−418.25</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--ghost btn--sm">Rename</button>
-                                    <button type="button" class="btn btn--ghost btn--sm"
-                                            data-modal-open="cat-del-utilities">Delete</button>
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Eating out</th>
-                            <td><span class="badge badge--expense">Expense</span></td>
-                            <td class="num">3</td>
-                            <td class="num amount amount--expense">−86.95</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--ghost btn--sm">Rename</button>
-                                    <button type="button" class="btn btn--ghost btn--sm"
-                                            data-modal-open="cat-del-eatingout">Delete</button>
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Salary</th>
-                            <td><span class="badge badge--income">Income</span></td>
-                            <td class="num">1</td>
-                            <td class="num amount amount--income">+1,200.00</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--ghost btn--sm">Rename</button>
-                                    <button type="button" class="btn btn--ghost btn--sm"
-                                            data-modal-open="cat-del-salary">Delete</button>
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+        <div class="page__header">
+            <div>
+                <h1 class="page__title">Categories</h1>
+                <p class="page__subtitle">Optional labels that group your transactions in the reports.</p>
             </div>
         </div>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                The "Transactions" count and the "Total" are computed by the
-                server for each category. A category with no transactions yet
-                shows <code>0</code> and an em dash for the total.
-            </p>
-        </div>
-    </section>
+        <!-- ==============================================================
+             STATE — populated
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-pop-h">
+            <p class="state__label" id="c-pop-h">State — populated</p>
 
-    <!-- ==============================================================
-         STATE — no categories yet
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-empty-h">
-        <p class="state__label" id="c-empty-h">State — no categories yet</p>
+            <div class="card">
+                <h2>New category</h2>
 
-        <div class="card">
-            <div class="empty">
-                <h3 class="empty__title">No categories yet.</h3>
-                <p class="empty__body">
-                    That is fine — uncategorised entries are still counted in
-                    every total and every report.
+                <form aria-label="Create a category">
+                    <div class="field">
+                        <label class="field__label" for="cat-name">Name</label>
+                        <span class="field__hint" id="cat-name-hint">Up to 60 characters. The name must be unique.</span>
+                        <input class="input" id="cat-name" name="name" type="text"
+                               maxlength="60" aria-describedby="cat-name-hint">
+                    </div>
+
+                    <div class="field">
+                        <span class="field__label" id="cat-type-label">Type</span>
+                        <div class="radio-group" role="radiogroup" aria-labelledby="cat-type-label">
+                            <label class="radio radio--income" for="cat-in">
+                                <input type="radio" id="cat-in" name="type" value="income">
+                                Income
+                            </label>
+                            <label class="radio radio--expense" for="cat-out">
+                                <input type="radio" id="cat-out" name="type" value="expense" checked>
+                                Expense
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Add category</button>
+                </form>
+            </div>
+
+            <div class="card card--flush">
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <caption class="sr-only">Your categories</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Type</th>
+                                <th scope="col" class="num">Transactions</th>
+                                <th scope="col" class="num">Total</th>
+                                <th scope="col"><span class="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Groceries</th>
+                                <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
+                                <td data-label="Transactions" class="num">8</td>
+                                <td data-label="Total" class="num amount amount--expense">−342.60</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <button type="button" class="btn btn--ghost btn--sm"
+                                                data-modal-open="cat-del-groceries">Delete</button>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Utilities</th>
+                                <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
+                                <td data-label="Transactions" class="num">5</td>
+                                <td data-label="Total" class="num amount amount--expense">−418.25</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <button type="button" class="btn btn--ghost btn--sm"
+                                                data-modal-open="cat-del-utilities">Delete</button>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Eating out</th>
+                                <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
+                                <td data-label="Transactions" class="num">3</td>
+                                <td data-label="Total" class="num amount amount--expense">−86.95</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <button type="button" class="btn btn--ghost btn--sm"
+                                                data-modal-open="cat-del-eatingout">Delete</button>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Salary</th>
+                                <td data-label="Type"><span class="badge badge--income">Income</span></td>
+                                <td data-label="Transactions" class="num">1</td>
+                                <td data-label="Total" class="num amount amount--income">+1,200.00</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <button type="button" class="btn btn--ghost btn--sm"
+                                                data-modal-open="cat-del-salary">Delete</button>
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    The "Transactions" count and the "Total" are computed by the
+                    server for each category. A category with no transactions yet
+                    shows <code>0</code> and an em dash for the total.
                 </p>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- ==============================================================
-         STATE — create validation error
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-dup-h">
-        <p class="state__label" id="c-dup-h">State — create validation error</p>
+        <!-- ==============================================================
+             STATE — no categories yet
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-empty-h">
+            <p class="state__label" id="c-empty-h">State — no categories yet</p>
 
-        <div class="card">
-            <h2>New category</h2>
-
-            <form aria-label="Create a category">
-                <div class="field">
-                    <label class="field__label" for="cat-name-2">Name</label>
-                    <span class="field__hint" id="cat-name-2-hint">Up to 60 characters. The name must be unique.</span>
-                    <input class="input" id="cat-name-2" name="name" type="text"
-                           maxlength="60" value="Groceries" aria-invalid="true"
-                           aria-describedby="cat-name-2-hint cat-name-2-msg">
-                    <span class="field__error" id="cat-name-2-msg">That name is already in use.</span>
+            <div class="card">
+                <div class="empty">
+                    <h3 class="empty__title">No categories yet.</h3>
+                    <p class="empty__body">
+                        That is fine — uncategorised entries are still counted in
+                        every total and every report.
+                    </p>
                 </div>
+            </div>
+        </section>
 
-                <div class="field">
-                    <span class="field__label" id="cat-type2-label">Type</span>
-                    <div class="radio-group" role="radiogroup" aria-labelledby="cat-type2-label">
-                        <label class="radio radio--income" for="cat2-in">
-                            <input type="radio" id="cat2-in" name="type" value="income">
-                            Income
-                        </label>
-                        <label class="radio radio--expense" for="cat2-out">
-                            <input type="radio" id="cat2-out" name="type" value="expense" checked>
-                            Expense
-                        </label>
+        <!-- ==============================================================
+             STATE — create validation error
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-dup-h">
+            <p class="state__label" id="c-dup-h">State — create validation error</p>
+
+            <div class="card">
+                <h2>New category</h2>
+
+                <form aria-label="Create a category">
+                    <div class="field">
+                        <label class="field__label" for="cat-name-2">Name</label>
+                        <span class="field__hint" id="cat-name-2-hint">Up to 60 characters. The name must be unique.</span>
+                        <input class="input" id="cat-name-2" name="name" type="text"
+                               maxlength="60" value="Groceries" aria-invalid="true"
+                               aria-describedby="cat-name-2-hint cat-name-2-msg">
+                        <span class="field__error" id="cat-name-2-msg">That name is already in use.</span>
+                    </div>
+
+                    <div class="field">
+                        <span class="field__label" id="cat-type2-label">Type</span>
+                        <div class="radio-group" role="radiogroup" aria-labelledby="cat-type2-label">
+                            <label class="radio radio--income" for="cat2-in">
+                                <input type="radio" id="cat2-in" name="type" value="income">
+                                Income
+                            </label>
+                            <label class="radio radio--expense" for="cat2-out">
+                                <input type="radio" id="cat2-out" name="type" value="expense" checked>
+                                Expense
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="button" class="btn btn--primary">Add category</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — create succeeded
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-created-h">
+            <p class="state__label" id="c-created-h">State — create succeeded</p>
+
+            <div class="card">
+                <div role="status" aria-live="polite">
+                    <div class="alert alert--success">
+                        <div class="alert__body">
+                            <p class="alert__title">The category "Transport" was added.</p>
+                        </div>
                     </div>
                 </div>
 
-                <button type="button" class="btn btn--primary">Add category</button>
-            </form>
-        </div>
-    </section>
+                <form aria-label="Create a category">
+                    <div class="field">
+                        <label class="field__label" for="cat-name-3">Name</label>
+                        <span class="field__hint" id="cat-name-3-hint">Up to 60 characters. The name must be unique.</span>
+                        <input class="input" id="cat-name-3" name="name" type="text"
+                               maxlength="60" value="" aria-describedby="cat-name-3-hint">
+                    </div>
 
-    <!-- ==============================================================
-         STATE — create succeeded
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-created-h">
-        <p class="state__label" id="c-created-h">State — create succeeded</p>
+                    <div class="field">
+                        <span class="field__label" id="cat-type3-label">Type</span>
+                        <div class="radio-group" role="radiogroup" aria-labelledby="cat-type3-label">
+                            <label class="radio radio--income" for="cat3-in">
+                                <input type="radio" id="cat3-in" name="type" value="income">
+                                Income
+                            </label>
+                            <label class="radio radio--expense" for="cat3-out">
+                                <input type="radio" id="cat3-out" name="type" value="expense" checked>
+                                Expense
+                            </label>
+                        </div>
+                    </div>
 
-        <div class="card">
-            <div role="status" aria-live="polite">
-                <div class="alert alert--success">
-                    <div class="alert__body">
-                        <p class="alert__title">The category "Transport" was added.</p>
+                    <button type="button" class="btn btn--primary">Add category</button>
+                </form>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    After a successful create the <strong>name field is cleared</strong>
+                    and the <strong>radio selection is kept</strong> — adding a
+                    second expense category should not mean re-selecting the type.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — rename in progress
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-rename-h">
+            <p class="state__label" id="c-rename-h">State — a row is being renamed</p>
+
+            <div class="card card--flush">
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <caption class="sr-only">Your categories, with one row being renamed</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Type</th>
+                                <th scope="col" class="num">Transactions</th>
+                                <th scope="col" class="num">Total</th>
+                                <th scope="col"><span class="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">
+                                    <label class="sr-only" for="cat-rename">Rename Groceries</label>
+                                    <input class="input" id="cat-rename" type="text" value="Groceries" maxlength="60">
+                                </th>
+                                <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
+                                <td data-label="Transactions" class="num">8</td>
+                                <td data-label="Total" class="num amount amount--expense">−342.60</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--primary btn--sm">Save</button>
+                                        <button type="button" class="btn btn--ghost btn--sm">Cancel</button>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Utilities</th>
+                                <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
+                                <td data-label="Transactions" class="num">5</td>
+                                <td data-label="Total" class="num amount amount--expense">−418.25</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <button type="button" class="btn btn--ghost btn--sm">Delete</button>
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — rename failed
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-rename-err-h">
+            <p class="state__label" id="c-rename-err-h">State — rename failed, the row stays in edit mode</p>
+
+            <div class="card card--flush">
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <caption class="sr-only">Your categories, with a failed rename</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">Name</th>
+                                <th scope="col">Type</th>
+                                <th scope="col" class="num">Transactions</th>
+                                <th scope="col" class="num">Total</th>
+                                <th scope="col"><span class="sr-only">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">
+                                    <label class="sr-only" for="cat-rename-2">Rename Groceries</label>
+                                    <input class="input" id="cat-rename-2" type="text" value="Utilities"
+                                           maxlength="60" aria-invalid="true" aria-describedby="cat-rename-2-msg">
+                                    <span class="field__error" id="cat-rename-2-msg">That name is already in use.</span>
+                                </th>
+                                <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
+                                <td data-label="Transactions" class="num">8</td>
+                                <td data-label="Total" class="num amount amount--expense">−342.60</td>
+                                <td data-label="">
+                                    <span class="tx__actions">
+                                        <button type="button" class="btn btn--primary btn--sm">Save</button>
+                                        <button type="button" class="btn btn--ghost btn--sm">Cancel</button>
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    A failed rename leaves the row <strong>in edit mode</strong>
+                    with the typed value intact, so the visitor can correct it
+                    rather than retype it.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — delete confirmation
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-del-h">
+            <p class="state__label" id="c-del-h">State — delete confirmation</p>
+
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del-title" id="cat-del-groceries">
+                <h3 class="modal__title" id="cat-del-title">Delete 'Groceries'?</h3>
+                <p>
+                    <strong>7 transactions will become uncategorised. They will not be deleted.</strong>
+                </p>
+                <div class="modal__actions">
+                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-groceries">Cancel</button>
+                    <button type="button" class="btn btn--danger">Delete category</button>
+                </div>
+            </div>
+
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del2-title" id="cat-del-utilities">
+                <h3 class="modal__title" id="cat-del2-title">Delete 'Utilities'?</h3>
+                <p>
+                    <strong>5 transactions will become uncategorised. They will not be deleted.</strong>
+                </p>
+                <div class="modal__actions">
+                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-utilities">Cancel</button>
+                    <button type="button" class="btn btn--danger">Delete category</button>
+                </div>
+            </div>
+
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del3-title" id="cat-del-eatingout">
+                <h3 class="modal__title" id="cat-del3-title">Delete 'Eating out'?</h3>
+                <p>
+                    <strong>3 transactions will become uncategorised. They will not be deleted.</strong>
+                </p>
+                <div class="modal__actions">
+                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-eatingout">Cancel</button>
+                    <button type="button" class="btn btn--danger">Delete category</button>
+                </div>
+            </div>
+
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del4-title" id="cat-del-salary">
+                <h3 class="modal__title" id="cat-del4-title">Delete 'Salary'?</h3>
+                <p>
+                    <strong>1 transaction will become uncategorised. It will not be deleted.</strong>
+                </p>
+                <div class="modal__actions">
+                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-salary">Cancel</button>
+                    <button type="button" class="btn btn--danger">Delete category</button>
+                </div>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule — the most important sentence on this screen</span>
+                <p>
+                    Deleting a category <strong>does not delete its
+                    transactions</strong>. The confirmation must say so, in those
+                    words, before the visitor confirms. A count of one takes the
+                    singular "transaction" and "will"; a count of many takes the
+                    plural.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — delete failed
+             ============================================================== -->
+        <section class="state" aria-labelledby="c-del-err-h">
+            <p class="state__label" id="c-del-err-h">State — delete failed, the dialog stays open</p>
+
+            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del5-title" id="cat-del-failed">
+                <h3 class="modal__title" id="cat-del5-title">Delete 'Groceries'?</h3>
+
+                <div role="alert">
+                    <div class="alert alert--danger">
+                        <div class="alert__body">
+                            <p class="alert__title">The category could not be deleted. Please try again.</p>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <form aria-label="Create a category">
-                <div class="field">
-                    <label class="field__label" for="cat-name-3">Name</label>
-                    <span class="field__hint" id="cat-name-3-hint">Up to 60 characters. The name must be unique.</span>
-                    <input class="input" id="cat-name-3" name="name" type="text"
-                           maxlength="60" value="" aria-describedby="cat-name-3-hint">
-                </div>
-
-                <div class="field">
-                    <span class="field__label" id="cat-type3-label">Type</span>
-                    <div class="radio-group" role="radiogroup" aria-labelledby="cat-type3-label">
-                        <label class="radio radio--income" for="cat3-in">
-                            <input type="radio" id="cat3-in" name="type" value="income">
-                            Income
-                        </label>
-                        <label class="radio radio--expense" for="cat3-out">
-                            <input type="radio" id="cat3-out" name="type" value="expense" checked>
-                            Expense
-                        </label>
-                    </div>
-                </div>
-
-                <button type="button" class="btn btn--primary">Add category</button>
-            </form>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                After a successful create the <strong>name field is cleared</strong>
-                and the <strong>radio selection is kept</strong> — adding a
-                second expense category should not mean re-selecting the type.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — rename in progress
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-rename-h">
-        <p class="state__label" id="c-rename-h">State — a row is being renamed</p>
-
-        <div class="card card--flush">
-            <div class="table-wrap">
-                <table class="data-table">
-                    <caption class="sr-only">Your categories, with one row being renamed</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Name</th>
-                            <th scope="col">Type</th>
-                            <th scope="col" class="num">Transactions</th>
-                            <th scope="col" class="num">Total</th>
-                            <th scope="col"><span class="sr-only">Actions</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <th scope="row">
-                                <label class="sr-only" for="cat-rename">Rename Groceries</label>
-                                <input class="input" id="cat-rename" type="text" value="Groceries" maxlength="60">
-                            </th>
-                            <td><span class="badge badge--expense">Expense</span></td>
-                            <td class="num">8</td>
-                            <td class="num amount amount--expense">−342.60</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--primary btn--sm">Save</button>
-                                    <button type="button" class="btn btn--ghost btn--sm">Cancel</button>
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th scope="row">Utilities</th>
-                            <td><span class="badge badge--expense">Expense</span></td>
-                            <td class="num">5</td>
-                            <td class="num amount amount--expense">−418.25</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--ghost btn--sm">Rename</button>
-                                    <button type="button" class="btn btn--ghost btn--sm">Delete</button>
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — rename failed
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-rename-err-h">
-        <p class="state__label" id="c-rename-err-h">State — rename failed, the row stays in edit mode</p>
-
-        <div class="card card--flush">
-            <div class="table-wrap">
-                <table class="data-table">
-                    <caption class="sr-only">Your categories, with a failed rename</caption>
-                    <thead>
-                        <tr>
-                            <th scope="col">Name</th>
-                            <th scope="col">Type</th>
-                            <th scope="col" class="num">Transactions</th>
-                            <th scope="col" class="num">Total</th>
-                            <th scope="col"><span class="sr-only">Actions</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <th scope="row">
-                                <label class="sr-only" for="cat-rename-2">Rename Groceries</label>
-                                <input class="input" id="cat-rename-2" type="text" value="Utilities"
-                                       maxlength="60" aria-invalid="true" aria-describedby="cat-rename-2-msg">
-                                <span class="field__error" id="cat-rename-2-msg">That name is already in use.</span>
-                            </th>
-                            <td><span class="badge badge--expense">Expense</span></td>
-                            <td class="num">8</td>
-                            <td class="num amount amount--expense">−342.60</td>
-                            <td>
-                                <span class="tx__actions">
-                                    <button type="button" class="btn btn--primary btn--sm">Save</button>
-                                    <button type="button" class="btn btn--ghost btn--sm">Cancel</button>
-                                </span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                A failed rename leaves the row <strong>in edit mode</strong>
-                with the typed value intact, so the visitor can correct it
-                rather than retype it.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — delete confirmation
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-del-h">
-        <p class="state__label" id="c-del-h">State — delete confirmation</p>
-
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del-title" id="cat-del-groceries">
-            <h3 class="modal__title" id="cat-del-title">Delete 'Groceries'?</h3>
-            <p>
-                <strong>7 transactions will become uncategorised. They will not be deleted.</strong>
-            </p>
-            <div class="modal__actions">
-                <button type="button" class="btn btn--secondary" data-modal-close="cat-del-groceries">Cancel</button>
-                <button type="button" class="btn btn--danger">Delete category</button>
-            </div>
-        </div>
-
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del2-title" id="cat-del-utilities">
-            <h3 class="modal__title" id="cat-del2-title">Delete 'Utilities'?</h3>
-            <p>
-                <strong>5 transactions will become uncategorised. They will not be deleted.</strong>
-            </p>
-            <div class="modal__actions">
-                <button type="button" class="btn btn--secondary" data-modal-close="cat-del-utilities">Cancel</button>
-                <button type="button" class="btn btn--danger">Delete category</button>
-            </div>
-        </div>
-
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del3-title" id="cat-del-eatingout">
-            <h3 class="modal__title" id="cat-del3-title">Delete 'Eating out'?</h3>
-            <p>
-                <strong>3 transactions will become uncategorised. They will not be deleted.</strong>
-            </p>
-            <div class="modal__actions">
-                <button type="button" class="btn btn--secondary" data-modal-close="cat-del-eatingout">Cancel</button>
-                <button type="button" class="btn btn--danger">Delete category</button>
-            </div>
-        </div>
-
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del4-title" id="cat-del-salary">
-            <h3 class="modal__title" id="cat-del4-title">Delete 'Salary'?</h3>
-            <p>
-                <strong>1 transaction will become uncategorised. It will not be deleted.</strong>
-            </p>
-            <div class="modal__actions">
-                <button type="button" class="btn btn--secondary" data-modal-close="cat-del-salary">Cancel</button>
-                <button type="button" class="btn btn--danger">Delete category</button>
-            </div>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Rule — the most important sentence on this screen</span>
-            <p>
-                Deleting a category <strong>does not delete its
-                transactions</strong>. The confirmation must say so, in those
-                words, before the visitor confirms. A count of one takes the
-                singular "transaction" and "will"; a count of many takes the
-                plural.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — delete failed
-         ============================================================== -->
-    <section class="state" aria-labelledby="c-del-err-h">
-        <p class="state__label" id="c-del-err-h">State — delete failed, the dialog stays open</p>
-
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del5-title" id="cat-del-failed">
-            <h3 class="modal__title" id="cat-del5-title">Delete 'Groceries'?</h3>
-
-            <div role="alert">
-                <div class="alert alert--danger">
-                    <div class="alert__body">
-                        <p class="alert__title">The category could not be deleted. Please try again.</p>
-                    </div>
+                <p>
+                    <strong>7 transactions will become uncategorised. They will not be deleted.</strong>
+                </p>
+                <div class="modal__actions">
+                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-failed">Cancel</button>
+                    <button type="button" class="btn btn--danger">Try again</button>
                 </div>
             </div>
 
-            <p>
-                <strong>7 transactions will become uncategorised. They will not be deleted.</strong>
-            </p>
-            <div class="modal__actions">
-                <button type="button" class="btn btn--secondary" data-modal-close="cat-del-failed">Cancel</button>
-                <button type="button" class="btn btn--danger">Try again</button>
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    A failed delete keeps the dialog <strong>open</strong> with the
+                    error visible, so the visitor can retry without re-opening it.
+                </p>
             </div>
-        </div>
+        </section>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                A failed delete keeps the dialog <strong>open</strong> with the
-                error visible, so the visitor can retry without re-opening it.
-            </p>
-        </div>
-    </section>
+    </main>
 
-</main>
-
-<footer class="app__footer">
-    <p>Financial Tracker · personal use.</p>
-</footer>
+    <footer class="app__footer">
+        <p>Financial Tracker · personal use.</p>
+    </footer>
+</div>
 
 <nav class="bottom-nav" aria-label="Primary, mobile">
     <div class="bottom-nav__inner">

@@ -340,6 +340,16 @@
     margin-bottom: var(--sp-5);
 }
 
+/* Column-count modifiers. They are classes, never inline styles, so the
+   responsive rules below can collapse them with the viewport. */
+.tiles--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.tiles--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
 .tile {
     background-color: var(--surface);
     border: 1px solid var(--gray-300);
@@ -807,7 +817,12 @@
    ========================================================================== */
 
 .table-wrap {
+    /* `position: relative` keeps absolutely positioned descendants — the
+       screen-reader-only captions and sort hints — inside this scroll
+       container, so they can never widen the page. */
+    position: relative;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .data-table {
@@ -1302,6 +1317,9 @@
 }
 
 @media (max-width: 639px) {
+    /* ---- Shell -----------------------------------------------------------
+       The bottom navigation is fixed to the bottom of the viewport, so the
+       content column and the footer reserve room for it. */
     .app__bar-inner {
         flex-direction: column;
         align-items: stretch;
@@ -1312,11 +1330,53 @@
         display: none;
     }
 
+    .app__main {
+        padding: var(--sp-4) var(--sp-4) var(--sp-6);
+    }
+
+    /* The footer is the last element in the flow and the navigation is
+       fixed over it, so the footer reserves the navigation's height. */
+    .app__footer {
+        padding: var(--sp-4) var(--sp-4) calc(var(--tap-min) + var(--sp-4));
+    }
+
     .bottom-nav {
         display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+
+    /* ---- Page header ---------------------------------------------------- */
+    .page__header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--sp-3);
+    }
+
+    .page__actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .page__actions .btn {
+        flex: 1 1 auto;
+    }
+
+    /* ---- Surfaces -------------------------------------------------------- */
+    .card,
+    .card__body,
+    .modal {
+        padding: var(--sp-4);
     }
 
     .tiles {
+        grid-template-columns: 1fr;
+    }
+
+    .tiles--2,
+    .tiles--3 {
         grid-template-columns: 1fr;
     }
 
@@ -1349,6 +1409,86 @@
 
     .stepper__item {
         flex: 1 1 100%;
+    }
+
+    /* ---- Tables become stacked cards (issue-004 §9) ----------------------
+       The header row is kept in the accessibility tree with the
+       screen-reader-only pattern, so the column names survive; each value
+       is prefixed with its own column name via `data-label`. */
+    .data-table,
+    .data-table tbody,
+    .data-table tfoot,
+    .data-table tr,
+    .data-table td,
+    .data-table th {
+        display: block;
+        width: auto;
+    }
+
+    .data-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .data-table tbody tr,
+    .data-table tfoot tr {
+        padding: var(--sp-3) 0;
+        border-bottom: 1px solid var(--gray-300);
+    }
+
+    .data-table tbody tr:last-child,
+    .data-table tfoot tr:last-child {
+        border-bottom: 0;
+    }
+
+    .data-table tbody th[scope="row"] {
+        padding: 0 var(--sp-4) var(--sp-2);
+        border-bottom: 0;
+        text-align: left;
+        font-size: var(--fs-md);
+    }
+
+    .data-table td {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        padding: var(--sp-1) var(--sp-4);
+        border-bottom: 0;
+        text-align: left;
+    }
+
+    .data-table td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: var(--fs-xs);
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--gray-700);
+    }
+
+    .data-table td[data-label=""]::before {
+        content: none;
+    }
+
+    .data-table td[data-label=""] {
+        justify-content: flex-start;
+    }
+
+    .data-table .num {
+        text-align: left;
+    }
+
+    .data-table tbody tr:hover {
+        background-color: transparent;
     }
 }
 

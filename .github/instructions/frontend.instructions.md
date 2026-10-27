@@ -40,6 +40,25 @@ assets/css/pages/<page>.css  → per-page stylesheets
 Dark colours under `@media (prefers-color-scheme: dark)` are **expected**, not a defect.
 When comparing against a light reference, emulate `colorScheme: 'light'` first.
 
+## Responsive contract
+
+The mobile layout is designed, not improvised. The reference implementation is
+`docs/mockup/assets/components.css` — mirror it, do not re-invent it.
+
+- **Breakpoints:** `< 640 px` (single column, fixed bottom navigation, stacked
+  table cards), `640–1023 px` (single column, wider gutters, top navigation),
+  `≥ 1024 px` (capped, centred content).
+- **Page margin:** page content sits in a capped, gutter-padded container
+  (`max-width: var(--content-max)`, `margin: 0 auto`). Content placed directly
+  in `<body>` has no page margin — that is the defect this rule catches.
+- **No sideways scrolling at any width.** The guard is `overflow-x: clip` on
+  `body` — use `clip`, not `hidden`, because `hidden` creates a scroll
+  container and breaks `position: sticky`.
+- **Tables re-lay out; they do not scroll.** Below 640 px the `<thead>` is
+  hidden visually and each row becomes a card, so **every `<td>` must carry a
+  `data-label` attribute** with the column name. The attribute is the contract:
+  without it the column names disappear on a phone.
+
 ## Naming traps
 
 - Modifiers use a **double** hyphen: `.tx--income`, `.btn--primary`, `.alert--danger`.

@@ -29,6 +29,9 @@ body {
     color: var(--gray-900);
     background-color: var(--surface-2);
     min-height: 100vh;
+    /* A guard, not a crutch: no screen may scroll sideways. `clip` does not
+       create a scroll container, so `position: sticky` keeps working. */
+    overflow-x: clip;
 }
 
 h1, h2, h3, h4 {

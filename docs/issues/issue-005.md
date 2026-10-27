@@ -68,8 +68,9 @@ Success criteria:
 | `ALLOW_REGISTRATION` is a **real boolean** in `config.php` | The register screen has exactly two states: rendered, or **not rendered** (HTTP 403). The design must show the closed state as a page a visitor can actually land on. |
 | The gate is enforced **twice** | Front end: the page does not render a form and returns 403. Back end: the POST handler rejects the request regardless of what was rendered. The mockup must not imply that hiding the form is the protection. |
 | `users.username` and `users.email` are **`NOT NULL UNIQUE`** | Both are required at registration. The design must ask for both. |
+| The email address is **typed twice** | The register screen has a **Confirm email** field next to the email field, and a state that shows the two addresses not matching. |
 | Passwords are stored **hashed**; the reset link is **time-limited** | The design must communicate "temporary" and "one-time" without exposing implementation detail. |
-| The mailer uses the **SMTP settings from `config.php`** | The forgot-password screen needs a **"mail is not configured"** state — otherwise the user waits forever for a mail that will never arrive. |
+| The mailer uses the **SMTP settings from `config.php`** | The forgot-password screen needs a **"mail is not configured"** state — otherwise the user waits forever for a mail that will never arrive. The register screen's confirmation message has the same dependency. |
 | The application is server-rendered | The screens are plain forms. No client-side router, no SPA. |
 | Every form needs a **CSRF token** | The design shows a hidden field as an implementation note, or omits it — but it must not contradict the server contract. |
 | The screens are **unauthenticated** | No navigation bar, no app shell, no user context. |
@@ -134,7 +135,8 @@ Success criteria:
 | Field | Type | Validation shown | Notes |
 |---|---|---|---|
 | Username | `text`, `autocomplete="username"` | 3–32 characters; letters, digits, underscore, hyphen. | **Unique** — the server may reject it. |
-| Email | `email`, `autocomplete="email"` | Valid address; **unique**. | Used for the password reset. |
+| Email | `email`, `autocomplete="email"` | Valid address; **unique**. | Used for account verification and the password reset. |
+| Confirm email | `email`, `autocomplete="email"` | Must match the email field. | The rule is enforced on the **server**; the client-side check is advisory. |
 | Password | `password`, `autocomplete="new-password"` | Minimum length (recommendation: 10); must differ from the confirmation. | |
 | Confirm password | `password`, `autocomplete="new-password"` | Must match. | |
 
@@ -148,11 +150,11 @@ Success criteria:
 | State | What is shown |
 |---|---|
 | **Empty** | The default state. |
-| **Client-side validation** | Per-field messages under the offending field. |
+| **Client-side validation** | Per-field messages under the offending field. Includes the two addresses not matching: "The two email addresses do not match." |
 | **Server rejection — username taken** | The error is attached to the **username** field, and the message does not confirm the address behind the taken username. |
 | **Server rejection — email taken** | The error is attached to the **email** field. |
 | **Server rejection — password too weak** | Attached to the password field. |
-| **Success** | The design shows the confirmation state: the form is replaced by a success notice and a link to sign in. (The application may sign the new user in directly; the mockup shows the **sign-in** outcome and notes the alternative.) |
+| **Success** | The design shows the confirmation state: the form is replaced by a success notice — naming the address the confirmation message was sent to — and a link to sign in. (The application may sign the new user in directly; the mockup shows the **sign-in** outcome and notes the alternative.) |
 | **Registration closed** | This screen is **not served**. The visitor lands on `03-register-closed.html` instead. |
 
 > The mockup must **not** be the only protection. The application rejects the
@@ -235,6 +237,7 @@ This screen is reached when `ALLOW_REGISTRATION === false`.
 - [ ] Every screen in §5–§8 shows **all** the states listed for it.
 - [ ] `01-login.html` shows the "too many attempts" state.
 - [ ] `02-register.html` shows a server-side rejection attached to the field, not only a client-side message.
+- [ ] `02-register.html` has a **Confirm email** field and shows the "the two email addresses do not match" state.
 - [ ] `03-register-closed.html` contains **no** register form and **no** link to a register route.
 - [ ] `04-forgot-password.html` shows the "mail not configured" state.
 - [ ] The "known address" and "unknown address" confirmations in `04-forgot-password.html` are **word-for-word identical**.
@@ -288,6 +291,8 @@ done
 | `03-register-closed.html` | The register route returns **403** and renders this page (or an equivalent). The POST handler rejects the request **independently**. |
 | The "too many attempts" state | The server enforces a sign-in attempt limit; the design must match the server's copy and timing. |
 | The "mail not configured" state | Shown when the SMTP constants are empty. The server publishes the condition; the client must not re-derive it. |
+| The "Confirm email" field | The two addresses are compared **on the server**. A mismatch is rejected with the field error; the client-side check is advisory. |
+| The confirmation message on success | Sending it needs SMTP. If mail is not configured, the registration must say the account was created but the message could not be sent — it must not fail silently. |
 | The identical confirmations | Enforced server-side: the response must not vary with the address. |
 | Every form | A CSRF token in a hidden field, validated **before** any input is read. |
 

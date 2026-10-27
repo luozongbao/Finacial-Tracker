@@ -41,7 +41,7 @@ Success criteria:
 | # | Criterion |
 |---|---|
 | 1 | `11-install-wizard.html` exists and renders standalone from `file://` |
-| 2 | The wizard collects exactly the seven values the config contract names, and nothing else |
+| 2 | The wizard collects exactly the eight values the config contract names, and nothing else |
 | 3 | Each step's validation and failure states are shown |
 | 4 | The password fields are typed `password` and are **never** echoed back |
 | 5 | The wizard has a clear final state that tells the operator what to do next |
@@ -65,7 +65,7 @@ Success criteria:
 
 | Constraint | Consequence |
 |---|---|
-| `install.php` writes `config.php` from **user input**: database name, database user, database password, SMTP server, SMTP port, email user, SMTP password | Exactly **seven** values. No more. |
+| `install.php` writes `config.php` from **user input**: database host, database name, database user, database password, SMTP server, SMTP port, email user, SMTP password | Exactly **eight** values. No more. |
 | `config.php` also carries `ALLOW_REGISTRATION`, defaulting to `true` | The wizard writes it as a **real boolean**. The design shows it as a switch, defaulting to on, with a clear explanation of what turning it off does. |
 | `config.php` is the **only** configuration source | The wizard writes the file; nothing else reads environment variables. |
 | The installer is **unauthenticated and runs before the app exists** | No app shell, no navigation, no session, no user context. A single centred column. |
@@ -81,18 +81,20 @@ Success criteria:
 
 | # | Value | Constant | Field | Required | Notes |
 |---|---|---|---|---|---|
-| 1 | Database name | `DB_NAME` | text | yes | The schema, e.g. `financial_tracker`. |
-| 2 | Database user | `DB_USER` | text | yes | |
-| 3 | Database password | `DB_PASSWORD` | password | yes | Never echoed back. |
-| 4 | SMTP server | `SMTP_HOST` | text | no | May be left blank — the application then cannot send mail. |
-| 5 | SMTP port | `SMTP_PORT` | number | no | Default 587. |
-| 6 | Email user | `SMTP_USER` | text | no | |
-| 7 | SMTP password | `SMTP_PASS` | password | no | |
+| 1 | Database host | `DB_HOST` | text | yes | Defaults to `localhost`. In the Docker stack it is the service name `db`. |
+| 2 | Database name | `DB_NAME` | text | yes | The schema, e.g. `financial_tracker`. |
+| 3 | Database user | `DB_USER` | text | yes | |
+| 4 | Database password | `DB_PASSWORD` | password | yes | Never echoed back. |
+| 5 | SMTP server | `SMTP_HOST` | text | no | May be left blank — the application then cannot send mail. |
+| 6 | SMTP port | `SMTP_PORT` | number | no | Default 587. |
+| 7 | Email user | `SMTP_USER` | text | no | |
+| 8 | SMTP password | `SMTP_PASS` | password | no | |
 | — | Registration switch | `ALLOW_REGISTRATION` | switch | no | Defaults to **on**. |
 
-The database host is **not** collected: in the Docker stack it is the service
-name (`db`), and in a normal install it is `localhost`. The design must not
-add a field the config contract does not name.
+The database host **is** collected, because `config.template.php` declares
+`DB_HOST` and the wizard writes every constant the template declares. The
+field is pre-filled with `localhost`, which is the correct value for a normal
+installation; the Docker stack overrides it with the service name `db`.
 
 ---
 
@@ -101,7 +103,7 @@ add a field the config contract does not name.
 ````text
         ┌──────────────┐
         │  Step 1 of 3 │   Database
-        │  Database    │   name, user, password
+        │  Database    │   host, name, user, password
         └──────┬───────┘
                │  validate → test the connection
                ▼
@@ -140,6 +142,7 @@ because steps 2 and 3 depend on step 1 succeeding.
 
 | Field | Validation shown | Notes |
 |---|---|---|
+| Database host | Non-empty. | Pre-filled with `localhost`. A hostname or an IP address. |
 | Database name | Non-empty; a valid identifier (letters, digits, underscore). | |
 | Database user | Non-empty. | |
 | Database password | Non-empty. | |
@@ -178,7 +181,7 @@ Both are present. Skipping is a first-class choice, not a failure.
 | Element | Content |
 |---|---|
 | The registration switch | **On** by default, with a one-line explanation: "When off, no one can create an account, and the register page returns 403." The design shows **both** switch positions. |
-| The summary | A read-only list of everything that will be written: the database name, the user, the SMTP host and port, and the registration state. **The database password and the SMTP password are shown as masked, and only in this summary** — the design shows `••••••••` with a note that they are stored as given. |
+| The summary | A read-only list of everything that will be written: the database host, the database name, the user, the SMTP host and port, and the registration state. **The database password and the SMTP password are shown as masked, and only in this summary** — the design shows `••••••••` with a note that they are stored as given. |
 
 **Step-level action:** **Install**.
 
@@ -205,8 +208,8 @@ Both are present. Skipping is a first-class choice, not a failure.
 ## 7. Acceptance criteria
 
 - [ ] `11-install-wizard.html` exists, links the shared stylesheets by relative path, and renders from `file://`.
-- [ ] The form collects exactly the seven values in §4 — no more fields.
-- [ ] There is **no** database-host field.
+- [ ] The form collects exactly the eight values in §4 — no more fields.
+- [ ] There **is** a database-host field, pre-filled with `localhost`.
 - [ ] The registration control is a **switch**, not a text field, and its default is on.
 - [ ] The switch's explanation mentions that the register page returns 403 when it is off.
 - [ ] Both password fields are `type="password"` and are never pre-filled.

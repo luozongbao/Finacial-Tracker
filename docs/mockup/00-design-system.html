@@ -69,8 +69,8 @@
                 <tbody>
                     <tr>
                         <th scope="row">Transaction form: page or modal?</th>
-                        <td><strong>A page.</strong></td>
-                        <td>
+                        <td data-label="Decision"><strong>A page.</strong></td>
+                        <td data-label="Why">
                             Simpler to render and validate in PHP, works without
                             JavaScript, and keeps the browser's back button
                             meaningful. <code>07-transaction-form.html</code> is a page.
@@ -78,8 +78,8 @@
                     </tr>
                     <tr>
                         <th scope="row">Primary navigation</th>
-                        <td><strong>Top bar on desktop; bottom bar under 640&nbsp;px.</strong></td>
-                        <td>
+                        <td data-label="Decision"><strong>Top bar on desktop; bottom bar under 640&nbsp;px.</strong></td>
+                        <td data-label="Why">
                             A top bar suits a four-item desktop layout; a bottom
                             bar keeps the four destinations within thumb reach
                             on a phone and guarantees 44&nbsp;px touch targets.
@@ -87,8 +87,8 @@
                     </tr>
                     <tr>
                         <th scope="row">Does the dashboard replace the transaction list?</th>
-                        <td><strong>It embeds a short recent list.</strong></td>
-                        <td>
+                        <td data-label="Decision"><strong>It embeds a short recent list.</strong></td>
+                        <td data-label="Why">
                             The dashboard answers "how is this period going?"
                             without a second click, but the full ledger stays one
                             link away. The recent list uses the same row
@@ -162,34 +162,34 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><th scope="row"><code>--brand-100</code></th><td><code>#e8f0fe</code></td><td><code>#1b2a4a</code></td><td>Tinted backgrounds, active nav</td></tr>
-                    <tr><th scope="row"><code>--brand-500</code></th><td><code>#2f6fed</code></td><td><code>#6f9dff</code></td><td>Primary action, focus ring, links</td></tr>
-                    <tr><th scope="row"><code>--brand-700</code></th><td><code>#1b4bb8</code></td><td><code>#a8c4ff</code></td><td>Primary text on brand tint</td></tr>
+                    <tr><th scope="row"><code>--brand-100</code></th><td data-label="Light"><code>#e8f0fe</code></td><td data-label="Dark"><code>#1b2a4a</code></td><td data-label="Use">Tinted backgrounds, active nav</td></tr>
+                    <tr><th scope="row"><code>--brand-500</code></th><td data-label="Light"><code>#2f6fed</code></td><td data-label="Dark"><code>#6f9dff</code></td><td data-label="Use">Primary action, focus ring, links</td></tr>
+                    <tr><th scope="row"><code>--brand-700</code></th><td data-label="Light"><code>#1b4bb8</code></td><td data-label="Dark"><code>#a8c4ff</code></td><td data-label="Use">Primary text on brand tint</td></tr>
 
-                    <tr><th scope="row"><code>--gray-100</code></th><td><code>#f5f6f8</code></td><td><code>#21252b</code></td><td>Muted surface — <strong>inverts</strong></td></tr>
-                    <tr><th scope="row"><code>--gray-300</code></th><td><code>#d9dce1</code></td><td><code>#3a4049</code></td><td>Borders, dividers</td></tr>
-                    <tr><th scope="row"><code>--gray-500</code></th><td><code>#8a8f98</code></td><td><code>#8f959e</code></td><td>Placeholder text</td></tr>
-                    <tr><th scope="row"><code>--gray-700</code></th><td><code>#4a4f57</code></td><td><code>#c2c7ce</code></td><td>Secondary text, table headers</td></tr>
-                    <tr><th scope="row"><code>--gray-900</code></th><td><code>#1c1f24</code></td><td><code>#f2f4f7</code></td><td>Body text, headings</td></tr>
+                    <tr><th scope="row"><code>--gray-100</code></th><td data-label="Light"><code>#f5f6f8</code></td><td data-label="Dark"><code>#21252b</code></td><td data-label="Use">Muted surface — <strong>inverts</strong></td></tr>
+                    <tr><th scope="row"><code>--gray-300</code></th><td data-label="Light"><code>#d9dce1</code></td><td data-label="Dark"><code>#3a4049</code></td><td data-label="Use">Borders, dividers</td></tr>
+                    <tr><th scope="row"><code>--gray-500</code></th><td data-label="Light"><code>#8a8f98</code></td><td data-label="Dark"><code>#8f959e</code></td><td data-label="Use">Placeholder text</td></tr>
+                    <tr><th scope="row"><code>--gray-700</code></th><td data-label="Light"><code>#4a4f57</code></td><td data-label="Dark"><code>#c2c7ce</code></td><td data-label="Use">Secondary text, table headers</td></tr>
+                    <tr><th scope="row"><code>--gray-900</code></th><td data-label="Light"><code>#1c1f24</code></td><td data-label="Dark"><code>#f2f4f7</code></td><td data-label="Use">Body text, headings</td></tr>
 
-                    <tr><th scope="row"><code>--surface</code></th><td><code>#ffffff</code></td><td><code>#1a1d22</code></td><td>Card surface</td></tr>
-                    <tr><th scope="row"><code>--surface-2</code></th><td><code>#eef0f4</code></td><td><code>#23272e</code></td><td>Page background, muted blocks</td></tr>
+                    <tr><th scope="row"><code>--surface</code></th><td data-label="Light"><code>#ffffff</code></td><td data-label="Dark"><code>#1a1d22</code></td><td data-label="Use">Card surface</td></tr>
+                    <tr><th scope="row"><code>--surface-2</code></th><td data-label="Light"><code>#eef0f4</code></td><td data-label="Dark"><code>#23272e</code></td><td data-label="Use">Page background, muted blocks</td></tr>
 
-                    <tr><th scope="row"><code>--success-100</code></th><td><code>#e4f5ec</code></td><td><code>#14301f</code></td><td>Income badge background</td></tr>
-                    <tr><th scope="row"><code>--success-500</code></th><td><code>#1f9d55</code></td><td><code>#4cc27d</code></td><td>Income accent, positive totals</td></tr>
-                    <tr><th scope="row"><code>--success-700</code></th><td><code>#14713c</code></td><td><code>#9adfb6</code></td><td>Income text</td></tr>
+                    <tr><th scope="row"><code>--success-100</code></th><td data-label="Light"><code>#e4f5ec</code></td><td data-label="Dark"><code>#14301f</code></td><td data-label="Use">Income badge background</td></tr>
+                    <tr><th scope="row"><code>--success-500</code></th><td data-label="Light"><code>#1f9d55</code></td><td data-label="Dark"><code>#4cc27d</code></td><td data-label="Use">Income accent, positive totals</td></tr>
+                    <tr><th scope="row"><code>--success-700</code></th><td data-label="Light"><code>#14713c</code></td><td data-label="Dark"><code>#9adfb6</code></td><td data-label="Use">Income text</td></tr>
 
-                    <tr><th scope="row"><code>--warning-100</code></th><td><code>#fdf3e0</code></td><td><code>#35280f</code></td><td>Warning notice background</td></tr>
-                    <tr><th scope="row"><code>--warning-500</code></th><td><code>#d98a12</code></td><td><code>#e6a53a</code></td><td>Warning accent</td></tr>
-                    <tr><th scope="row"><code>--warning-700</code></th><td><code>#9c6108</code></td><td><code>#f3ce8c</code></td><td>Warning text</td></tr>
+                    <tr><th scope="row"><code>--warning-100</code></th><td data-label="Light"><code>#fdf3e0</code></td><td data-label="Dark"><code>#35280f</code></td><td data-label="Use">Warning notice background</td></tr>
+                    <tr><th scope="row"><code>--warning-500</code></th><td data-label="Light"><code>#d98a12</code></td><td data-label="Dark"><code>#e6a53a</code></td><td data-label="Use">Warning accent</td></tr>
+                    <tr><th scope="row"><code>--warning-700</code></th><td data-label="Light"><code>#9c6108</code></td><td data-label="Dark"><code>#f3ce8c</code></td><td data-label="Use">Warning text</td></tr>
 
-                    <tr><th scope="row"><code>--danger-100</code></th><td><code>#fdeaea</code></td><td><code>#3a1a1a</code></td><td>Spending badge, destructive background</td></tr>
-                    <tr><th scope="row"><code>--danger-500</code></th><td><code>#d64545</code></td><td><code>#f07b7b</code></td><td>Destructive button</td></tr>
-                    <tr><th scope="row"><code>--danger-700</code></th><td><code>#9c2b2b</code></td><td><code>#f6b6b6</code></td><td>Spending text</td></tr>
+                    <tr><th scope="row"><code>--danger-100</code></th><td data-label="Light"><code>#fdeaea</code></td><td data-label="Dark"><code>#3a1a1a</code></td><td data-label="Use">Spending badge, destructive background</td></tr>
+                    <tr><th scope="row"><code>--danger-500</code></th><td data-label="Light"><code>#d64545</code></td><td data-label="Dark"><code>#f07b7b</code></td><td data-label="Use">Destructive button</td></tr>
+                    <tr><th scope="row"><code>--danger-700</code></th><td data-label="Light"><code>#9c2b2b</code></td><td data-label="Dark"><code>#f6b6b6</code></td><td data-label="Use">Spending text</td></tr>
 
-                    <tr><th scope="row"><code>--info-100</code></th><td><code>#e7f3fb</code></td><td><code>#12293a</code></td><td>Info notice background</td></tr>
-                    <tr><th scope="row"><code>--info-500</code></th><td><code>#2b8ecf</code></td><td><code>#62b2e8</code></td><td>Info accent</td></tr>
-                    <tr><th scope="row"><code>--info-700</code></th><td><code>#1c6699</code></td><td><code>#a9d6f2</code></td><td>Info text</td></tr>
+                    <tr><th scope="row"><code>--info-100</code></th><td data-label="Light"><code>#e7f3fb</code></td><td data-label="Dark"><code>#12293a</code></td><td data-label="Use">Info notice background</td></tr>
+                    <tr><th scope="row"><code>--info-500</code></th><td data-label="Light"><code>#2b8ecf</code></td><td data-label="Dark"><code>#62b2e8</code></td><td data-label="Use">Info accent</td></tr>
+                    <tr><th scope="row"><code>--info-700</code></th><td data-label="Light"><code>#1c6699</code></td><td data-label="Dark"><code>#a9d6f2</code></td><td data-label="Use">Info text</td></tr>
                 </tbody>
             </table>
         </div>
@@ -210,38 +210,38 @@
                 <tbody>
                     <tr>
                         <th scope="row">Income / positive amount</th>
-                        <td><code>--success-*</code></td>
-                        <td><span class="amount amount--income">+1,200.00</span></td>
+                        <td data-label="Colour group"><code>--success-*</code></td>
+                        <td data-label="Example"><span class="amount amount--income">+1,200.00</span></td>
                     </tr>
                     <tr>
                         <th scope="row">Spending / negative amount</th>
-                        <td><code>--danger-*</code></td>
-                        <td><span class="amount amount--expense">−42.80</span></td>
+                        <td data-label="Colour group"><code>--danger-*</code></td>
+                        <td data-label="Example"><span class="amount amount--expense">−42.80</span></td>
                     </tr>
                     <tr>
                         <th scope="row">Net positive</th>
-                        <td><code>--success-*</code></td>
-                        <td><span class="amount amount--income">+158.20</span></td>
+                        <td data-label="Colour group"><code>--success-*</code></td>
+                        <td data-label="Example"><span class="amount amount--income">+158.20</span></td>
                     </tr>
                     <tr>
                         <th scope="row">Net negative</th>
-                        <td><code>--danger-*</code></td>
-                        <td><span class="amount amount--expense">−158.20</span></td>
+                        <td data-label="Colour group"><code>--danger-*</code></td>
+                        <td data-label="Example"><span class="amount amount--expense">−158.20</span></td>
                     </tr>
                     <tr>
                         <th scope="row"><strong>Net exactly zero</strong></th>
-                        <td><strong>Neutral</strong> <code>--gray-*</code></td>
-                        <td><span class="amount amount--zero">0.00</span></td>
+                        <td data-label="Colour group"><strong>Neutral</strong> <code>--gray-*</code></td>
+                        <td data-label="Example"><span class="amount amount--zero">0.00</span></td>
                     </tr>
                     <tr>
                         <th scope="row">Info / hint</th>
-                        <td><code>--info-*</code></td>
-                        <td><span class="badge badge--info">info</span></td>
+                        <td data-label="Colour group"><code>--info-*</code></td>
+                        <td data-label="Example"><span class="badge badge--info">info</span></td>
                     </tr>
                     <tr>
                         <th scope="row">Destructive action</th>
-                        <td><code>--danger-500</code> button, <code>--danger-100</code> background</td>
-                        <td><button type="button" class="btn btn--danger btn--sm">Delete</button></td>
+                        <td data-label="Colour group"><code>--danger-500</code> button, <code>--danger-100</code> background</td>
+                        <td data-label="Example"><button type="button" class="btn btn--danger btn--sm">Delete</button></td>
                     </tr>
                 </tbody>
             </table>
@@ -305,17 +305,17 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><th scope="row"><code>--font-sans</code></th><td>system-ui</td><td style="font-family: var(--font-sans);">The quick brown fox</td></tr>
-                    <tr><th scope="row"><code>--font-mono</code></th><td>ui-monospace</td><td style="font-family: var(--font-mono);">1,234.56</td></tr>
-                    <tr><th scope="row"><code>--fs-xs</code></th><td>0.75rem</td><td style="font-size: var(--fs-xs);">Small print</td></tr>
-                    <tr><th scope="row"><code>--fs-sm</code></th><td>0.875rem</td><td style="font-size: var(--fs-sm);">Body small</td></tr>
-                    <tr><th scope="row"><code>--fs-md</code></th><td>1rem</td><td style="font-size: var(--fs-md);">Body</td></tr>
-                    <tr><th scope="row"><code>--fs-lg</code></th><td>1.125rem</td><td style="font-size: var(--fs-lg);">Heading three</td></tr>
-                    <tr><th scope="row"><code>--fs-xl</code></th><td>1.5rem</td><td style="font-size: var(--fs-xl);">Heading two</td></tr>
-                    <tr><th scope="row"><code>--fs-2xl</code></th><td>2rem</td><td style="font-size: var(--fs-2xl);">Heading one</td></tr>
-                    <tr><th scope="row"><code>--lh-tight</code></th><td>1.2</td><td style="line-height: var(--lh-tight);">Headings and dense text</td></tr>
-                    <tr><th scope="row"><code>--lh-normal</code></th><td>1.5</td><td style="line-height: var(--lh-normal);">Body copy</td></tr>
-                    <tr><th scope="row"><code>--lh-loose</code></th><td>1.7</td><td style="line-height: var(--lh-loose);">Long-form and legal copy</td></tr>
+                    <tr><th scope="row"><code>--font-sans</code></th><td data-label="Value">system-ui</td><td data-label="Sample" style="font-family: var(--font-sans);">The quick brown fox</td></tr>
+                    <tr><th scope="row"><code>--font-mono</code></th><td data-label="Value">ui-monospace</td><td data-label="Sample" style="font-family: var(--font-mono);">1,234.56</td></tr>
+                    <tr><th scope="row"><code>--fs-xs</code></th><td data-label="Value">0.75rem</td><td data-label="Sample" style="font-size: var(--fs-xs);">Small print</td></tr>
+                    <tr><th scope="row"><code>--fs-sm</code></th><td data-label="Value">0.875rem</td><td data-label="Sample" style="font-size: var(--fs-sm);">Body small</td></tr>
+                    <tr><th scope="row"><code>--fs-md</code></th><td data-label="Value">1rem</td><td data-label="Sample" style="font-size: var(--fs-md);">Body</td></tr>
+                    <tr><th scope="row"><code>--fs-lg</code></th><td data-label="Value">1.125rem</td><td data-label="Sample" style="font-size: var(--fs-lg);">Heading three</td></tr>
+                    <tr><th scope="row"><code>--fs-xl</code></th><td data-label="Value">1.5rem</td><td data-label="Sample" style="font-size: var(--fs-xl);">Heading two</td></tr>
+                    <tr><th scope="row"><code>--fs-2xl</code></th><td data-label="Value">2rem</td><td data-label="Sample" style="font-size: var(--fs-2xl);">Heading one</td></tr>
+                    <tr><th scope="row"><code>--lh-tight</code></th><td data-label="Value">1.2</td><td data-label="Sample" style="line-height: var(--lh-tight);">Headings and dense text</td></tr>
+                    <tr><th scope="row"><code>--lh-normal</code></th><td data-label="Value">1.5</td><td data-label="Sample" style="line-height: var(--lh-normal);">Body copy</td></tr>
+                    <tr><th scope="row"><code>--lh-loose</code></th><td data-label="Value">1.7</td><td data-label="Sample" style="line-height: var(--lh-loose);">Long-form and legal copy</td></tr>
                 </tbody>
             </table>
         </div>
@@ -349,13 +349,13 @@
                     <tr><th scope="col">Token</th><th scope="col">Value</th><th scope="col">Bar</th></tr>
                 </thead>
                 <tbody>
-                    <tr><th scope="row"><code>--sp-1</code></th><td>4px</td><td><span class="skeleton" style="width: 4px; height: var(--sp-3);"></span></td></tr>
-                    <tr><th scope="row"><code>--sp-2</code></th><td>8px</td><td><span class="skeleton" style="width: 8px; height: var(--sp-3);"></span></td></tr>
-                    <tr><th scope="row"><code>--sp-3</code></th><td>12px</td><td><span class="skeleton" style="width: 12px; height: var(--sp-3);"></span></td></tr>
-                    <tr><th scope="row"><code>--sp-4</code></th><td>16px</td><td><span class="skeleton" style="width: 16px; height: var(--sp-3);"></span></td></tr>
-                    <tr><th scope="row"><code>--sp-5</code></th><td>24px</td><td><span class="skeleton" style="width: 24px; height: var(--sp-3);"></span></td></tr>
-                    <tr><th scope="row"><code>--sp-6</code></th><td>32px</td><td><span class="skeleton" style="width: 32px; height: var(--sp-3);"></span></td></tr>
-                    <tr><th scope="row"><code>--sp-8</code></th><td>48px</td><td><span class="skeleton" style="width: 48px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-1</code></th><td data-label="Value">4px</td><td data-label="Bar"><span class="skeleton" style="width: 4px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-2</code></th><td data-label="Value">8px</td><td data-label="Bar"><span class="skeleton" style="width: 8px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-3</code></th><td data-label="Value">12px</td><td data-label="Bar"><span class="skeleton" style="width: 12px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-4</code></th><td data-label="Value">16px</td><td data-label="Bar"><span class="skeleton" style="width: 16px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-5</code></th><td data-label="Value">24px</td><td data-label="Bar"><span class="skeleton" style="width: 24px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-6</code></th><td data-label="Value">32px</td><td data-label="Bar"><span class="skeleton" style="width: 32px; height: var(--sp-3);"></span></td></tr>
+                    <tr><th scope="row"><code>--sp-8</code></th><td data-label="Value">48px</td><td data-label="Bar"><span class="skeleton" style="width: 48px; height: var(--sp-3);"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -368,10 +368,10 @@
                     <tr><th scope="col">Token</th><th scope="col">Value</th><th scope="col">Sample</th></tr>
                 </thead>
                 <tbody>
-                    <tr><th scope="row"><code>--r-sm</code></th><td>4px</td><td><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-sm);"></span></td></tr>
-                    <tr><th scope="row"><code>--r-md</code></th><td>8px</td><td><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-md);"></span></td></tr>
-                    <tr><th scope="row"><code>--r-lg</code></th><td>14px</td><td><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-lg);"></span></td></tr>
-                    <tr><th scope="row"><code>--r-full</code></th><td>pill</td><td><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-full);"></span></td></tr>
+                    <tr><th scope="row"><code>--r-sm</code></th><td data-label="Value">4px</td><td data-label="Sample"><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-sm);"></span></td></tr>
+                    <tr><th scope="row"><code>--r-md</code></th><td data-label="Value">8px</td><td data-label="Sample"><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-md);"></span></td></tr>
+                    <tr><th scope="row"><code>--r-lg</code></th><td data-label="Value">14px</td><td data-label="Sample"><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-lg);"></span></td></tr>
+                    <tr><th scope="row"><code>--r-full</code></th><td data-label="Value">pill</td><td data-label="Sample"><span class="skeleton" style="display: inline-block; width: 48px; height: 24px; border-radius: var(--r-full);"></span></td></tr>
                 </tbody>
             </table>
         </div>
@@ -588,7 +588,7 @@
         <section id="c-input" aria-labelledby="c-input-h">
             <h3 id="c-input-h">5.7 Input</h3>
 
-            <div class="tiles" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="tiles tiles--3">
                 <div>
                     <div class="field">
                         <label class="field__label" for="ds-text">Text</label>
@@ -629,7 +629,7 @@
             </div>
 
             <p class="state__label">With hint, error, disabled and read-only</p>
-            <div class="tiles" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="tiles tiles--3">
                 <div class="field">
                     <label class="field__label" for="ds-hint">With a hint</label>
                     <span class="field__hint">Either your username or your email address.</span>
@@ -670,7 +670,7 @@
         <!-- ---- Radio group ----------------------------------------------- -->
         <section id="c-radio" aria-labelledby="c-radio-h">
             <h3 id="c-radio-h">5.9 Radio group and switch</h3>
-            <div class="tiles" style="grid-template-columns: 1fr 1fr;">
+            <div class="tiles tiles--2">
                 <div class="field">
                     <span class="field__label" id="ds-radio-label">Type</span>
                     <div class="radio-group" role="radiogroup" aria-labelledby="ds-radio-label">
@@ -713,25 +713,25 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td>2026-10-24</td>
-                                <td>Weekly groceries</td>
-                                <td><span class="badge badge--neutral">Groceries</span></td>
-                                <td><span class="badge badge--expense">Spending</span></td>
-                                <td class="num amount amount--expense">−42.80</td>
+                                <td data-label="Date">2026-10-24</td>
+                                <td data-label="Description">Weekly groceries</td>
+                                <td data-label="Category"><span class="badge badge--neutral">Groceries</span></td>
+                                <td data-label="Type"><span class="badge badge--expense">Spending</span></td>
+                                <td data-label="Amount" class="num amount amount--expense">−42.80</td>
                             </tr>
                             <tr aria-selected="true">
-                                <td>2026-10-20</td>
-                                <td>Salary</td>
-                                <td><span class="badge badge--neutral">Salary</span></td>
-                                <td><span class="badge badge--income">Income</span></td>
-                                <td class="num amount amount--income">+1,200.00</td>
+                                <td data-label="Date">2026-10-20</td>
+                                <td data-label="Description">Salary</td>
+                                <td data-label="Category"><span class="badge badge--neutral">Salary</span></td>
+                                <td data-label="Type"><span class="badge badge--income">Income</span></td>
+                                <td data-label="Amount" class="num amount amount--income">+1,200.00</td>
                             </tr>
                             <tr>
-                                <td>2026-10-18</td>
-                                <td><span aria-hidden="true">—</span><span class="sr-only">No description</span></td>
-                                <td><span class="badge badge--neutral">Uncategorised</span></td>
-                                <td><span class="badge badge--expense">Spending</span></td>
-                                <td class="num amount amount--expense">−18.00</td>
+                                <td data-label="Date">2026-10-18</td>
+                                <td data-label="Description"><span aria-hidden="true">—</span><span class="sr-only">No description</span></td>
+                                <td data-label="Category"><span class="badge badge--neutral">Uncategorised</span></td>
+                                <td data-label="Type"><span class="badge badge--expense">Spending</span></td>
+                                <td data-label="Amount" class="num amount amount--expense">−18.00</td>
                             </tr>
                         </tbody>
                     </table>
@@ -742,6 +742,16 @@
                 Tables use real <code>&lt;th scope="col"&gt;</code>. Numeric
                 columns are right-aligned and monospaced. The sort indicator is
                 visible <em>and</em> announced to a screen reader.
+            </p>
+            <p class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                Every <code>&lt;td&gt;</code> in a data table carries a
+                <code>data-label</code> attribute holding the column name in
+                plain text. Below 640&nbsp;px the table is re-laid-out as
+                stacked cards: the <code>&lt;thead&gt;</code> is hidden
+                visually, each row becomes a block, and the label is repeated
+                next to the value. The attribute is the contract — a table
+                without it loses its column names on a phone.
             </p>
         </section>
 
@@ -932,19 +942,26 @@
                 <tbody>
                     <tr>
                         <th scope="row">&lt; 640&nbsp;px</th>
-                        <td>Single column; bottom navigation; tables become stacked rows; the period selector becomes a horizontal scroller.</td>
+                        <td data-label="Layout">Single column; bottom navigation; tables become stacked cards, each column name repeated from its <code>data-label</code>; the period selector becomes a horizontal scroller.</td>
                     </tr>
                     <tr>
                         <th scope="row">640–1023&nbsp;px</th>
-                        <td>Single column, wider gutters, top navigation.</td>
+                        <td data-label="Layout">Single column, wider gutters, top navigation.</td>
                     </tr>
                     <tr>
                         <th scope="row">≥ 1024&nbsp;px</th>
-                        <td>Two-column dashboard (tiles + recent list); the transaction list may show more columns.</td>
+                        <td data-label="Layout">Two-column dashboard (tiles + recent list); the transaction list may show more columns.</td>
                     </tr>
                 </tbody>
             </table>
         </div>
+
+        <p class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            No screen may scroll sideways at any width. The table above keeps
+            its real markup and re-lays-out instead of scrolling, so a narrow
+            phone shows the same data as a wide desktop.
+        </p>
 
         <h3>6.1 The summary tile at two widths</h3>
         <p>
@@ -997,19 +1014,19 @@
                 <tbody>
                     <tr>
                         <th scope="row"><code>assets/tokens.css</code> → <code>:root</code></th>
-                        <td><code>assets/css/tokens.css</code> — same names, same order</td>
+                        <td data-label="Application artefact"><code>assets/css/tokens.css</code> — same names, same order</td>
                     </tr>
                     <tr>
                         <th scope="row"><code>assets/base.css</code></th>
-                        <td><code>assets/css/base.css</code></td>
+                        <td data-label="Application artefact"><code>assets/css/base.css</code></td>
                     </tr>
                     <tr>
                         <th scope="row"><code>assets/components.css</code></th>
-                        <td><code>assets/css/components.css</code></td>
+                        <td data-label="Application artefact"><code>assets/css/components.css</code></td>
                     </tr>
                     <tr>
                         <th scope="row">A screen <code>NN-name.html</code></th>
-                        <td><code>assets/css/pages/&lt;page&gt;.css</code> + the PHP page</td>
+                        <td data-label="Application artefact"><code>assets/css/pages/&lt;page&gt;.css</code> + the PHP page</td>
                     </tr>
                 </tbody>
             </table>

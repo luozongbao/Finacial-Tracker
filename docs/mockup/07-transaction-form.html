@@ -10,510 +10,512 @@
 </head>
 <body data-screen="transactions">
 
-<header class="app__bar">
-    <div class="app__bar-inner">
-        <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
-        <nav class="nav" aria-label="Primary">
-            <a class="nav__link" href="05-dashboard.html">Dashboard</a>
-            <a class="nav__link" href="06-transactions.html" aria-current="page">Transactions</a>
-            <a class="nav__link" href="08-reports.html">Reports</a>
-            <a class="nav__link" href="09-categories.html">Categories</a>
-        </nav>
-        <span class="app__spacer"></span>
-        <span class="app__user">signed in as <strong>demo</strong></span>
-        <a class="nav__link" href="10-settings.html">Settings</a>
-    </div>
-</header>
-
-<main class="app">
-
-    <!-- ==============================================================
-         STATE — add, empty
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-add-h">
-        <p class="state__label" id="tf-add-h">State — add, empty</p>
-
-        <div class="page__header">
-            <div>
-                <h1 class="page__title">Add transaction</h1>
-                <p class="page__subtitle">Record one entry. The date decides which period it belongs to.</p>
-            </div>
+<div class="app">
+    <header class="app__bar">
+        <div class="app__bar-inner">
+            <a class="app__brand" href="05-dashboard.html">Financial Tracker</a>
+            <nav class="nav" aria-label="Primary">
+                <a class="nav__link" href="05-dashboard.html">Dashboard</a>
+                <a class="nav__link" href="06-transactions.html" aria-current="page">Transactions</a>
+                <a class="nav__link" href="08-reports.html">Reports</a>
+                <a class="nav__link" href="09-categories.html">Categories</a>
+            </nav>
+            <span class="app__spacer"></span>
+            <span class="app__user">signed in as <strong>demo</strong></span>
+            <a class="nav__link" href="10-settings.html">Settings</a>
         </div>
+    </header>
 
-        <div class="card">
-            <div class="field">
-                <span class="field__label" id="tf-type-label">Type</span>
-                <div class="radio-group" role="radiogroup" aria-labelledby="tf-type-label">
-                    <label class="radio radio--income" for="tf-in">
-                        <input type="radio" id="tf-in" name="type" value="income" checked>
-                        Income
-                    </label>
-                    <label class="radio radio--expense" for="tf-out">
-                        <input type="radio" id="tf-out" name="type" value="expense">
-                        Spending
-                    </label>
+    <main class="app__main">
+
+        <!-- ==============================================================
+             STATE — add, empty
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-add-h">
+            <p class="state__label" id="tf-add-h">State — add, empty</p>
+
+            <div class="page__header">
+                <div>
+                    <h1 class="page__title">Add transaction</h1>
+                    <p class="page__subtitle">Record one entry. The date decides which period it belongs to.</p>
                 </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf-amount">Amount</label>
-                <span class="field__hint" id="tf-amount-hint">Enter the amount with up to two decimals. It must be greater than zero.</span>
-                <input class="input input--amount" id="tf-amount" name="amount" type="number"
-                       step="0.01" inputmode="decimal" min="0" aria-describedby="tf-amount-hint">
-            </div>
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type-label">
+                        <label class="radio radio--income" for="tf-in">
+                            <input type="radio" id="tf-in" name="type" value="income" checked>
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf-out">
+                            <input type="radio" id="tf-out" name="type" value="expense">
+                            Spending
+                        </label>
+                    </div>
+                </div>
 
-            <div class="field">
-                <label class="field__label" for="tf-date">Date</label>
-                <span class="field__hint" id="tf-date-hint">The transaction date.</span>
-                <input class="input" id="tf-date" name="date" type="date"
-                       value="2026-10-24" aria-describedby="tf-date-hint">
-            </div>
+                <div class="field">
+                    <label class="field__label" for="tf-amount">Amount</label>
+                    <span class="field__hint" id="tf-amount-hint">Enter the amount with up to two decimals. It must be greater than zero.</span>
+                    <input class="input input--amount" id="tf-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" aria-describedby="tf-amount-hint">
+                </div>
 
-            <div class="field">
-                <label class="field__label" for="tf-cat">Category</label>
-                <span class="field__hint" id="tf-cat-hint">Optional. An entry without a category is still counted in every total.</span>
-                <select class="select" id="tf-cat" name="category" aria-describedby="tf-cat-hint">
-                    <option value="">No category</option>
-                    <option value="groceries">Groceries</option>
-                    <option value="utilities">Utilities</option>
-                    <option value="eating-out">Eating out</option>
-                    <option value="salary">Salary</option>
-                </select>
-            </div>
+                <div class="field">
+                    <label class="field__label" for="tf-date">Date</label>
+                    <span class="field__hint" id="tf-date-hint">The transaction date.</span>
+                    <input class="input" id="tf-date" name="date" type="date"
+                           value="2026-10-24" aria-describedby="tf-date-hint">
+                </div>
 
-            <div class="field">
-                <label class="field__label" for="tf-desc">Description</label>
-                <span class="field__hint" id="tf-desc-hint">Optional. Up to 255 characters.</span>
-                <input class="input" id="tf-desc" name="description" type="text"
-                       maxlength="255" aria-describedby="tf-desc-hint">
-            </div>
+                <div class="field">
+                    <label class="field__label" for="tf-cat">Category</label>
+                    <span class="field__hint" id="tf-cat-hint">Optional. An entry without a category is still counted in every total.</span>
+                    <select class="select" id="tf-cat" name="category" aria-describedby="tf-cat-hint">
+                        <option value="">No category</option>
+                        <option value="groceries">Groceries</option>
+                        <option value="utilities">Utilities</option>
+                        <option value="eating-out">Eating out</option>
+                        <option value="salary">Salary</option>
+                    </select>
+                </div>
 
-            <div class="btn-group">
-                <button type="button" class="btn btn--primary">Save transaction</button>
-                <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
-            </div>
-        </div>
+                <div class="field">
+                    <label class="field__label" for="tf-desc">Description</label>
+                    <span class="field__hint" id="tf-desc-hint">Optional. Up to 255 characters.</span>
+                    <input class="input" id="tf-desc" name="description" type="text"
+                           maxlength="255" aria-describedby="tf-desc-hint">
+                </div>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                The type is a <strong>radio group</strong> and <strong>Income is
-                the default</strong>. The amount is the largest control on the
-                page and is right-aligned and monospaced. There is
-                <strong>no running total</strong> — the form adds one number
-                and nothing else.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — edit, pre-filled
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-edit-h">
-        <p class="state__label" id="tf-edit-h">State — edit, pre-filled</p>
-
-        <div class="page__header">
-            <div>
-                <h2 class="page__title">Edit transaction</h2>
-                <p class="page__subtitle">Changing a transaction changes the totals of every period it belongs to.</p>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="field">
-                <span class="field__label" id="tf-type2-label">Type</span>
-                <div class="radio-group" role="radiogroup" aria-labelledby="tf-type2-label">
-                    <label class="radio radio--income" for="tf2-in">
-                        <input type="radio" id="tf2-in" name="type" value="income">
-                        Income
-                    </label>
-                    <label class="radio radio--expense" for="tf2-out">
-                        <input type="radio" id="tf2-out" name="type" value="expense" checked>
-                        Spending
-                    </label>
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
                 </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf2-amount">Amount</label>
-                <input class="input input--amount" id="tf2-amount" name="amount" type="number"
-                       step="0.01" inputmode="decimal" min="0" value="42.80">
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    The type is a <strong>radio group</strong> and <strong>Income is
+                    the default</strong>. The amount is the largest control on the
+                    page and is right-aligned and monospaced. There is
+                    <strong>no running total</strong> — the form adds one number
+                    and nothing else.
+                </p>
             </div>
+        </section>
 
-            <div class="field">
-                <label class="field__label" for="tf2-date">Date</label>
-                <input class="input" id="tf2-date" name="date" type="date" value="2026-10-24">
-            </div>
+        <!-- ==============================================================
+             STATE — edit, pre-filled
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-edit-h">
+            <p class="state__label" id="tf-edit-h">State — edit, pre-filled</p>
 
-            <div class="field">
-                <label class="field__label" for="tf2-cat">Category</label>
-                <select class="select" id="tf2-cat" name="category">
-                    <option value="">No category</option>
-                    <option value="groceries" selected>Groceries</option>
-                    <option value="utilities">Utilities</option>
-                    <option value="eating-out">Eating out</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label class="field__label" for="tf2-desc">Description</label>
-                <input class="input" id="tf2-desc" name="description" type="text"
-                       maxlength="255" value="Weekly groceries">
-            </div>
-
-            <div class="btn-group">
-                <button type="button" class="btn btn--primary">Save changes</button>
-                <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
-            </div>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                The button label changes to <strong>Save changes</strong>. The
-                heading changes too. The form is otherwise identical — same
-                fields, same order, same validation.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — client-side validation
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-invalid-h">
-        <p class="state__label" id="tf-invalid-h">State — client-side validation</p>
-
-        <div class="card">
-            <div class="field">
-                <span class="field__label" id="tf-type3-label">Type</span>
-                <div class="radio-group" role="radiogroup" aria-labelledby="tf-type3-label">
-                    <label class="radio radio--income" for="tf3-in">
-                        <input type="radio" id="tf3-in" name="type" value="income" checked>
-                        Income
-                    </label>
-                    <label class="radio radio--expense" for="tf3-out">
-                        <input type="radio" id="tf3-out" name="type" value="expense">
-                        Spending
-                    </label>
+            <div class="page__header">
+                <div>
+                    <h2 class="page__title">Edit transaction</h2>
+                    <p class="page__subtitle">Changing a transaction changes the totals of every period it belongs to.</p>
                 </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf3-amount">Amount</label>
-                <span class="field__hint" id="tf3-amount-hint">Enter the amount with up to two decimals. It must be greater than zero.</span>
-                <input class="input input--amount" id="tf3-amount" name="amount" type="number"
-                       step="0.01" inputmode="decimal" min="0" value="0" aria-invalid="true"
-                       aria-describedby="tf3-amount-hint tf3-amount-msg">
-                <span class="field__error" id="tf3-amount-msg">The amount must be greater than zero.</span>
-            </div>
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type2-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type2-label">
+                        <label class="radio radio--income" for="tf2-in">
+                            <input type="radio" id="tf2-in" name="type" value="income">
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf2-out">
+                            <input type="radio" id="tf2-out" name="type" value="expense" checked>
+                            Spending
+                        </label>
+                    </div>
+                </div>
 
-            <div class="field">
-                <label class="field__label" for="tf3-date">Date</label>
-                <span class="field__hint" id="tf3-date-hint">The transaction date.</span>
-                <input class="input" id="tf3-date" name="date" type="date"
-                       value="2026-02-31" aria-invalid="true"
-                       aria-describedby="tf3-date-hint tf3-date-msg">
-                <span class="field__error" id="tf3-date-msg">Enter a valid date.</span>
-            </div>
+                <div class="field">
+                    <label class="field__label" for="tf2-amount">Amount</label>
+                    <input class="input input--amount" id="tf2-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="42.80">
+                </div>
 
-            <div class="field">
-                <label class="field__label" for="tf3-cat">Category</label>
-                <select class="select" id="tf3-cat" name="category">
-                    <option value="">No category</option>
-                    <option value="groceries">Groceries</option>
-                </select>
-            </div>
+                <div class="field">
+                    <label class="field__label" for="tf2-date">Date</label>
+                    <input class="input" id="tf2-date" name="date" type="date" value="2026-10-24">
+                </div>
 
-            <div class="field">
-                <label class="field__label" for="tf3-desc">Description</label>
-                <span class="field__hint" id="tf3-desc-hint">Optional. Up to 255 characters.</span>
-                <input class="input" id="tf3-desc" name="description" type="text"
-                       maxlength="255" value="A description that is rather long and will be cut off at two hundred and fifty five characters exactly here" aria-describedby="tf3-desc-hint tf3-desc-msg">
-                <span class="field__error" id="tf3-desc-msg">The description must be at most 255 characters long.</span>
-            </div>
+                <div class="field">
+                    <label class="field__label" for="tf2-cat">Category</label>
+                    <select class="select" id="tf2-cat" name="category">
+                        <option value="">No category</option>
+                        <option value="groceries" selected>Groceries</option>
+                        <option value="utilities">Utilities</option>
+                        <option value="eating-out">Eating out</option>
+                    </select>
+                </div>
 
-            <div class="btn-group">
-                <button type="button" class="btn btn--primary">Save transaction</button>
-                <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
-            </div>
-        </div>
-    </section>
+                <div class="field">
+                    <label class="field__label" for="tf2-desc">Description</label>
+                    <input class="input" id="tf2-desc" name="description" type="text"
+                           maxlength="255" value="Weekly groceries">
+                </div>
 
-    <!-- ==============================================================
-         STATE — server rejection: amount
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-amt-rej-h">
-        <p class="state__label" id="tf-amt-rej-h">State — server rejection, amount</p>
-
-        <div class="card">
-            <div class="field">
-                <span class="field__label" id="tf-type4-label">Type</span>
-                <div class="radio-group" role="radiogroup" aria-labelledby="tf-type4-label">
-                    <label class="radio radio--income" for="tf4-in">
-                        <input type="radio" id="tf4-in" name="type" value="income">
-                        Income
-                    </label>
-                    <label class="radio radio--expense" for="tf4-out">
-                        <input type="radio" id="tf4-out" name="type" value="expense" checked>
-                        Spending
-                    </label>
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save changes</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
                 </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf4-amount">Amount</label>
-                <span class="field__hint" id="tf4-amount-hint">Enter the amount with up to two decimals. It must be greater than zero.</span>
-                <input class="input input--amount" id="tf4-amount" name="amount" type="number"
-                       step="0.01" inputmode="decimal" min="0" value="-12.00" aria-invalid="true"
-                       aria-describedby="tf4-amount-hint tf4-amount-msg">
-                <span class="field__error" id="tf4-amount-msg">The amount must be greater than zero.</span>
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    The button label changes to <strong>Save changes</strong>. The
+                    heading changes too. The form is otherwise identical — same
+                    fields, same order, same validation.
+                </p>
             </div>
+        </section>
 
-            <div class="field">
-                <label class="field__label" for="tf4-date">Date</label>
-                <input class="input" id="tf4-date" name="date" type="date" value="2026-10-24">
+        <!-- ==============================================================
+             STATE — client-side validation
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-invalid-h">
+            <p class="state__label" id="tf-invalid-h">State — client-side validation</p>
+
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type3-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type3-label">
+                        <label class="radio radio--income" for="tf3-in">
+                            <input type="radio" id="tf3-in" name="type" value="income" checked>
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf3-out">
+                            <input type="radio" id="tf3-out" name="type" value="expense">
+                            Spending
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf3-amount">Amount</label>
+                    <span class="field__hint" id="tf3-amount-hint">Enter the amount with up to two decimals. It must be greater than zero.</span>
+                    <input class="input input--amount" id="tf3-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="0" aria-invalid="true"
+                           aria-describedby="tf3-amount-hint tf3-amount-msg">
+                    <span class="field__error" id="tf3-amount-msg">The amount must be greater than zero.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf3-date">Date</label>
+                    <span class="field__hint" id="tf3-date-hint">The transaction date.</span>
+                    <input class="input" id="tf3-date" name="date" type="date"
+                           value="2026-02-31" aria-invalid="true"
+                           aria-describedby="tf3-date-hint tf3-date-msg">
+                    <span class="field__error" id="tf3-date-msg">Enter a valid date.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf3-cat">Category</label>
+                    <select class="select" id="tf3-cat" name="category">
+                        <option value="">No category</option>
+                        <option value="groceries">Groceries</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf3-desc">Description</label>
+                    <span class="field__hint" id="tf3-desc-hint">Optional. Up to 255 characters.</span>
+                    <input class="input" id="tf3-desc" name="description" type="text"
+                           maxlength="255" value="A description that is rather long and will be cut off at two hundred and fifty five characters exactly here" aria-describedby="tf3-desc-hint tf3-desc-msg">
+                    <span class="field__error" id="tf3-desc-msg">The description must be at most 255 characters long.</span>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
+                </div>
             </div>
+        </section>
 
-            <div class="field">
-                <label class="field__label" for="tf4-cat">Category</label>
-                <select class="select" id="tf4-cat" name="category">
-                    <option value="">No category</option>
-                    <option value="groceries" selected>Groceries</option>
-                </select>
-            </div>
+        <!-- ==============================================================
+             STATE — server rejection: amount
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-amt-rej-h">
+            <p class="state__label" id="tf-amt-rej-h">State — server rejection, amount</p>
 
-            <div class="field">
-                <label class="field__label" for="tf4-desc">Description</label>
-                <input class="input" id="tf4-desc" name="description" type="text"
-                       maxlength="255" value="Weekly groceries">
-            </div>
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type4-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type4-label">
+                        <label class="radio radio--income" for="tf4-in">
+                            <input type="radio" id="tf4-in" name="type" value="income">
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf4-out">
+                            <input type="radio" id="tf4-out" name="type" value="expense" checked>
+                            Spending
+                        </label>
+                    </div>
+                </div>
 
-            <div class="btn-group">
-                <button type="button" class="btn btn--primary">Save transaction</button>
-                <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
-            </div>
-        </div>
+                <div class="field">
+                    <label class="field__label" for="tf4-amount">Amount</label>
+                    <span class="field__hint" id="tf4-amount-hint">Enter the amount with up to two decimals. It must be greater than zero.</span>
+                    <input class="input input--amount" id="tf4-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="-12.00" aria-invalid="true"
+                           aria-describedby="tf4-amount-hint tf4-amount-msg">
+                    <span class="field__error" id="tf4-amount-msg">The amount must be greater than zero.</span>
+                </div>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                The server's rejection is rendered in <strong>the same
-                place</strong> as the client's — the field's own error
-                message — and the other fields keep the values the visitor
-                entered.
-            </p>
-        </div>
-    </section>
+                <div class="field">
+                    <label class="field__label" for="tf4-date">Date</label>
+                    <input class="input" id="tf4-date" name="date" type="date" value="2026-10-24">
+                </div>
 
-    <!-- ==============================================================
-         STATE — server rejection: date
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-date-rej-h">
-        <p class="state__label" id="tf-date-rej-h">State — server rejection, impossible date</p>
+                <div class="field">
+                    <label class="field__label" for="tf4-cat">Category</label>
+                    <select class="select" id="tf4-cat" name="category">
+                        <option value="">No category</option>
+                        <option value="groceries" selected>Groceries</option>
+                    </select>
+                </div>
 
-        <div class="card">
-            <div class="field">
-                <span class="field__label" id="tf-type5-label">Type</span>
-                <div class="radio-group" role="radiogroup" aria-labelledby="tf-type5-label">
-                    <label class="radio radio--income" for="tf5-in">
-                        <input type="radio" id="tf5-in" name="type" value="income" checked>
-                        Income
-                    </label>
-                    <label class="radio radio--expense" for="tf5-out">
-                        <input type="radio" id="tf5-out" name="type" value="expense">
-                        Spending
-                    </label>
+                <div class="field">
+                    <label class="field__label" for="tf4-desc">Description</label>
+                    <input class="input" id="tf4-desc" name="description" type="text"
+                           maxlength="255" value="Weekly groceries">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
                 </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf5-amount">Amount</label>
-                <input class="input input--amount" id="tf5-amount" name="amount" type="number"
-                       step="0.01" inputmode="decimal" min="0" value="42.80">
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    The server's rejection is rendered in <strong>the same
+                    place</strong> as the client's — the field's own error
+                    message — and the other fields keep the values the visitor
+                    entered.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — server rejection: date
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-date-rej-h">
+            <p class="state__label" id="tf-date-rej-h">State — server rejection, impossible date</p>
+
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type5-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type5-label">
+                        <label class="radio radio--income" for="tf5-in">
+                            <input type="radio" id="tf5-in" name="type" value="income" checked>
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf5-out">
+                            <input type="radio" id="tf5-out" name="type" value="expense">
+                            Spending
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf5-amount">Amount</label>
+                    <input class="input input--amount" id="tf5-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="42.80">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf5-date">Date</label>
+                    <span class="field__hint" id="tf5-date-hint">The transaction date.</span>
+                    <input class="input" id="tf5-date" name="date" type="date"
+                           value="2026-02-31" aria-invalid="true"
+                           aria-describedby="tf5-date-hint tf5-date-msg">
+                    <span class="field__error" id="tf5-date-msg">Enter a valid date.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf5-cat">Category</label>
+                    <select class="select" id="tf5-cat" name="category">
+                        <option value="">No category</option>
+                        <option value="groceries" selected>Groceries</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf5-desc">Description</label>
+                    <input class="input" id="tf5-desc" name="description" type="text"
+                           maxlength="255" value="Weekly groceries">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
+                </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf5-date">Date</label>
-                <span class="field__hint" id="tf5-date-hint">The transaction date.</span>
-                <input class="input" id="tf5-date" name="date" type="date"
-                       value="2026-02-31" aria-invalid="true"
-                       aria-describedby="tf5-date-hint tf5-date-msg">
-                <span class="field__error" id="tf5-date-msg">Enter a valid date.</span>
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    <code>2026-02-31</code> is not a real date — February 2026 has
+                    28 days. The browser's date control may reject it, but the
+                    server must reject it too, because a crafted request bypasses
+                    the control entirely.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — server error, values preserved
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-500-h">
+            <p class="state__label" id="tf-500-h">State — server error, the entered values are preserved</p>
+
+            <div class="card">
+                <div role="alert">
+                    <div class="alert alert--danger">
+                        <div class="alert__body">
+                            <p class="alert__title">Something went wrong on our side. Please try again.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <span class="field__label" id="tf-type6-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type6-label">
+                        <label class="radio radio--income" for="tf6-in">
+                            <input type="radio" id="tf6-in" name="type" value="income">
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf6-out">
+                            <input type="radio" id="tf6-out" name="type" value="expense" checked>
+                            Spending
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf6-amount">Amount</label>
+                    <input class="input input--amount" id="tf6-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="42.80">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf6-date">Date</label>
+                    <input class="input" id="tf6-date" name="date" type="date" value="2026-10-24">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf6-cat">Category</label>
+                    <select class="select" id="tf6-cat" name="category">
+                        <option value="">No category</option>
+                        <option value="groceries" selected>Groceries</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf6-desc">Description</label>
+                    <input class="input" id="tf6-desc" name="description" type="text"
+                           maxlength="255" value="Weekly groceries">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
+                </div>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf5-cat">Category</label>
-                <select class="select" id="tf5-cat" name="category">
-                    <option value="">No category</option>
-                    <option value="groceries" selected>Groceries</option>
-                </select>
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    A server error must not lose the visitor's work. Every field
+                    keeps its value so the submit can be retried without
+                    retyping.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — success
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-ok-h">
+            <p class="state__label" id="tf-ok-h">State — success</p>
+
+            <div class="card">
+                <div role="status" aria-live="polite">
+                    <div class="alert alert--success">
+                        <div class="alert__body">
+                            <p class="alert__title">Transaction saved.</p>
+                            <p>You are being redirected to the transaction list.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <a class="btn btn--primary" href="06-transactions.html">Go to transactions now</a>
             </div>
 
-            <div class="field">
-                <label class="field__label" for="tf5-desc">Description</label>
-                <input class="input" id="tf5-desc" name="description" type="text"
-                       maxlength="255" value="Weekly groceries">
+            <div class="spec-note">
+                <span class="spec-note__label">Implementation note</span>
+                <p>
+                    The confirmation states what happened and says where the
+                    visitor is going. A redirect that depends on JavaScript still
+                    needs a visible link as the fallback.
+                </p>
             </div>
+        </section>
 
-            <div class="btn-group">
-                <button type="button" class="btn btn--primary">Save transaction</button>
-                <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
-            </div>
-        </div>
+        <!-- ==============================================================
+             STATE — delete action on the edit screen
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-del-h">
+            <p class="state__label" id="tf-del-h">State — the delete action on the edit screen</p>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                <code>2026-02-31</code> is not a real date — February 2026 has
-                28 days. The browser's date control may reject it, but the
-                server must reject it too, because a crafted request bypasses
-                the control entirely.
-            </p>
-        </div>
-    </section>
+            <div class="card">
+                <h2>Danger zone</h2>
+                <p class="field__hint">
+                    Deleting removes this entry from every report it appears in.
+                </p>
 
-    <!-- ==============================================================
-         STATE — server error, values preserved
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-500-h">
-        <p class="state__label" id="tf-500-h">State — server error, the entered values are preserved</p>
-
-        <div class="card">
-            <div role="alert">
-                <div class="alert alert--danger">
-                    <div class="alert__body">
-                        <p class="alert__title">Something went wrong on our side. Please try again.</p>
+                <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tf-del-title">
+                    <h3 class="modal__title" id="tf-del-title">Delete this transaction?</h3>
+                    <p>
+                        <strong>Weekly groceries</strong><br>
+                        24 October 2026 · <span class="amount amount--expense">−42.80</span>
+                    </p>
+                    <p>
+                        This cannot be undone.
+                    </p>
+                    <div class="modal__actions">
+                        <button type="button" class="btn btn--secondary" data-modal-close="tf-del-modal">Cancel</button>
+                        <button type="button" class="btn btn--danger">Delete transaction</button>
                     </div>
                 </div>
             </div>
 
-            <div class="field">
-                <span class="field__label" id="tf-type6-label">Type</span>
-                <div class="radio-group" role="radiogroup" aria-labelledby="tf-type6-label">
-                    <label class="radio radio--income" for="tf6-in">
-                        <input type="radio" id="tf6-in" name="type" value="income">
-                        Income
-                    </label>
-                    <label class="radio radio--expense" for="tf6-out">
-                        <input type="radio" id="tf6-out" name="type" value="expense" checked>
-                        Spending
-                    </label>
-                </div>
-            </div>
-
-            <div class="field">
-                <label class="field__label" for="tf6-amount">Amount</label>
-                <input class="input input--amount" id="tf6-amount" name="amount" type="number"
-                       step="0.01" inputmode="decimal" min="0" value="42.80">
-            </div>
-
-            <div class="field">
-                <label class="field__label" for="tf6-date">Date</label>
-                <input class="input" id="tf6-date" name="date" type="date" value="2026-10-24">
-            </div>
-
-            <div class="field">
-                <label class="field__label" for="tf6-cat">Category</label>
-                <select class="select" id="tf6-cat" name="category">
-                    <option value="">No category</option>
-                    <option value="groceries" selected>Groceries</option>
-                </select>
-            </div>
-
-            <div class="field">
-                <label class="field__label" for="tf6-desc">Description</label>
-                <input class="input" id="tf6-desc" name="description" type="text"
-                       maxlength="255" value="Weekly groceries">
-            </div>
-
-            <div class="btn-group">
-                <button type="button" class="btn btn--primary">Save transaction</button>
-                <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
-            </div>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                A server error must not lose the visitor's work. Every field
-                keeps its value so the submit can be retried without
-                retyping.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — success
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-ok-h">
-        <p class="state__label" id="tf-ok-h">State — success</p>
-
-        <div class="card">
-            <div role="status" aria-live="polite">
-                <div class="alert alert--success">
-                    <div class="alert__body">
-                        <p class="alert__title">Transaction saved.</p>
-                        <p>You are being redirected to the transaction list.</p>
-                    </div>
-                </div>
-            </div>
-
-            <a class="btn btn--primary" href="06-transactions.html">Go to transactions now</a>
-        </div>
-
-        <div class="spec-note">
-            <span class="spec-note__label">Implementation note</span>
-            <p>
-                The confirmation states what happened and says where the
-                visitor is going. A redirect that depends on JavaScript still
-                needs a visible link as the fallback.
-            </p>
-        </div>
-    </section>
-
-    <!-- ==============================================================
-         STATE — delete action on the edit screen
-         ============================================================== -->
-    <section class="state" aria-labelledby="tf-del-h">
-        <p class="state__label" id="tf-del-h">State — the delete action on the edit screen</p>
-
-        <div class="card">
-            <h2>Danger zone</h2>
-            <p class="field__hint">
-                Deleting removes this entry from every report it appears in.
-            </p>
-
-            <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tf-del-title">
-                <h3 class="modal__title" id="tf-del-title">Delete this transaction?</h3>
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
                 <p>
-                    <strong>Weekly groceries</strong><br>
-                    24 October 2026 · <span class="amount amount--expense">−42.80</span>
+                    The delete action lives in its own <strong>separated danger
+                    block</strong>, below the save actions and visually distinct
+                    from them. It never shares a button group with "Save changes".
                 </p>
-                <p>
-                    This cannot be undone.
-                </p>
-                <div class="modal__actions">
-                    <button type="button" class="btn btn--secondary" data-modal-close="tf-del-modal">Cancel</button>
-                    <button type="button" class="btn btn--danger">Delete transaction</button>
-                </div>
             </div>
-        </div>
+        </section>
 
-        <div class="spec-note">
-            <span class="spec-note__label">Rule</span>
-            <p>
-                The delete action lives in its own <strong>separated danger
-                block</strong>, below the save actions and visually distinct
-                from them. It never shares a button group with "Save changes".
-            </p>
-        </div>
-    </section>
+    </main>
 
-</main>
-
-<footer class="app__footer">
-    <p>Financial Tracker · personal use.</p>
-</footer>
+    <footer class="app__footer">
+        <p>Financial Tracker · personal use.</p>
+    </footer>
+</div>
 
 <nav class="bottom-nav" aria-label="Primary, mobile">
     <div class="bottom-nav__inner">

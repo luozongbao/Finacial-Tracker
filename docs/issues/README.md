@@ -101,8 +101,9 @@ The implementation copies the shape, not the text.
 
 > The DevOps track is done: the stack runs, the mockup viewer runs, and the web
 > root is hardened with a regression test that guards it. The UX/UI track is
-> still open — `docs/mockup/` holds only the placeholder gallery and the
-> shared `assets/` layer.
+> done too: `docs/mockup/` holds the design-system reference page, all twelve
+> screens and the shared `assets/` layer, and every screen fits a 320 px
+> viewport without sideways scrolling.
 
 ---
 

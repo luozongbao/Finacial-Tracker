@@ -35,9 +35,17 @@
 
             <div class="field">
                 <label class="field__label" for="reg-email">Email</label>
-                <span class="field__hint" id="reg-email-hint">Used for the password reset link. It must be unique.</span>
+                <span class="field__hint" id="reg-email-hint">Used for account verification and the password reset link. It must be unique.</span>
                 <input class="input" id="reg-email" name="email" type="email"
                        autocomplete="email" aria-describedby="reg-email-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email2">Confirm email</label>
+                <span class="field__hint" id="reg-email2-hint">Type the same address again.</span>
+                <input class="input" id="reg-email2" name="email_confirmation" type="email"
+                       autocomplete="email" value=""
+                       aria-describedby="reg-email2-hint">
             </div>
 
             <div class="field">
@@ -89,11 +97,20 @@
 
             <div class="field">
                 <label class="field__label" for="reg-email-2">Email</label>
-                <span class="field__hint" id="reg-email-2-hint">Used for the password reset link. It must be unique.</span>
+                <span class="field__hint" id="reg-email-2-hint">Used for account verification and the password reset link. It must be unique.</span>
                 <input class="input" id="reg-email-2" name="email" type="email"
                        autocomplete="email" value="not-an-address" aria-invalid="true"
                        aria-describedby="reg-email-2-hint reg-email-2-msg">
                 <span class="field__error" id="reg-email-2-msg">Enter a valid email address.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email3">Confirm email</label>
+                <span class="field__hint" id="reg-email3-hint">Type the same address again.</span>
+                <input class="input" id="reg-email3" name="email_confirmation" type="email"
+                       autocomplete="email" value="demo@example.com" aria-invalid="true"
+                       aria-describedby="reg-email3-hint reg-email3-msg">
+                <span class="field__error" id="reg-email3-msg">The two email addresses do not match.</span>
             </div>
 
             <div class="field">
@@ -119,6 +136,15 @@
                 <a href="01-login.html">I already have an account</a>
             </div>
         </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The two email fields must match. The rule is enforced on the
+                <strong>server</strong> — the client-side check is advisory,
+                exactly like the password rule.
+            </p>
+        </div>
     </section>
 
     <!-- ==============================================================
@@ -141,9 +167,17 @@
 
             <div class="field">
                 <label class="field__label" for="reg-email-3">Email</label>
-                <span class="field__hint" id="reg-email-3-hint">Used for the password reset link. It must be unique.</span>
+                <span class="field__hint" id="reg-email-3-hint">Used for account verification and the password reset link. It must be unique.</span>
                 <input class="input" id="reg-email-3" name="email" type="email"
                        autocomplete="email" value="demo@example.com" aria-describedby="reg-email-3-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email4">Confirm email</label>
+                <span class="field__hint" id="reg-email4-hint">Type the same address again.</span>
+                <input class="input" id="reg-email4" name="email_confirmation" type="email"
+                       autocomplete="email" value="demo@example.com"
+                       aria-describedby="reg-email4-hint">
             </div>
 
             <div class="field">
@@ -195,11 +229,19 @@
 
             <div class="field">
                 <label class="field__label" for="reg-email-4">Email</label>
-                <span class="field__hint" id="reg-email-4-hint">Used for the password reset link. It must be unique.</span>
+                <span class="field__hint" id="reg-email-4-hint">Used for account verification and the password reset link. It must be unique.</span>
                 <input class="input" id="reg-email-4" name="email" type="email"
                        autocomplete="email" value="taken@example.com" aria-invalid="true"
                        aria-describedby="reg-email-4-hint reg-email-4-msg">
                 <span class="field__error" id="reg-email-4-msg">That email address is already registered.</span>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email5">Confirm email</label>
+                <span class="field__hint" id="reg-email5-hint">Type the same address again.</span>
+                <input class="input" id="reg-email5" name="email_confirmation" type="email"
+                       autocomplete="email" value="taken@example.com"
+                       aria-describedby="reg-email5-hint">
             </div>
 
             <div class="field">
@@ -241,9 +283,17 @@
 
             <div class="field">
                 <label class="field__label" for="reg-email-5">Email</label>
-                <span class="field__hint" id="reg-email-5-hint">Used for the password reset link. It must be unique.</span>
+                <span class="field__hint" id="reg-email-5-hint">Used for account verification and the password reset link. It must be unique.</span>
                 <input class="input" id="reg-email-5" name="email" type="email"
                        autocomplete="email" value="demo@example.com" aria-describedby="reg-email-5-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="reg-email6">Confirm email</label>
+                <span class="field__hint" id="reg-email6-hint">Type the same address again.</span>
+                <input class="input" id="reg-email6" name="email_confirmation" type="email"
+                       autocomplete="email" value="demo@example.com"
+                       aria-describedby="reg-email6-hint">
             </div>
 
             <div class="field">
@@ -289,7 +339,7 @@
                 <div class="alert alert--success">
                     <div class="alert__body">
                         <p class="alert__title">Your account is ready.</p>
-                        <p>You can now sign in and record your first transaction.</p>
+                        <p>We sent a confirmation message to <strong>demo@example.com</strong>. Check your inbox to confirm the address, then sign in and record your first transaction.</p>
                     </div>
                 </div>
             </div>
@@ -308,6 +358,12 @@
                 mockup shows the <strong>sign-in</strong> outcome, because
                 the copy must not promise an automatic session that the
                 server does not create.
+            </p>
+            <p>
+                The confirmation message needs SMTP. If mail is not
+                configured, the registration must <strong>say so</strong> —
+                "the account was created, but the confirmation message could
+                not be sent" — instead of failing silently.
             </p>
         </div>
     </section>
