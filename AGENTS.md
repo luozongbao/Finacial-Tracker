@@ -10,12 +10,12 @@ This file holds only what an agent cannot infer from the tree.
 
 **Greenfield — the application code barely exists yet: only the schema, the
 core runtime, the design-token layer, the front controller, the install
-wizard and the authentication have been written. The development infrastructure
-and the design deliverables are complete.**
+wizard, the authentication and the dashboard have been written. The development
+infrastructure and the design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out), `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 017–020** | the five application screens (dashboard, transactions, transaction form, reports, categories, settings) and their page stylesheets |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 018–020** | the remaining four application screens (transactions, transaction form, reports, categories, settings) and their page stylesheets |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -31,7 +31,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first six issues in.** Issue 011
+The **application track (issues 011–020) has its first seven issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -61,11 +61,18 @@ verification tokens and the credential version; `views/` holds the six auth
 screens; `assets/css/pages/auth.css` is the stylesheet they share; the
 mailer is loaded by the front controller; and `database/auth_test.php` guards
 all of it in two tiers — the sources, and a sandbox that runs the real screens
-against a scratch database with a stub mailer. The remaining four issues
-(017–020) are **specified but not written** — they are the specification a
-developer picks up to build the five application screens. The repository itself
-is still mostly greenfield — the page stylesheets of those five screens arrive
-with their screen.
+against a scratch database with a stub mailer. Issue 017 (the dashboard) is
+**implemented and verified** — `views/dashboard.php` holds the three tiles,
+the recent card and the three empty states; the four shared helpers
+(`formatSignedMoney()`, `isZeroAmount()`, `formatPeriodLabel()`,
+`formatPeriodSpan()`) live in `includes/functions.php`;
+`assets/css/pages/dashboard.css` is the stylesheet the screen needs; and
+`database/dashboard_test.php` guards all of it in two tiers — the sources,
+and a sandbox that runs the real screen against a scratch database. The
+remaining three issues (018–020) are **specified but not written** — they are
+the specification a developer picks up to build the remaining four application
+screens. The repository itself is still mostly greenfield — the page
+stylesheets of those screens arrive with their screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -113,11 +120,13 @@ includes/              # [exists] mailer.php, bootstrap.php, Database.php, funct
                        # [exists] header.php, footer.php — the two shells   [issue-013]
   views/               # [exists] the four error pages + the bootstrap page [issue-014]
 views/                 # [exists] the six auth screens                   [issue-016]
-                       # [TODO] one PHP view per application screen      [issues-017..020]
+                       # [exists] dashboard.php                          [issue-017]
+                       # [TODO] one PHP view per application screen      [issues-018..020]
 assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
   pages/               # [exists] install.css                            [issue-015]
                        # [exists] auth.css                              [issue-016]
-                       # [TODO] one page stylesheet per screen, with it    [issues-017..020]
+                       # [exists] dashboard.css                         [issue-017]
+                       # [TODO] one page stylesheet per screen, with it    [issues-018..020]
 assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
 assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/
@@ -363,11 +372,21 @@ Amounts are `DECIMAL(14,2)` in the database. Never do arithmetic on PHP floats f
 (`0.1 + 0.2 !== 0.3`). Compute sums in SQL, read them back as strings, and format for
 display with `number_format()`.
 
+The negative sign is **U+2212** (`−`), never an ASCII hyphen, and it is written as the
+**literal character** — `"\u{2212}"` renders the same but is invisible to a source-level
+check, and a grep for the glyph does not find it.
+
 ### Period sums are computed in SQL
 
 Day / week / month / year grouping belongs in the query, not in a PHP loop over rows.
 Store transaction dates as `DATE` in UTC, and keep the week-start rule in one place
 (`WEEK_START` config constant, Monday by default) so reports and the UI agree.
+
+The **period label** is a span, not a month: a range that straddles two months must not
+read "October", because the screen summed something that is not a calendar month.
+`formatPeriodLabel()` and `formatPeriodSpan()` are the only places a label is built, and
+they use the **long** month name (`F`) — the mockup says "19 – 25 October 2026", not
+"19 – 25 Oct 2026".
 
 ### Output escaping and CSRF
 

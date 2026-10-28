@@ -19,6 +19,10 @@
  *      account.
  *   6. Every period becomes a date range in exactly one place:
  *      resolvePeriodRange().
+ *   7. A sign is added to an amount AFTER it is formatted, by
+ *      formatSignedMoney() — never inside number_format(), which renders a
+ *      negative with an ASCII hyphen. The typographic minus (U+2212) is the
+ *      glyph the design uses.
  *
  * Configuration comes from config.php and from nothing else — no getenv(),
  * no $_ENV, no $_SERVER-based configuration.
@@ -84,6 +88,49 @@ function e(string|int|float|bool|null $value): string
 function formatMoney(string $amount): string
 {
     return number_format((float) $amount, 2, '.', ',');
+}
+
+/**
+ * Format an amount with a sign — the way the money tiles show it.
+ *
+ * The sign is applied AFTER the formatting, never by number_format():
+ * number_format() renders a negative amount with an ASCII hyphen, and the
+ * design uses the typographic minus (U+2212).
+ *
+ * The magnitude is taken by stripping the sign as a STRING, so a signed
+ * value that arrives from SQL ("-158.20") is shown as its absolute value
+ * with the glyph the caller chose. Nothing here compares money.
+ *
+ * A zero carries NO sign. "+0.00" is noise, and the check is made on the
+ * FORMATTED value — the only place a zero has one stable shape.
+ *
+ * @param string $amount The decimal string, e.g. "158.20" or "-158.20".
+ * @param string $sign   The glyph to prepend: "+", the minus sign, or "".
+ */
+function formatSignedMoney(string $amount, string $sign): string
+{
+    $magnitude = formatMoney(ltrim(trim($amount), '+-'));
+
+    if ($magnitude === '0.00' || $sign === '') {
+        return $magnitude;
+    }
+
+    return $sign . $magnitude;
+}
+
+/**
+ * Is this decimal string a zero?
+ *
+ * A pattern and not a float comparison: the value comes from a
+ * DECIMAL(14,2) column and the money path must not turn it into a float
+ * to decide anything.
+ *
+ * "0", "0.00" and "-0.00" are zeros. An empty string is NOT a zero — a
+ * missing value is a broken query, not a sum of nothing.
+ */
+function isZeroAmount(string $value): bool
+{
+    return preg_match('/^[+-]?0+(\.0+)?$/', trim($value)) === 1;
 }
 
 /**
@@ -379,6 +426,91 @@ function formatDate(?string $isoDate): string
     $ts = strtotime($isoDate . ' UTC');
 
     return $ts === false ? '' : gmdate('j M Y', $ts);
+}
+
+/**
+ * The human label of a resolved period range.
+ *
+ * The SHAPE comes from the period and the VALUES come from the range:
+ *
+ *   day     "24 October 2026"
+ *   week    "19 – 25 October 2026"
+ *   month   "October 2026"
+ *   year    "2026"
+ *   custom  "1 – 31 October 2026"
+ *
+ * The week and the custom labels are always SPANS. A custom range that
+ * straddles two months must not read "October" — it is not a calendar
+ * month, and the label has to say what was actually summed.
+ *
+ * @param string $from   The first day of the range, YYYY-MM-DD.
+ * @param string $to     The last day of the range, YYYY-MM-DD.
+ * @param string $period The normalised period: day, week, month, year or custom.
+ */
+function formatPeriodLabel(string $from, string $to, string $period): string
+{
+    $period = normalizePeriod($period);
+
+    $fromTs = strtotime($from . ' UTC');
+
+    if ($fromTs === false) {
+        return '';
+    }
+
+    if ($period === 'day') {
+        return gmdate('j F Y', $fromTs);
+    }
+
+    if ($period === 'month') {
+        return gmdate('F Y', $fromTs);
+    }
+
+    if ($period === 'year') {
+        return gmdate('Y', $fromTs);
+    }
+
+    return formatPeriodSpan($from, $to);
+}
+
+/**
+ * A date range as one phrase: "19 – 25 October 2026".
+ *
+ * The dash between the two ends is an EN DASH (U+2013) with a space on
+ * each side. A hyphen is a different glyph, and in a money column it
+ * reads as a separator.
+ *
+ * The joiner is a parameter because the same range is also needed inside
+ * a sentence — "Nothing was recorded between 19 and 25 October 2026." —
+ * and a dash does not belong there.
+ *
+ * @param string $from   The first day of the range, YYYY-MM-DD.
+ * @param string $to     The last day of the range, YYYY-MM-DD.
+ * @param string $joiner What sits between the two ends.
+ */
+function formatPeriodSpan(string $from, string $to, string $joiner = "\u{2013}"): string
+{
+    $fromTs = strtotime($from . ' UTC');
+    $toTs   = strtotime($to . ' UTC');
+
+    if ($fromTs === false || $toTs === false) {
+        return '';
+    }
+
+    $sameYear  = gmdate('Y', $fromTs) === gmdate('Y', $toTs);
+    $sameMonth = $sameYear && gmdate('m', $fromTs) === gmdate('m', $toTs);
+
+    // 19 – 25 October 2026
+    if ($sameMonth) {
+        return gmdate('j', $fromTs) . ' ' . $joiner . ' ' . gmdate('j', $toTs) . ' ' . gmdate('F Y', $toTs);
+    }
+
+    // 28 October – 3 November 2026
+    if ($sameYear) {
+        return gmdate('j F', $fromTs) . ' ' . $joiner . ' ' . gmdate('j F', $toTs) . ' ' . gmdate('Y', $toTs);
+    }
+
+    // 20 December 2026 – 3 January 2027
+    return gmdate('j F Y', $fromTs) . ' ' . $joiner . ' ' . gmdate('j F Y', $toTs);
 }
 
 // ---------------------------------------------------------------------------

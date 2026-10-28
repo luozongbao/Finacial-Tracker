@@ -1,7 +1,12 @@
 # Issue-017 — App: the dashboard
 
-> **Status:** **specified, not implemented** — `views/dashboard.php` does not exist
-> yet.
+> **Status:** **implemented and verified** — `views/dashboard.php` exists,
+> `assets/css/pages/dashboard.css` is its stylesheet, and the layer is guarded
+> by `database/dashboard_test.php` (133 assertions, in two tiers: the sources,
+> and a sandbox that runs the real screen against a scratch database). The
+> walk-through found **two real defects** — an abbreviated month name in the
+> period labels and a typographic minus written as a PHP escape — which are
+> fixed and now asserted.
 > **Target:** v0.2 (the application) — the screen the product opens on.
 > **Severity:** **high** — the dashboard is the first screen every signed-in
 > visitor sees, and it is where a wrong total is most visible.
@@ -700,3 +705,82 @@ No schema change is involved, so there is **no data rollback**.
 - **The transactions, reports, categories and settings screens** — issues
   [018](issue-018.md) – [020](issue-020.md).
 - **A client-side loading state.** The dashboard is server-rendered.
+
+---
+
+## Implementation notes — 2026-10-28
+
+### The decisions the specification left open
+
+| Question | Decision |
+|---|---|
+| Where does the period live? | In the query string — `?period=`, and `?from=` / `?to=` for a custom range. The period selector is a row of plain links, so it works without JavaScript. |
+| What is the selector's own token for the day period? | `today`. The query string may say `today` or `day` — `normalizePeriod()` makes them the same period — but the selector says `Today` and the group attribute says `today`, so the link and the group always agree. |
+| Which sibling does the empty state suggest? | The next one up: the week suggests the month, the month suggests the year, the year suggests the month. The custom range suggests the month. |
+| What does the custom range show before a range is typed? | The form, and **no tiles**. An empty range is not a zero. |
+| Is the "Try again" button a link or a button? | A `<button>`, reloading the page through `assets/js/app.js` — the `data-reload` attribute. A link would put the query string in the URL bar; the reload must be the same URL. |
+
+### The four shared helpers
+
+`includes/functions.php` gained four helpers, all of them pure and all of them
+guarded by unit assertions:
+
+| Helper | What it does |
+|---|---|
+| `formatSignedMoney(string $amount, string $sign): string` | Formats a decimal string and prepends the sign. The sign is **stripped from the value first**, so a negative `net` does not turn into a double minus. A zero gets **no sign** — a zero is not a direction. |
+| `isZeroAmount(string $value): bool` | Is this decimal string a zero? An **empty string is not a zero**. |
+| `formatPeriodLabel(string $from, string $to, string $period): string` | The label under the tiles. The shape comes from the period, the values from the range: `24 October 2026`, `October 2026`, `2026`, `19 – 25 October 2026`. |
+| `formatPeriodSpan(string $from, string $to, string $joiner = "–"): string` | A range as one phrase. The joiner is a parameter because the same range is needed inside a sentence — *"Nothing was recorded between 19 and 25 October 2026."* — where a dash does not belong. |
+
+`formatPeriodLabel()` takes the period **and** the range, and the span is always
+a span: a custom range that straddles two months must not read "October",
+because the screen summed something that is not a calendar month.
+
+### The two defects the test found
+
+1. **The month name was abbreviated.** The labels came out as "24 Oct 2026"
+   instead of "24 October 2026" — `gmdate('M Y')` is the *short* month, and the
+   specification pins the long one. Both the label and the span now use `F`.
+   The same fix removed a second, quieter bug: a week that straddles a month
+   boundary took the same-year shape ("26 October – 1 November 2026"), which
+   is right, but the two-years branch still said "20 Dec 2026 – 3 Jan 2027".
+2. **The typographic minus was written as a PHP escape.** The view held
+   `"\u{2212}"` instead of the character itself. The rendered page was right,
+   but the source did not contain the glyph, and a source-level check for
+   U+2212 could not see it. The view now carries the **literal characters** —
+   `−` (U+2212) and `→` (U+2192) — the way the shell views do.
+
+### What the guard covers
+
+`database/dashboard_test.php` checks two tiers:
+
+- **A — the sources.** The guard is the first call of the view; the period is
+  normalised and the range comes from `resolvePeriodRange()`; the sums, the
+  net and the sign of the net are computed in SQL and in no place else; every
+  statement filters on the owning user id; the recent list is a `LEFT JOIN`
+  capped at ten and is not filtered by the period; the error state announces
+  itself and leaks nothing; every dynamic value is escaped; the page
+  stylesheet uses the tokens only.
+- **B — the behaviour.** A sandbox copy of the application, served by the PHP
+  built-in server against a scratch database, answers the real requests: the
+  guard redirects, the month shows the three tiles with their signs, the
+  selector carries exactly one `aria-current="true"`, the recent list is
+  newest-first, `today` and `day` are the same period, an unknown period falls
+  back to the month, both empty states are distinguished, the custom range
+  refuses a reversed range and an impossible date and keeps the values that
+  were typed, a broken table produces the error state and **no** `0.00` tiles,
+  and two accounts never see each other's rows.
+
+The mutation check closes the last hole: the numbers the page shows are
+changed in the database and the page changes with them, so the tiles are
+provably not a rendering of a constant.
+
+### The verification
+
+```bash
+docker compose exec -T app php -l /var/www/html/views/dashboard.php
+docker compose exec -T app php /var/www/html/database/dashboard_test.php
+.github/skills/dev-stack-ops/scripts/run-tests.sh
+```
+
+All three pass, and the whole suite is green: **10 PASS / 0 FAIL**.

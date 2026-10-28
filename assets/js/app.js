@@ -352,6 +352,23 @@
     }
 
     /**
+     * Reloads the current page. The trigger carries no data beyond its own
+     * presence — it reloads the URL that is already in the address bar, so
+     * the selected period survives the reload.
+     *
+     * @returns {void}
+     */
+    function initReload() {
+        var buttons = document.querySelectorAll('[data-reload]');
+
+        Array.prototype.forEach.call(buttons, function (button) {
+            button.addEventListener('click', function () {
+                window.location.reload();
+            });
+        });
+    }
+
+    /**
      * Copies a value to the clipboard, with a fallback for insecure
      * contexts where navigator.clipboard is undefined.
      *
@@ -409,6 +426,7 @@
         initPeriodMarker();
         initPeriodPresets();
         initModals();
+        initReload();
         initCopy();
 
         // The screen is live. The flag lets a view tell "the script has not
