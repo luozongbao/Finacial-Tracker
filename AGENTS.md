@@ -10,12 +10,13 @@ This file holds only what an agent cannot infer from the tree.
 
 **Greenfield — the application code barely exists yet: only the schema, the
 core runtime, the design-token layer, the front controller, the install
-wizard, the authentication and the dashboard have been written. The development
-infrastructure and the design deliverables are complete.**
+wizard, the authentication, the dashboard and the transaction screens have been
+written. The development infrastructure and the design deliverables are
+complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 018–020** | the remaining four application screens (transactions, transaction form, reports, categories, settings) and their page stylesheets |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 019–020** | the remaining three application screens (reports, categories, settings) and their page stylesheets |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -31,7 +32,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first seven issues in.** Issue 011
+The **application track (issues 011–020) has its first eight issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -68,11 +69,20 @@ the recent card and the three empty states; the four shared helpers
 `formatPeriodSpan()`) live in `includes/functions.php`;
 `assets/css/pages/dashboard.css` is the stylesheet the screen needs; and
 `database/dashboard_test.php` guards all of it in two tiers — the sources,
-and a sandbox that runs the real screen against a scratch database. The
-remaining three issues (018–020) are **specified but not written** — they are
-the specification a developer picks up to build the remaining four application
-screens. The repository itself is still mostly greenfield — the page
-stylesheets of those screens arrive with their screen.
+and a sandbox that runs the real screen against a scratch database. Issue 018
+(the transaction list and the transaction form) is **implemented and
+verified** — `views/transactions.php` holds the filter bar, the presets, the
+table and the three states; `views/transaction_form.php` serves the add and
+the edit screen from **one** template; `views/transaction_save.php` and
+`views/transaction_delete.php` are the two write paths; the new helpers live
+in `includes/functions.php`; `assets/css/pages/transactions.css` is the
+stylesheet the screens share; and `database/transactions_test.php` guards all
+of it in two tiers — the sources, and a sandbox that runs the real screens
+against a scratch database. The remaining two issues (019–020) are
+**specified but not written** — they are the specification a developer picks up
+to build the remaining three application screens. The repository itself is
+still mostly greenfield — the page stylesheets of those screens arrive with
+their screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -121,12 +131,15 @@ includes/              # [exists] mailer.php, bootstrap.php, Database.php, funct
   views/               # [exists] the four error pages + the bootstrap page [issue-014]
 views/                 # [exists] the six auth screens                   [issue-016]
                        # [exists] dashboard.php                          [issue-017]
-                       # [TODO] one PHP view per application screen      [issues-018..020]
+                       # [exists] transactions.php, transaction_form.php,
+                       #            transaction_save.php, transaction_delete.php [issue-018]
+                       # [TODO] one PHP view per application screen      [issues-019..020]
 assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
   pages/               # [exists] install.css                            [issue-015]
                        # [exists] auth.css                              [issue-016]
                        # [exists] dashboard.css                         [issue-017]
-                       # [TODO] one page stylesheet per screen, with it    [issues-018..020]
+                       # [exists] transactions.css                     [issue-018]
+                       # [TODO] one page stylesheet per screen, with it    [issues-019..020]
 assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
 assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/
@@ -366,6 +379,38 @@ $id = (int)$db->execute($sql, $params); // BUG — always 1
 
 `EMULATE_PREPARES` is **false** → native prepares → **one statement per call**.
 
+There is **no `rowCount()`** on the class. A write that must know whether the
+row existed has to **SELECT it first**, with the ownership predicate in the
+same statement — a delete of a row that is not there is a **404**, not a
+silent success.
+
+### A heredoc interpolates a variable, never an expression
+
+````php
+$rowsSql = <<<SQL
+    LIMIT {(int) $perPage} OFFSET {(int) $offset}
+SQL;
+````
+
+The text above reaches the database as the literal string `{(int) 25} OFFSET
+{(int) 0}` — a heredoc interpolates a **variable**, so the cast is never
+evaluated. **Cast first, interpolate second:**
+
+````php
+$limitValue  = (int) $perPage;
+$offsetValue = (int) $offset;
+
+$rowsSql = <<<SQL
+    LIMIT {$limitValue} OFFSET {$offsetValue}
+SQL;
+````
+
+### A `??` comparison can never prove a value is null
+
+`($row['category_id'] ?? 'unset') === null` is **always false**: the `??`
+operator returns its right-hand side whenever the left one is null. To test
+for a null column, use `array_key_exists('category_id', $row) && $row['category_id'] === null`.
+
 ### Money is never a float
 
 Amounts are `DECIMAL(14,2)` in the database. Never do arithmetic on PHP floats for money
@@ -393,6 +438,8 @@ they use the **long** month name (`F`) — the mockup says "19 – 25 October 20
 - `e()` (`htmlspecialchars(..., ENT_QUOTES, 'UTF-8')`) on **every** dynamic value in HTML.
 - Validate the CSRF token **before** reading any input, and put the hidden input in
   **every** form: `<input type="hidden" name="csrf_token" value="<?= e(getCsrfToken()) ?>">`.
+- **A GET form carries no CSRF token.** A token in a GET form lands in the URL, in the
+  history and in the `Referer` header. A form that cannot change state does not need one.
 - Ownership is enforced **in the SQL** by filtering on the owning user id.
 
 ### The theme travels in a cookie

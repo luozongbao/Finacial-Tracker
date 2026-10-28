@@ -1,0 +1,50 @@
+/* ==========================================================================
+   assets/css/pages/transactions.css
+   --------------------------------------------------------------------------
+   The transaction list and the transaction form — issue-018.
+
+   Everything both screens render already exists in the component layer
+   (components.css): .filters, .tiles, .tile, .card, .data-table,
+   .pagination, .field, .radio-group, .alert, .modal, .btn, .btn-group.
+
+   This file holds only what is genuinely page-specific, and it uses the
+   design tokens only — there is no literal colour in it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The filter bar and the status line above the tiles.
+
+   The component layer gives .tiles and .period their own bottom margin,
+   because those two are always followed by something. The filter bar and
+   the status line are the two blocks of THIS screen that need the same
+   treatment — so the margin lives here, and not in the component layer.
+   -------------------------------------------------------------------------- */
+
+.transactions__filters {
+    margin-bottom: var(--sp-4);
+}
+
+.transactions__status {
+    margin-bottom: var(--sp-4);
+}
+
+/* --------------------------------------------------------------------------
+   The danger zone.
+
+   It is a separate card and never a button in the save group, so it has
+   to LOOK separate as well: the space tells the visitor that it is not
+   part of the form above it, and the edge tells them what it does.
+   -------------------------------------------------------------------------- */
+
+.transactions__danger {
+    margin-top: var(--sp-5);
+    border-left: 4px solid var(--danger-500);
+}
+
+/* The confirmation lives inside the danger card, below the button that
+   opens it. Without JavaScript the card and the confirmation are the
+   same block, so the space only opens up once the script is running. */
+
+.transactions__danger .modal {
+    margin-top: var(--sp-4);
+}

@@ -11,7 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
-| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011–017 are implemented & verified; issues 018–020 are specification only.** |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011–018 are implemented & verified; issues 019–020 are specification only.** |
 
 ---
 
@@ -36,7 +36,7 @@ Two tracks run through this folder:
 | [015](issue-015.md) | App: the install wizard | App | **implemented & verified** | 011, 012, 013 | `install.php`, `assets/css/pages/install.css` — the three-step wizard that writes `config.php` — guarded by `database/install_test.php` |
 | [016](issue-016.md) | App: authentication and the mailer | App | **implemented & verified** | 012, 014, 015 | `includes/auth.php`, `views/login.php` … `views/verify_email.php`, `assets/css/pages/auth.css`, the two-sided registration gate — guarded by `database/auth_test.php` |
 | [017](issue-017.md) | App: the dashboard | App | **implemented & verified** | 013, 014, 016 | `views/dashboard.php`, `assets/css/pages/dashboard.css` — the period tiles, the recent card, the empty states — guarded by `database/dashboard_test.php` |
-| [018](issue-018.md) | App: the transaction list and the transaction form | App | **specification** | 013, 014, 016 | `views/transactions.php`, `views/transaction_form.php` — the filters, the presets, the table, the validation |
+| [018](issue-018.md) | App: the transaction list and the transaction form | App | **implemented & verified** | 013, 014, 016 | `views/transactions.php`, `views/transaction_form.php`, `views/transaction_save.php`, `views/transaction_delete.php`, `assets/css/pages/transactions.css` — the filters, the presets, the table, the validation — guarded by `database/transactions_test.php` |
 | [019](issue-019.md) | App: the reports | App | **specification** | 013, 014, 016 | `views/reports.php` — the period selector, the "Over time" and "By category" tables |
 | [020](issue-020.md) | App: the categories and the settings | App | **specification** | 013, 014, 016 | `views/categories.php`, `views/settings.php` — the category list, the profile, the read-only installation card |
 
@@ -78,8 +78,17 @@ Two tracks run through this folder:
 > helpers live in `includes/functions.php`, and
 > `assets/css/pages/dashboard.css` is the stylesheet the screen needs.
 > `database/dashboard_test.php` guards all of it — a source tier and a
-> sandbox tier that runs the real screen against a scratch database. Issues
-> 018–020 describe the code that has to be written; none of it exists yet.
+> sandbox tier that runs the real screen against a scratch database.
+> Issue 018 — the transaction list and the transaction form — is **implemented
+> and verified**: `views/transactions.php` holds the filter bar, the presets,
+> the table and the three states, `views/transaction_form.php` serves the add
+> and the edit screen from **one** template, `views/transaction_save.php` and
+> `views/transaction_delete.php` are the two write paths, the new helpers live
+> in `includes/functions.php` and `assets/css/pages/transactions.css` is the
+> stylesheet the screens share. `database/transactions_test.php` guards all of
+> it — a source tier and a sandbox tier that runs the real screens against a
+> scratch database. Issues 019–020 describe the code that has to be written;
+> none of it exists yet.
 
 ---
 
@@ -176,7 +185,7 @@ The implementation copies the shape, not the text.
 | [015](issue-015.md) | `install.php`, `assets/css/pages/install.css` | 011, 012, 013 |
 | [016](issue-016.md) | `includes/auth.php`, the auth screens | 012, 014, 015 |
 | [017](issue-017.md) | `views/dashboard.php`, `assets/css/pages/dashboard.css` | 013, 014, 016 |
-| [018](issue-018.md) | `views/transactions.php`, `views/transaction_form.php` | 013, 014, 016 |
+| [018](issue-018.md) | `views/transactions.php`, `views/transaction_form.php`, `views/transaction_save.php`, `views/transaction_delete.php`, `assets/css/pages/transactions.css` | 013, 014, 016 |
 | [019](issue-019.md) | `views/reports.php` | 013, 014, 016 |
 | [020](issue-020.md) | `views/categories.php`, `views/settings.php` | 013, 014, 016 |
 
@@ -197,7 +206,7 @@ The implementation copies the shape, not the text.
 > git-ignored and never served, and `includes/mailer.php` is guarded by
 > `database/mailer_test.php`.
 >
-> **The Application track has its first seven issues in.** Issue 011 — the schema
+> **The Application track has its first eight issues in.** Issue 011 — the schema
 > and the data model — is **implemented and verified**: `database/schema.sql`
 > creates the five tables and `database/schema_test.php` guards them against
 > `information_schema`. Issue 012 — the core runtime — is **implemented and
@@ -208,13 +217,14 @@ The implementation copies the shape, not the text.
 > the three CSS layers are carried over from `docs/mockup/assets/` verbatim,
 > `assets/js/app.js` holds every behaviour, `includes/header.php` and
 > `includes/footer.php` render the two shells, and `database/assets_test.php`
-> guards all of it. Issues 014–017 are **implemented and verified** too:
+> guards all of it. Issues 014–018 are **implemented and verified** too:
 > `index.php` is the front controller, `install.php` is the wizard,
-> `views/` holds the six auth screens, and `views/dashboard.php` holds the
-> first application screen — each guarded by its own regression test. Issues
-> 018–020 are the specification a developer picks up to build the remaining
-> four application screens. The repository itself is still mostly greenfield —
-> four of the five screens do not exist yet.
+> `views/` holds the six auth screens, `views/dashboard.php` holds the first
+> application screen and `views/transactions.php` the second — each guarded by
+> its own regression test. Issues 019–020 are the specification a developer
+> picks up to build the remaining
+> three application screens. The repository itself is still mostly greenfield —
+> three of the five screens do not exist yet.
 
 ---
 

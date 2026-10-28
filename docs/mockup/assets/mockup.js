@@ -135,9 +135,14 @@
     }
 
     /**
-     * Demonstrates the period-preset behaviour: clicking a preset fills the
-     * two date fields. The dates are read from data attributes — never
-     * interpolated into a JavaScript string.
+     * Fills the two date fields from a preset. The dates are read from data
+     * attributes — never interpolated into a JavaScript string.
+     *
+     * The attributes carry the DATES of the range: data-preset-from is the
+     * first day and data-preset-to is the last. The mockup's own "today" is
+     * October 2026; the application recomputes the range for the day the
+     * page is read (issue-018 §6), but the attribute names and this copy
+     * step are the same in both.
      *
      * @returns {void}
      */
@@ -147,13 +152,20 @@
         Array.prototype.forEach.call(presets, function (preset) {
             preset.addEventListener('click', function (event) {
                 event.preventDefault();
-                var from = document.getElementById(preset.getAttribute('data-preset-from'));
-                var to = document.getElementById(preset.getAttribute('data-preset-to'));
+
+                var form = preset.closest('form');
+                if (!form) {
+                    return;
+                }
+
+                var from = form.querySelector('[name="from"]');
+                var to = form.querySelector('[name="to"]');
+
                 if (from) {
-                    from.value = preset.getAttribute('data-preset-start');
+                    from.value = preset.getAttribute('data-preset-from');
                 }
                 if (to) {
-                    to.value = preset.getAttribute('data-preset-end');
+                    to.value = preset.getAttribute('data-preset-to');
                 }
             });
         });

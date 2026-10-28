@@ -374,6 +374,139 @@
         </section>
 
         <!-- ==============================================================
+             STATE — server rejection: type
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-type-rej-h">
+            <p class="state__label" id="tf-type-rej-h">State — server rejection, type</p>
+
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type7-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type7-label"
+                         aria-describedby="tf-type7-msg">
+                        <label class="radio radio--income" for="tf7-in">
+                            <input type="radio" id="tf7-in" name="type" value="income" checked aria-invalid="true">
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf7-out">
+                            <input type="radio" id="tf7-out" name="type" value="expense" aria-invalid="true">
+                            Spending
+                        </label>
+                    </div>
+                    <span class="field__error" id="tf-type7-msg">Choose either income or spending.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf7-amount">Amount</label>
+                    <input class="input input--amount" id="tf7-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="42.80">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf7-date">Date</label>
+                    <input class="input" id="tf7-date" name="date" type="date" value="2026-10-24">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf7-cat">Category</label>
+                    <select class="select" id="tf7-cat" name="category">
+                        <option value="">No category</option>
+                        <option value="groceries" selected>Groceries</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf7-desc">Description</label>
+                    <input class="input" id="tf7-desc" name="description" type="text"
+                           maxlength="255" value="Weekly groceries">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
+                </div>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    The type is a radio group, so the rejection is rendered
+                    <strong>below the group</strong> and the group points at it
+                    with <code>aria-describedby</code>. The group falls back to
+                    its default, <strong>Income</strong>, so a rejected form
+                    never comes back with nothing selected.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — server rejection: category
+             ============================================================== -->
+        <section class="state" aria-labelledby="tf-cat-rej-h">
+            <p class="state__label" id="tf-cat-rej-h">State — server rejection, category</p>
+
+            <div class="card">
+                <div class="field">
+                    <span class="field__label" id="tf-type8-label">Type</span>
+                    <div class="radio-group" role="radiogroup" aria-labelledby="tf-type8-label">
+                        <label class="radio radio--income" for="tf8-in">
+                            <input type="radio" id="tf8-in" name="type" value="income">
+                            Income
+                        </label>
+                        <label class="radio radio--expense" for="tf8-out">
+                            <input type="radio" id="tf8-out" name="type" value="expense" checked>
+                            Spending
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf8-amount">Amount</label>
+                    <input class="input input--amount" id="tf8-amount" name="amount" type="number"
+                           step="0.01" inputmode="decimal" min="0" value="42.80">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf8-date">Date</label>
+                    <input class="input" id="tf8-date" name="date" type="date" value="2026-10-24">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf8-cat">Category</label>
+                    <span class="field__hint" id="tf8-cat-hint">Optional. An entry without a category is still counted in every total.</span>
+                    <select class="select" id="tf8-cat" name="category" aria-invalid="true"
+                            aria-describedby="tf8-cat-hint tf8-cat-msg">
+                        <option value="">No category</option>
+                        <option value="groceries">Groceries</option>
+                    </select>
+                    <span class="field__error" id="tf8-cat-msg">That category is not available.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="tf8-desc">Description</label>
+                    <input class="input" id="tf8-desc" name="description" type="text"
+                           maxlength="255" value="Weekly groceries">
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Save transaction</button>
+                    <a class="btn btn--ghost" href="06-transactions.html">Cancel</a>
+                </div>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    The select only ever lists the visitor's own categories, so
+                    this rejection is rare — it happens when a category is
+                    <strong>deleted in another tab</strong> between the page
+                    load and the submit. The message names the problem; the
+                    other fields keep their values.
+                </p>
+            </div>
+        </section>
+
+        <!-- ==============================================================
              STATE — server error, values preserved
              ============================================================== -->
         <section class="state" aria-labelledby="tf-500-h">

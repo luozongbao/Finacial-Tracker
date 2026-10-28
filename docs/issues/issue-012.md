@@ -618,11 +618,12 @@ A **method + path → handler** map. That is the entire job.
 
 ````php
 $router = new Router();
-$router->get('/dashboard',        'views/dashboard.php');
-$router->get('/transactions',      'views/transactions.php');
-$router->post('/transactions',     'views/transactions.php');
-$router->get('/transactions/new',  'views/transaction_form.php');
-$router->post('/transactions/save','views/transaction_save.php');
+$router->get('/dashboard',          'views/dashboard.php');
+$router->get('/transactions',        'views/transactions.php');
+$router->get('/transactions/new',    'views/transaction_form.php');
+$router->get('/transactions/edit',   'views/transaction_form.php');
+$router->post('/transactions/save',  'views/transaction_save.php');
+$router->post('/transactions/delete','views/transaction_delete.php');
 $router->dispatch();
 ````
 

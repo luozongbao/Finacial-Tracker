@@ -513,6 +513,34 @@ function formatPeriodSpan(string $from, string $to, string $joiner = "\u{2013}")
     return gmdate('j F Y', $fromTs) . ' ' . $joiner . ' ' . gmdate('j F Y', $toTs);
 }
 
+/**
+ * The label of a range that may be unbounded on either side.
+ *
+ * The list screen's range comes from the query string and the visitor can
+ * clear the dates, so one end of the range can be missing. The bounded
+ * case is the shared formatPeriodSpan(); a half-open range says which end
+ * is missing, and the fully unbounded one reads "all time".
+ */
+function transactionRangeLabel(string $from, string $to): string
+{
+    $fromOk = isValidDateString($from);
+    $toOk   = isValidDateString($to);
+
+    if (!$fromOk && !$toOk) {
+        return 'all time';
+    }
+
+    if (!$fromOk) {
+        return 'until ' . formatLongDate($to);
+    }
+
+    if (!$toOk) {
+        return 'from ' . formatLongDate($from);
+    }
+
+    return formatPeriodSpan($from, $to);
+}
+
 // ---------------------------------------------------------------------------
 // Request input
 // ---------------------------------------------------------------------------
@@ -625,6 +653,390 @@ function isValidCategoryName(string $name): bool
     $length = function_exists('mb_strlen') ? mb_strlen($name) : strlen($name);
 
     return $length >= 1 && $length <= 60;
+}
+
+// ---------------------------------------------------------------------------
+// Transactions
+// ---------------------------------------------------------------------------
+
+/**
+ * The number of rows on one page of the transaction list.
+ *
+ * The page size lives here and nowhere else: the query's LIMIT, the
+ * OFFSET arithmetic and the status line all read it, so a change cannot
+ * make the page and the status line disagree.
+ */
+if (!defined('TRANSACTIONS_PER_PAGE')) {
+    define('TRANSACTIONS_PER_PAGE', 25);
+}
+
+/**
+ * Escape the wildcards of a LIKE pattern.
+ *
+ * addcslashes() and not addslashes(): addslashes() escapes the quote, the
+ * double quote, the backslash and the NUL byte — but NOT the percent sign
+ * and NOT the underscore, which are the two wildcards a LIKE pattern has.
+ *
+ * The backslash is the character the ESCAPE clause names, so it has to be
+ * escaped as well.
+ */
+function escapeLike(string $value): string
+{
+    return addcslashes($value, '%_\\');
+}
+
+/**
+ * A date in the long form: "1 October 2026".
+ *
+ * formatDate() renders the SHORT month ("1 Oct 2026") — that is the table
+ * cell. The caption, the delete confirmation and the period label need the
+ * long month, and the month name is spelled in exactly one place per
+ * shape.
+ */
+function formatLongDate(?string $isoDate): string
+{
+    if ($isoDate === null || $isoDate === '') {
+        return '';
+    }
+
+    $ts = strtotime($isoDate . ' UTC');
+
+    return $ts === false ? '' : gmdate('j F Y', $ts);
+}
+
+/**
+ * The sort of the transaction list — the column and the direction.
+ *
+ * Both come from a WHITELIST. The query string never reaches the SQL: the
+ * column is picked from a fixed table and the direction is one of two
+ * words, so there is nothing to inject and nothing to quote.
+ *
+ * The ORDER BY always ends with the id, so the order is total: two rows
+ * of the same date do not swap places between two pages, and the visitor
+ * never sees a row twice.
+ *
+ * @return array{key: string, dir: string, order: string}
+ */
+function normalizeTransactionSort(?string $sort, ?string $dir): array
+{
+    // The whitelist: the sort key, the column it stands for and the
+    // direction it defaults to.
+    $columns = [
+        'date'   => ['t.occurred_on', 'desc'],
+        'amount' => ['t.amount', 'asc'],
+    ];
+
+    $key = is_string($sort) && isset($columns[$sort]) ? $sort : 'date';
+
+    [$column, $defaultDir] = $columns[$key];
+
+    $direction = is_string($dir) && ($dir === 'asc' || $dir === 'desc') ? $dir : $defaultDir;
+
+    return [
+        'key'   => $key,
+        'dir'   => $direction,
+        'order' => $column . ' ' . strtoupper($direction) . ', t.id ' . strtoupper($direction),
+    ];
+}
+
+/**
+ * A category filter value: a positive category id.
+ *
+ * The filter bar also carries the literal "none" for the uncategorised
+ * entries, and that one is not an id.
+ */
+function isCategoryFilterValue(string $value): bool
+{
+    return $value !== '' && ctype_digit($value) && (int) $value > 0;
+}
+
+/**
+ * The filters of the transaction list, parsed from the query string.
+ *
+ * An unknown value is IGNORED, never an error: a hand-edited URL must not
+ * produce a 500, and a value that is not in the whitelist is simply not
+ * applied. The value that is applied is the value that is echoed back
+ * into the filter bar, so the visitor always sees the state they are in.
+ *
+ * The default range is the current month — the same range the dashboard
+ * opens on, and the same one resolvePeriodRange() produces.
+ *
+ * @param array<string, mixed>|null $source The query string. Defaults to $_GET.
+ *
+ * @return array{q: string, type: string, category: string, from: string, to: string}
+ */
+function parseTransactionFilters(?array $source = null): array
+{
+    $source = $source ?? $_GET;
+
+    $q = trim((string) ($source['q'] ?? ''));
+
+    if (mb_strlen($q) > 255) {
+        $q = mb_substr($q, 0, 255);
+    }
+
+    $type = trim((string) ($source['type'] ?? ''));
+
+    if (!isValidType($type)) {
+        $type = '';
+    }
+
+    $category = trim((string) ($source['category'] ?? ''));
+
+    if ($category !== 'none' && !isCategoryFilterValue($category)) {
+        $category = '';
+    }
+
+    $month = resolvePeriodRange('month');
+
+    // An ABSENT date falls back to the default month. A date that is
+    // present but EMPTY is the visitor clearing the field, and that is an
+    // unbounded range — "all time" — not a fallback to the month.
+    $from = array_key_exists('from', $source) ? trim((string) $source['from']) : $month[0];
+    $to   = array_key_exists('to', $source) ? trim((string) $source['to']) : $month[1];
+
+    if ($from !== '' && !isValidDateString($from)) {
+        $from = $month[0];
+    }
+
+    if ($to !== '' && !isValidDateString($to)) {
+        $to = $month[1];
+    }
+
+    return [
+        'q'        => $q,
+        'type'     => $type,
+        'category' => $category,
+        'from'     => $from,
+        'to'       => $to,
+    ];
+}
+
+/**
+ * The WHERE clause of the transaction list — built ONCE.
+ *
+ * The row query, the totals query and the count query all read the result
+ * of this one call. Writing the predicate twice is how a total starts
+ * drifting from the list it belongs to, so it is built here and passed
+ * around as a pair.
+ *
+ * The placeholders are POSITIONAL. The spec sketches this with named
+ * placeholders (:uid, :q, ...), but the PDO wrapper runs with
+ * EMULATE_PREPARES = false, and under native prepares a named placeholder
+ * cannot be reused and cannot be bound positionally. The two are
+ * reconciled here: the values are bound in the order the fragments are
+ * appended, which is the order the placeholders appear in the string.
+ *
+ * @param int                  $userId  The signed-in user. The ownership
+ *                                       filter is part of the predicate,
+ *                                       never a check done afterwards.
+ * @param array<string, mixed> $filters The parsed filters.
+ *
+ * @return array{where: string, params: array<int, mixed>}
+ */
+function buildTransactionPredicate(int $userId, array $filters): array
+{
+    $where  = ['t.user_id = ?'];
+    $params = [$userId];
+
+    $q = trim((string) ($filters['q'] ?? ''));
+
+    if ($q !== '') {
+        // The wildcards in the visitor's text are escaped, and the ESCAPE
+        // clause tells the server which character does the escaping — so
+        // a search for "%" finds a percent sign and not the whole table.
+        $where[]  = "t.description LIKE ? ESCAPE '\\\\'";
+        $params[] = '%' . escapeLike($q) . '%';
+    }
+
+    $type = trim((string) ($filters['type'] ?? ''));
+
+    if (isValidType($type)) {
+        $where[]  = 't.type = ?';
+        $params[] = $type;
+    }
+
+    $category = trim((string) ($filters['category'] ?? ''));
+
+    if ($category === 'none') {
+        $where[] = 't.category_id IS NULL';
+    } elseif (isCategoryFilterValue($category)) {
+        $where[]  = 't.category_id = ?';
+        $params[] = (int) $category;
+    }
+
+    $from = trim((string) ($filters['from'] ?? ''));
+    $to   = trim((string) ($filters['to'] ?? ''));
+
+    if (isValidDateString($from)) {
+        $where[]  = 't.occurred_on >= ?';
+        $params[] = $from;
+    }
+
+    if (isValidDateString($to)) {
+        $where[]  = 't.occurred_on <= ?';
+        $params[] = $to;
+    }
+
+    return ['where' => implode(' AND ', $where), 'params' => $params];
+}
+
+/**
+ * The URL of the transaction list, with the given state.
+ *
+ * The filters travel with the sort and the page, so a sort link never
+ * loses the search and a page link never loses the order. An empty value
+ * is left out, and the page is left out when it is the first one.
+ */
+function transactionListUrl(
+    array $filters,
+    ?string $sort = null,
+    ?string $dir = null,
+    int $page = 1
+): string
+{
+    $params = [];
+
+    foreach (['q', 'type', 'category', 'from', 'to'] as $key) {
+        $value = trim((string) ($filters[$key] ?? ''));
+
+        if ($value !== '') {
+            $params[$key] = $value;
+        }
+    }
+
+    if ($sort !== null && $sort !== '') {
+        $params['sort'] = $sort;
+    }
+
+    if ($dir !== null && $dir !== '') {
+        $params['dir'] = $dir;
+    }
+
+    if ($page > 1) {
+        $params['page'] = $page;
+    }
+
+    return '/transactions' . ($params === [] ? '' : '?' . http_build_query($params));
+}
+
+/**
+ * The canonical form of an amount: "42.8" becomes "42.80".
+ *
+ * A DECIMAL(14,2) is written with two decimals, and the value that is
+ * bound to the INSERT is the value that is stored. This is a STRING
+ * operation throughout — an amount is never a float.
+ */
+function normalizeAmountString(string $amount): string
+{
+    $amount = trim($amount);
+
+    if ($amount === '') {
+        return '';
+    }
+
+    if (!str_contains($amount, '.')) {
+        return $amount . '.00';
+    }
+
+    [$whole, $decimals] = explode('.', $amount, 2);
+
+    return $whole . '.' . str_pad(substr($decimals, 0, 2), 2, '0');
+}
+
+/**
+ * Is this amount greater than zero?
+ *
+ * A pattern and not a float comparison: the value comes from a string, and
+ * the money path must not turn it into a float to decide anything. "0",
+ * "0.00" and "0.000" are not positive; "0.01" is.
+ */
+function isPositiveAmount(string $amount): bool
+{
+    $normalized = normalizeAmountString($amount);
+
+    if ($normalized === '') {
+        return false;
+    }
+
+    return preg_match('/^0*(\.0*)?$/', $normalized) !== 1;
+}
+
+/**
+ * Validate a submitted transaction.
+ *
+ * EVERY error is collected, in the order the fields appear in the form —
+ * type, amount, date, category, description — so the visitor sees the
+ * whole list at once and fixes everything in one pass. A form that reports
+ * one error per round trip is a worse form.
+ *
+ * The values are returned with the errors, unchanged, so a rejected form
+ * comes back with what the visitor typed.
+ *
+ * @param array<string, mixed> $input       The submitted fields.
+ * @param array<int, string>   $categoryIds The ids of the visitor's
+ *                                          categories, as strings.
+ *
+ * @return array{errors: array<string, string>, values: array<string, string>}
+ */
+function validateTransactionInput(array $input, array $categoryIds): array
+{
+    $errors = [];
+    $values = [];
+
+    // --- type ---
+    $type = trim((string) ($input['type'] ?? ''));
+
+    if (!isValidType($type)) {
+        $errors['type'] = 'Choose either income or spending.';
+        // The radio group falls back to its default, so a rejected form
+        // never comes back with nothing selected.
+        $type = 'income';
+    }
+
+    $values['type'] = $type;
+
+    // --- amount ---
+    $amount = trim((string) ($input['amount'] ?? ''));
+
+    if (!isValidAmount($amount) || !isPositiveAmount($amount)) {
+        $errors['amount'] = 'The amount must be greater than zero.';
+    } else {
+        $amount = normalizeAmountString($amount);
+    }
+
+    $values['amount'] = $amount;
+
+    // --- date ---
+    $date = trim((string) ($input['date'] ?? ''));
+
+    if (!isValidDateString($date)) {
+        $errors['date'] = 'Enter a valid date.';
+    }
+
+    $values['date'] = $date;
+
+    // --- category ---
+    $category = trim((string) ($input['category'] ?? ''));
+
+    if ($category !== '' && !in_array($category, $categoryIds, true)) {
+        $errors['category'] = 'That category is not available.';
+    }
+
+    $values['category'] = $category;
+
+    // --- description ---
+    $description = trim((string) ($input['description'] ?? ''));
+
+    // The length is counted in CHARACTERS, not bytes, and a long
+    // description is REJECTED — never silently truncated.
+    if (mb_strlen($description) > 255) {
+        $errors['description'] = 'The description must be at most 255 characters long.';
+    }
+
+    $values['description'] = $description;
+
+    return ['errors' => $errors, 'values' => $values];
 }
 
 // ---------------------------------------------------------------------------

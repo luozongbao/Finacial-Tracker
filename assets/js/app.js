@@ -291,24 +291,113 @@
     }
 
     /**
+     * Formats a UTC date as YYYY-MM-DD.
+     *
+     * The dates are UTC because the application stores transaction dates
+     * in UTC — a local date would disagree with the server around
+     * midnight.
+     *
+     * @param {Date} date
+     * @returns {string}
+     */
+    function isoDate(date) {
+        var year = date.getUTCFullYear();
+        var month = date.getUTCMonth() + 1;
+        var day = date.getUTCDate();
+
+        return year
+            + '-' + (month < 10 ? '0' : '') + month
+            + '-' + (day < 10 ? '0' : '') + day;
+    }
+
+    /**
+     * The range of a period preset, computed from the current date.
+     *
+     * The week respects the week start, which the server renders into
+     * data-week-start — the same WEEK_START constant the server uses, so
+     * the button and the server agree on where the week begins.
+     *
+     * @param {string} kind 'month', 'week' or 'year'
+     * @param {string} weekStart the week start, 0 or 7 for Sunday
+     * @returns {string[]} the [from, to] pair
+     */
+    function presetRange(kind, weekStart) {
+        var now = new Date();
+        var year = now.getUTCFullYear();
+        var month = now.getUTCMonth();
+
+        if (kind === 'year') {
+            return [year + '-01-01', year + '-12-31'];
+        }
+
+        if (kind === 'week') {
+            // The ISO weekday: 1 = Monday ... 7 = Sunday.
+            var weekday = now.getUTCDay() === 0 ? 7 : now.getUTCDay();
+
+            var start = parseInt(weekStart, 10);
+            if (isNaN(start) || start < 0 || start > 7) {
+                start = 1;
+            }
+            if (start === 0) {
+                start = 7;
+            }
+
+            var offset = (weekday - start + 7) % 7;
+            var first = new Date(Date.UTC(year, month, now.getUTCDate() - offset));
+            var last = new Date(first.getTime() + (6 * 24 * 60 * 60 * 1000));
+
+            return [isoDate(first), isoDate(last)];
+        }
+
+        // The month: the first day and the last day of the current month.
+        var lastDay = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+        return [
+            isoDate(new Date(Date.UTC(year, month, 1))),
+            isoDate(new Date(Date.UTC(year, month, lastDay)))
+        ];
+    }
+
+    /**
      * Fills the two date fields from a preset. The dates are read from data
      * attributes — never interpolated into a JavaScript string.
+     *
+     * The dates are recomputed here, on the client, so a button rendered
+     * on one day never carries a range that has gone stale. The server
+     * rendered the attributes for a visitor without JavaScript; the
+     * script replaces them with the range of the day the page is READ.
+     *
+     * The preset does not submit. The visitor presses "Apply filters".
      *
      * @returns {void}
      */
     function initPeriodPresets() {
-        var presets = document.querySelectorAll('[data-preset-from]');
+        var presets = document.querySelectorAll('[data-preset]');
 
         Array.prototype.forEach.call(presets, function (preset) {
+            var group = preset.closest('[data-week-start]');
+            var weekStart = group ? group.getAttribute('data-week-start') : '1';
+            var range = presetRange(preset.getAttribute('data-preset'), weekStart);
+
+            preset.setAttribute('data-preset-from', range[0]);
+            preset.setAttribute('data-preset-to', range[1]);
+
             preset.addEventListener('click', function (event) {
                 event.preventDefault();
-                var from = document.getElementById(preset.getAttribute('data-preset-from'));
-                var to = document.getElementById(preset.getAttribute('data-preset-to'));
+
+                var form = preset.closest('form');
+                if (!form) {
+                    return;
+                }
+
+                var from = form.querySelector('[name="from"]');
+                var to = form.querySelector('[name="to"]');
+
                 if (from) {
-                    from.value = preset.getAttribute('data-preset-start');
+                    from.value = preset.getAttribute('data-preset-from');
                 }
                 if (to) {
-                    to.value = preset.getAttribute('data-preset-end');
+                    to.value = preset.getAttribute('data-preset-to');
                 }
             });
         });
@@ -318,20 +407,29 @@
      * Opens and closes the delete-confirmation modal. The trigger carries the
      * target id in a data attribute.
      *
+     * A modal that HAS a trigger is hidden on load and opened by the
+     * trigger. A modal that has NO trigger is left visible: it is the only
+     * way to reach it, and the delete must work without JavaScript.
+     *
      * @returns {void}
      */
     function initModals() {
         var triggers = document.querySelectorAll('[data-modal-open]');
 
         Array.prototype.forEach.call(triggers, function (trigger) {
+            var modal = document.getElementById(trigger.getAttribute('data-modal-open'));
+            if (modal) {
+                modal.hidden = true;
+            }
+
             trigger.addEventListener('click', function (event) {
                 event.preventDefault();
-                var modal = document.getElementById(trigger.getAttribute('data-modal-open'));
-                if (!modal) {
+                var target = document.getElementById(trigger.getAttribute('data-modal-open'));
+                if (!target) {
                     return;
                 }
-                modal.hidden = false;
-                var focusTarget = modal.querySelector('button, [href], input');
+                target.hidden = false;
+                var focusTarget = target.querySelector('button, [href], input');
                 if (focusTarget) {
                     focusTarget.focus();
                 }

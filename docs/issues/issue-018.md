@@ -1,6 +1,14 @@
 # Issue-018 — App: the transaction list and the transaction form
 
-> **Status:** Specification — ready for implementation
+> **Status:** **implemented and verified** — `views/transactions.php`,
+> `views/transaction_form.php`, `views/transaction_save.php` and
+> `views/transaction_delete.php` exist, `assets/css/pages/transactions.css` is
+> the stylesheet the screens share, and the layer is guarded by
+> `database/transactions_test.php` (200 assertions, in two tiers: the sources,
+> and a sandbox that runs the real screens against a scratch database). The
+> walk-through found **two real defects** — a `LIMIT` that reached the database
+> as text because a heredoc interpolates a variable and never an expression,
+> and an unescaped heading in the form — which are fixed and now asserted.
 > **Target:** `index.php`, `includes/`, `views/transactions.php`, `views/transaction_form.php`, `views/transaction_save.php`, `views/transaction_delete.php`, `assets/css/pages/transactions.css`, `assets/js/`
 > **Severity:** High — the transaction list and the entry form are the two screens the whole product exists for
 > **Requested by the user:** "I guess, we now have everything, ready for dev, write issue files for dev to implement the project."
@@ -1031,3 +1039,97 @@ MariaDB volume with it.
 - **The reports.** Issue-019 links back into this screen with `?from=…&to=…` and `?category=…`; those parameters are read here, but the report itself is built there.
 - **The categories** — creating, renaming and deleting them, and the `categories` table's own screen. Issue-020.
 - **Uninstall / data export.**
+
+---
+
+## Implementation notes — 2026-10-28
+
+### The decisions the specification left open
+
+| Question | Decision |
+|---|---|
+| Which id prefix do the form's controls carry? | **`tf-`** — `tf-amount`, `tf-amount-hint`, `tf-amount-msg`. The mockup uses `tf3-` because a gallery holds several copies of the same form and their ids must differ; the application has **one** template, so one prefix is enough. The repo's house convention is `<screen>-<field>`, and the screen here is `tf`. |
+| Where does the delete form live? | In its **own card**, below the save actions. A `<form>` inside the `<form>` that posts to `/transactions/save` is invalid HTML, and the delete needs its own action and its own hidden id. |
+| What does a delete of a row that is not there do? | A **404**, not a silent success. `Database::execute()` returns a bool and there is no `rowCount()`, so the handler SELECTs the row first — with `WHERE t.id = ? AND t.user_id = ?` — and answers 404 when it is absent. |
+| How does the list know which filters are active? | From the **query string alone**. The filter form is a GET form and carries **no** CSRF token (§5): a token in a GET form leaks into the URL, and the form cannot change state. |
+| How do the presets get their dates? | The **server** renders `data-preset-from` / `data-preset-to` for the day the page was rendered, and `assets/js/app.js` **recomputes** them for the day the page is read (§6, risk 18) and copies them into the two date inputs. The button never submits. |
+| Which dash is which? | Two, and they are different on purpose. The status line **above** the tiles uses spaced dashes — `18 transactions · 1 – 31 October 2026` — because it is a sentence. The pagination line **under** the table uses an unspaced en dash — `Showing 1–25 of 18 transactions` — because the bolded example, the acceptance criterion and the mockup all agree on that one. |
+| What does a missing `id` do on the save path? | It **creates**. The hidden `id` input is only rendered when the id is a positive integer, so an update can never be turned into a second row by a crafted POST. |
+
+### The shared helpers
+
+`includes/functions.php` gained a **Transactions** section. Every helper is
+pure, takes no request state and is guarded by unit assertions:
+
+| Helper | What it does |
+|---|---|
+| `TRANSACTIONS_PER_PAGE` | **25** rows. One constant, read by the query and by the status line. |
+| `escapeLike(string $value): string` | Escapes `%`, `_` and the escape character, so a search for `%` finds a percent sign and not the whole table (§16). |
+| `formatLongDate(?string $isoDate): string` | A date with the **long** month name — `24 October 2026`. `formatDate()` stays short. |
+| `normalizeTransactionSort(?string $sort, ?string $dir): array` | Whitelists the column and the direction and returns the key, the direction and the `ORDER BY` fragment. An unknown sort falls back to the date. |
+| `isCategoryFilterValue(string $value): bool` | Is this a category filter — a positive id, or the sentinel `none` for the uncategorised rows? |
+| `parseTransactionFilters(?array $source = null): array` | Reads the five filters from the query string. An absent `from` / `to` means the current month; a present-but-empty one means unbounded. |
+| `buildTransactionPredicate(int $userId, array $filters): array` | Builds the `WHERE` clause and its parameters — **once**, for the row query, the totals query and the count, so the three can never disagree. |
+| `transactionListUrl(array $filters, ?string $sort = null, ?string $dir = null, int $page = 1): string` | The URL that carries the current filters — the sort links and the pagination links use it. |
+| `normalizeAmountString(string $amount): string` | An amount as a two-decimal **string**. `42.8` becomes `42.80`; the value never becomes a float. |
+| `isPositiveAmount(string $amount): bool` | Is this amount greater than zero? `0`, `0.00` and `0.000` are not. |
+| `validateTransactionInput(array $input, array $categoryIds): array` | The five rules of §14, **all** of them collected at once, in the order the fields appear. |
+| `transactionRangeLabel(string $from, string $to): string` | The range as a phrase — `all time`, `until 31 October 2026`, `from 1 October 2026`, `1 – 31 October 2026`. |
+
+### The two defects the test found
+
+1. **The `LIMIT` reached the database as text.** The query was built in a
+   heredoc with `LIMIT {(int) $perPage} OFFSET {(int) $offset}` — and a
+   heredoc interpolates a **variable**, never an expression. MariaDB was
+   handed the literal string `{(int) 25} OFFSET {(int) 0}`, so **every** list
+   request answered 500. The cast now happens first and the **variables** are
+   interpolated: `$limitValue = (int) $perPage;` and `$offsetValue = (int)
+   $offset;`. The rule is now in `AGENTS.md`: *cast first, interpolate second.*
+2. **The form's heading was echoed without `e()`.** The heading was a literal
+   the view had chosen, so nothing could leak — but a variable is a dynamic
+   value, and the house rule is that every dynamic output is escaped. The
+   template now branches into the two literal headings instead of echoing a
+   variable.
+
+### The mockups that changed with the screens
+
+| File | Change |
+|---|---|
+| `docs/mockup/06-transactions.html` | The actions cell carried an **empty** `data-label=""` — the defect §8 names. It is `data-label="Actions"` now, in all four rows. |
+| `docs/mockup/07-transaction-form.html` | The **type** and the **category** rejections are new states the mockup did not cover. §14 requires them to be added, so both are there now, with the specified copy. |
+| `docs/mockup/assets/mockup.js` | The preset script looked up `data-preset-from` as an **element id** and read the dates from attributes that did not exist — the buttons did nothing. The script now copies the dates the buttons already carry, exactly as the application does. |
+
+### What the guard covers
+
+`database/transactions_test.php` checks two tiers:
+
+- **A — the sources.** `requireLogin()` is the first call of every view; the
+  CSRF token is validated **before** any input is read; the ownership is in
+  the SQL; every dynamic value is escaped; the filter form is a GET form
+  without a token; the form carries the token and no `required` attribute; the
+  page stylesheet uses the tokens only; the U+2212 glyph is the **literal
+  character** in the source.
+- **B — the behaviour.** A sandbox copy of the application, served by the PHP
+  built-in server against a scratch database, answers the real requests: the
+  guard redirects, the list renders its three tiles and their totals are
+  checked **against the database**, the status line and the caption carry the
+  right counts, the six `data-label`s are on every cell, the filters select
+  (including a search for `%`, a category, the uncategorised rows and an empty
+  range), the three states are distinguished, the form adds and edits, another
+  account's row is a **404**, the five validations each reject with the
+  specified copy and all five appear at once, the save writes **two decimals**,
+  the delete removes the row, the sort reorders the rows and the pagination
+  answers 200 past the end.
+
+### The verification
+
+```bash
+docker compose exec -T app php -l /var/www/html/views/transactions.php
+docker compose exec -T app php -l /var/www/html/views/transaction_form.php
+docker compose exec -T app php -l /var/www/html/views/transaction_save.php
+docker compose exec -T app php -l /var/www/html/views/transaction_delete.php
+docker compose exec -T app php /var/www/html/database/transactions_test.php
+.github/skills/dev-stack-ops/scripts/run-tests.sh
+```
+
+All of them pass, and the whole suite is green: **11 PASS / 0 FAIL**.
