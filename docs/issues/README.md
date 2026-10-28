@@ -12,6 +12,8 @@ Two tracks run through this folder:
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
 | **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **All ten issues (011–020) are implemented & verified.** |
+| **Security** | Dev | [021](issue-021.md) – [025](issue-025.md) | The findings of the pre-release security audit of 2026-10-28. **All five are open.** |
+| **Requirements** | Dev + Design | [026](issue-026.md) | The gap between [docs/About.md](../About.md) and the application: the **average** is required and missing. **Open.** |
 
 ---
 
@@ -39,6 +41,12 @@ Two tracks run through this folder:
 | [018](issue-018.md) | App: the transaction list and the transaction form | App | **implemented & verified** | 013, 014, 016 | `views/transactions.php`, `views/transaction_form.php`, `views/transaction_save.php`, `views/transaction_delete.php`, `assets/css/pages/transactions.css` — the filters, the presets, the table, the validation — guarded by `database/transactions_test.php` |
 | [019](issue-019.md) | App: the reports | App | **implemented & verified** | 013, 014, 016 | `views/reports.php`, `assets/css/pages/reports.css` — the period selector, the "Over time" and "By category" tables — guarded by `database/reports_test.php` |
 | [020](issue-020.md) | App: the categories and the settings | App | **implemented & verified** | 013, 014, 016 | `views/categories.php`, `views/category_save.php`, `views/category_delete.php`, `views/settings.php`, `assets/css/pages/categories.css`, `assets/css/pages/settings.css` — the category list, the profile, the read-only installation card — guarded by `database/categories_test.php` and `database/settings_test.php` |
+| [021](issue-021.md) | Security: the sign-in throttle is a denial of service | Security | **open** | 011, 012, 016 | the identifier-keyed lockout, the lost count under concurrency, the unbounded `login_attempts` table, the lock columns that are never read |
+| [022](issue-022.md) | Security: the unauthenticated endpoints that cost the server something | Security | **open** | 016 | the registration and reset floods, the forgot-password enumeration oracle, the PII in the error log |
+| [023](issue-023.md) | Security: the web root still serves the deployment topology | Security | **open** | 003 | the deny block for `docker-compose.yml`, `config.template.php` and the internal documentation — and the hardening test that pins the leak in place |
+| [024](issue-024.md) | Security: the response-hardening headers | Security | **open** | 013, 014, 015 | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers |
+| [025](issue-025.md) | Security: the installer keeps the credentials in the session store | Security | **open** | 010, 012, 015 | the database and SMTP passwords in clear text in `/tmp/sess_*`, under an attacker-chosen file name |
+| [026](issue-026.md) | Requirements: the average is missing | Requirements | **open** | 007, 019 | the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first |
 
 > **The Application track has its first seven issues in.** Issue 011 — the
 > schema and the data model — is **implemented and verified**:
@@ -106,6 +114,40 @@ Two tracks run through this folder:
 > own figures did not reconcile**, so `docs/mockup/08-reports.html` was
 > corrected to a set that does, and three of the verification recipes were
 > corrected with it.
+
+> **A pre-release security audit was carried out on 2026-10-28**, against the
+> running application rather than against the sources alone. **The SQL
+> injection audit came back clean** — no value is interpolated into SQL
+> anywhere in `index.php`, `install.php`, `includes/` or `views/`; the only
+> interpolated SQL fragment is the bucket expression, which is chosen from four
+> literal strings. The **IDOR audit came back clean** — every statement filters
+> on the owning user id, and a delete selects the row first, with the
+> ownership predicate, and answers 404 when it is not there. The **XSS audit
+> came back clean** — every dynamic value goes through `e()`, and
+> `assets/js/app.js` has no `innerHTML`, no `eval` and no `fetch`. The
+> **CSRF audit came back clean** — all twelve POST forms carry the token, the
+> three GET forms carry none, and every handler validates before it reads.
+> The **open-redirect audit came back clean** — `safeRedirectTarget()` and
+> `consumeIntendedUrl()` reject anything that is not a known route.
+> The **session audit came back clean** — the id is regenerated on sign-in and
+> sign-out, the cookie is `httponly` and `samesite=Lax`, and the credential
+> version ends the other sessions on a password change. The **registration
+> gate is two-sided** — the GET renders no form and the POST is refused
+> before the CSRF check and before any input is read.
+> Six findings were **confirmed live** and are written up as
+> [021](issue-021.md) – [025](issue-025.md): the sign-in throttle is a
+> denial-of-service weapon; the registration and password-reset endpoints are
+> unthrottled and leak account existence; the web root still serves
+> `docker-compose.yml` — **with the default credentials in it** — and the
+> hardening test asserts that it does; the response headers are thin and the
+> installer sends none at all; and the installer writes the database and SMTP
+> passwords into the session store, which is a **clear-text file in the
+> shared `/tmp`** under a **file name the client chooses**.
+> A requirement check against [docs/About.md](../About.md) found the
+> application **meets every claim in the brief except one**: the brief says
+> *"search and sum/average in time period like day, month, weeks, year"*, the
+> search and the sum are implemented, and **the average is implemented
+> nowhere**. That is [issue-026](issue-026.md).
 
 ---
 
@@ -189,6 +231,8 @@ The implementation copies the shape, not the text.
 | starting the application from the schema | **011** (the schema) → **012** (the runtime) → **013** (the tokens and the shell) → **014** (the front controller) → **015** (the installer) |
 | building the screens | **016** (authentication) → **017** (the dashboard) → **018** (transactions) → **019** (the reports) → **020** (categories and settings) |
 | reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor), 010 (the vendored dependency tree), 015 (the install gate), 016 (the two-sided registration gate), 020 (the installation card) |
+| fixing the findings of the 2026-10-28 audit | **021** (the throttle is a DoS) → **022** (the unthrottled endpoints) → **023** (the web root) → **024** (the headers) → **025** (the installer's secrets). All five are independent of each other. |
+| closing the gap against the brief | **026** — but read **007** (the mockup contract) and **019** (the reports screen) first; 026 changes the design *and* the screen. |
 | adding a third-party PHP library | 010 (Composer as a vendor-time tool) |
 
 ### The application track, in order
@@ -206,12 +250,23 @@ The implementation copies the shape, not the text.
 | [019](issue-019.md) | `views/reports.php`, `assets/css/pages/reports.css` | 013, 014, 016 |
 | [020](issue-020.md) | `views/categories.php`, `views/category_save.php`, `views/category_delete.php`, `views/settings.php`, `assets/css/pages/categories.css`, `assets/css/pages/settings.css` | 013, 014, 016 |
 
+### The security and requirements issues, in order
+
+| Issue | Fixes | Depends on |
+|---|---|---|
+| [021](issue-021.md) | the identifier-keyed lockout, the lost count under concurrency, the unbounded `login_attempts` table, the lock columns that are never read | 011, 012, 016 |
+| [022](issue-022.md) | the registration and reset floods, the forgot-password enumeration oracle, the PII in the error log | 016 |
+| [023](issue-023.md) | the deny block for `docker-compose.yml`, `config.template.php` and the internal documentation, and the hardening test that pins the leak in place | 003 |
+| [024](issue-024.md) | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers | 013, 014, 015 |
+| [025](issue-025.md) | the database and SMTP passwords in clear text in `/tmp/sess_*`, under an attacker-chosen file name | 010, 012, 015 |
+| [026](issue-026.md) | the missing **average** — the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first | 007, 019 |
+
 > **Two known contradictions between the issues**, both flagged in place:
-> issue-012's route table listed `GET /transactions/{id}/edit`, which issue-018
-> §3 replaces with `GET /transactions/edit?id=<id>` — **resolved**: issue-012's
-> table now carries the query-parameter form, because the router matches
-> exactly and has no placeholder syntax; and the mockups' figures do not
-> reconcile — issue-019 §13 lists the four contradictions and the
+> issue-012's route table listed `GET /transactions/{id}/edit`, which
+> issue-018 §3 replaces with `GET /transactions/edit?id=<id>` — **resolved**:
+> issue-012's table now carries the query-parameter form, because the router
+> matches exactly and has no placeholder syntax; and the mockups' figures do
+> not reconcile — issue-019 §13 lists the four contradictions and the
 > corrected figure set, and `docs/mockup/08-reports.html` now carries the
 > corrected set.
 

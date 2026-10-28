@@ -271,7 +271,7 @@ pre-filled values.
 - [ ] The net tile is **neutral** in the "net exactly zero" state.
 - [ ] The period selector offers Today / This week / This month / This year / Custom, with one marked active.
 - [ ] The week label in the mockup starts on **Monday**.
-- [ ] `06-transactions.html` shows every filter in §6.3, including the two date fields and the text search.
+- [ ] `06-transactions.html` shows every filter in the search and filter bar (§6, item 3), including the two date fields and the text search.
 - [ ] The list shows the **filtered** totals next to the result count.
 - [ ] The "no matches for the filter" state is distinct from the "no transactions yet" state.
 - [ ] The amount column is right-aligned and monospaced, and every amount carries a sign.

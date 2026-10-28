@@ -1,4 +1,4 @@
-This project is to record spending andd income for personall use. it should be able to search and sum in time period like day, month, weeks, year.
+This project is to record spending andd income for personal use. it should be able to search and sum/average in time period like day, month, weeks, year.
 
 ## stack
 

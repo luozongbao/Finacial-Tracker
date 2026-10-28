@@ -444,7 +444,7 @@ When the custom period is active, a range form appears below the selector:
 - The form is a **GET** form to `/reports` with a hidden `period=custom`, so the applied range is a bookmarkable URL.
 - The mockup's button is `type="button"`; in the application it is `type="submit"`. The range must be applied by the server.
 - The two inputs are pre-filled with the **applied** range, or with the current month's first and last day when there is none.
-- The inputs carry the submitted values even when the range is **invalid** (§10.1).
+- The inputs carry the submitted values even when the range is **invalid** (§10, the invalid range).
 
 ### The invalid range
 

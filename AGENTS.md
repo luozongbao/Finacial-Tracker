@@ -8,15 +8,15 @@ This file holds only what an agent cannot infer from the tree.
 
 ## Status
 
-**Greenfield — the application code barely exists yet: only the schema, the
-core runtime, the design-token layer, the front controller, the install
-wizard, the authentication, the dashboard, the transaction, the
-categories/settings and the reports screens have been written. The development
-infrastructure and the design deliverables are complete.**
+**The application is complete and the design and DevOps tracks are complete —
+twenty of the twenty original issues are in and verified. A pre-release
+security audit (2026-10-28) and a requirement check against
+[docs/About.md](docs/About.md) produced **six further issues (021–026), which
+are open**. Nothing in the application is a placeholder.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | — |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | the six **open** issues 021–026 — the sign-in throttle as a DoS, the unthrottled and enumerating auth endpoints, the web-root disclosure, the thin response headers, the installer secrets in the session store, and the **missing average** |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -97,8 +97,40 @@ helpers (`resolveMonthRange()`, `reportGrain()`, `reportSpanDays()`,
 `assets/css/pages/reports.css` is the stylesheet the screen needs; and
 `database/reports_test.php` guards all of it in two tiers — the sources, and a
 sandbox that runs the real screen against a scratch database. **All twenty
-issues are in.** The repository itself is still mostly greenfield — the
-remaining work is the user's own data, not more code.
+of the original issues are in.**
+
+**Six further issues (021–026) are open** — they are the output of a
+pre-release security audit and a requirement check carried out on 2026-10-28,
+and they are **not** implemented. Read
+[docs/issues/README.md](docs/issues/README.md) for the index.
+
+- **021 — the sign-in throttle is a denial-of-service weapon.** The lockout is
+  keyed by a hash of the identifier, the count is read and written
+  non-atomically, the `login_attempts` table grows without bound, and the
+  lock columns the schema defines are never read.
+- **022 — the registration and reset endpoints are unthrottled**, and the
+  forgot-password screen is an **account-existence oracle**. The logs also
+  carry the e-mail address and the submitted identifier.
+- **023 — the web root still serves `docker-compose.yml`**, which holds the
+  default database credentials, and `database/webroot_hardening_test.php`
+  **asserts that it does** — the test pins the leak in place.
+- **024 — the response headers are thin** (no CSP, no HSTS, no
+  `Permissions-Policy`), and `install.php` sends **no headers at all**.
+- **025 — the installer writes the database and the SMTP password into the
+  session store**: a **clear-text file in the shared `/tmp`**, under a **file
+  name the client chooses**, and the session id is never rotated.
+- **026 — the requirement gap.** The brief says *"search and sum/average in
+  time period like day, month, weeks, year"*. The search and the sum are
+  implemented; **the average is implemented nowhere**. This issue also
+  extends `docs/mockup/08-reports.html` first — the design track must move
+  before the screen can.
+
+The audit itself is **not** a clean bill of health on those six points and
+**is** one on everything else: the SQL injection, IDOR, XSS, CSRF, open
+redirect, session and path-traversal audits all came back clean, and the
+findings are written up with their measurements in
+[docs/issues/issue-021.md](docs/issues/issue-021.md) –
+[docs/issues/issue-026.md](docs/issues/issue-026.md).
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -170,7 +202,7 @@ database/
     run-live-tests.sh  # the runner (NOT part of run-tests.sh)
 docs/
   About.md             # the product brief
-  issues/              # issue specifications (20) — see docs/issues/README.md
+  issues/              # issue specifications (26) — see docs/issues/README.md
   mockup/              # static HTML mockups + the shared assets/ layer
 ````
 
@@ -613,7 +645,7 @@ The two states a caller must distinguish:
 | Doc | Use it for |
 |---|---|
 | [docs/About.md](docs/About.md) | The product brief: purpose, stack, installation contract. |
-| [docs/issues/README.md](docs/issues/README.md) | The index of all 20 issues — DevOps (001–003, 009–010), UX/UI (004–008) and the application (011–020). |
+| [docs/issues/README.md](docs/issues/README.md) | The index of all 26 issues — DevOps (001–003, 009–010), UX/UI (004–008), the application (011–020), the security audit (021–025) and the requirement gap (026). |
 | [docs/issues/issue-001.md](docs/issues/issue-001.md) | The Docker Compose stack: services, ports, volumes, env variables. |
 | [docs/issues/issue-002.md](docs/issues/issue-002.md) | The mockup viewer container and the `docs/mockup/` contract. |
 | [docs/issues/issue-003.md](docs/issues/issue-003.md) | The web-root hardening, the `config.php` write path, the CLI harness path. |
@@ -622,6 +654,8 @@ The two states a caller must distinguish:
 | [docs/issues/issue-009.md](docs/issues/issue-009.md) | The PHP 8.5.12 runtime floor: PHP2Shell, the pinned image tag, the paths that move. |
 | [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
 | [docs/issues/issue-011.md](docs/issues/issue-011.md) – [issue-020.md](docs/issues/issue-020.md) | The application specification: the schema, the runtime, the tokens, the front controller, the installer, the authentication and the five screens. |
+| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **Open.** |
+| [docs/issues/issue-026.md](docs/issues/issue-026.md) | The requirement gap against [docs/About.md](docs/About.md): the missing **average**. **Open.** |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
 | [.github/instructions/](.github/instructions/) | Scoped conventions for PHP, database, tests, and front-end code. |
