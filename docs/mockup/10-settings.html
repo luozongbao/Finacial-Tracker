@@ -69,7 +69,44 @@
                         </dl>
                     </div>
 
-                    <button type="button" class="btn btn--primary">Save changes</button>
+                    <button type="submit" class="btn btn--primary">Save changes</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==============================================================
+             STATE — profile saved
+             ============================================================== -->
+        <section class="state" aria-labelledby="s-prof-ok-h">
+            <p class="state__label" id="s-prof-ok-h">State — the profile was saved</p>
+
+            <div class="card">
+                <h2>Profile</h2>
+
+                <div role="status" aria-live="polite">
+                    <div class="alert alert--success">
+                        <div class="alert__body">
+                            <p class="alert__title">Your profile was saved.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <form aria-label="Profile">
+                    <div class="field">
+                        <label class="field__label" for="set-user-3">Username</label>
+                        <span class="field__hint" id="set-user-3-hint">3–32 characters. Letters, digits, underscore and hyphen.</span>
+                        <input class="input" id="set-user-3" name="username" type="text"
+                               autocomplete="username" value="demo" aria-describedby="set-user-3-hint">
+                    </div>
+
+                    <div class="field">
+                        <label class="field__label" for="set-mail-3">Email</label>
+                        <span class="field__hint" id="set-mail-3-hint">Used for the password reset link. It must be unique.</span>
+                        <input class="input" id="set-mail-3" name="email" type="email"
+                               autocomplete="email" value="demo@example.com" aria-describedby="set-mail-3-hint">
+                    </div>
+
+                    <button type="submit" class="btn btn--primary">Save changes</button>
                 </form>
             </div>
         </section>
@@ -100,7 +137,7 @@
                                autocomplete="email" value="demo@example.com" aria-describedby="set-mail-2-hint">
                     </div>
 
-                    <button type="button" class="btn btn--primary">Save changes</button>
+                    <button type="submit" class="btn btn--primary">Save changes</button>
                 </form>
             </div>
 
@@ -143,7 +180,7 @@
                                autocomplete="new-password">
                     </div>
 
-                    <button type="button" class="btn btn--primary">Change password</button>
+                    <button type="submit" class="btn btn--primary">Change password</button>
                 </form>
             </div>
         </section>
@@ -179,7 +216,7 @@
                                autocomplete="new-password">
                     </div>
 
-                    <button type="button" class="btn btn--primary">Change password</button>
+                    <button type="submit" class="btn btn--primary">Change password</button>
                 </form>
             </div>
         </section>
@@ -215,7 +252,7 @@
                         <span class="field__error" id="pw-new6-msg">The two passwords do not match.</span>
                     </div>
 
-                    <button type="button" class="btn btn--primary">Change password</button>
+                    <button type="submit" class="btn btn--primary">Change password</button>
                 </form>
             </div>
         </section>
@@ -258,7 +295,7 @@
                                autocomplete="new-password" value="">
                     </div>
 
-                    <button type="button" class="btn btn--primary">Change password</button>
+                    <button type="submit" class="btn btn--primary">Change password</button>
                 </form>
             </div>
 
@@ -414,19 +451,11 @@
 
         <!-- ==============================================================
              STATE — empty (no profile yet)
-             ============================================================== -->
-        <section class="state" aria-labelledby="s-empty-h">
-            <p class="state__label" id="s-empty-h">State — empty profile</p>
 
-            <div class="card">
-                <div class="empty">
-                    <h3 class="empty__title">No profile yet</h3>
-                    <p class="empty__body">
-                        This account has no username or email address yet.
-                    </p>
-                </div>
-            </div>
-        </section>
+             REMOVED. The state has no reachable counterpart:
+             users.username and users.email are NOT NULL, and registration
+             requires both. It is recorded in docs/issues/issue-020.md §12.
+             ============================================================== -->
 
     </main>
 

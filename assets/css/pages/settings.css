@@ -1,0 +1,37 @@
+/* ==========================================================================
+   assets/css/pages/settings.css
+   --------------------------------------------------------------------------
+   The settings screen — issue-020.
+
+   Everything the screen renders already exists in the component layer
+   (components.css): .card, .field, .input, .btn, .readonly-list, .alert.
+
+   This file holds only what is genuinely page-specific, and it uses the
+   design tokens only — there is no literal colour in it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The blocks of the screen.
+
+   The four cards — the profile, the password, the session and the
+   installation — follow each other, and the component layer puts no gap
+   between the blocks of a page, so the screen spaces its own.
+   -------------------------------------------------------------------------- */
+
+.set__block {
+    margin-bottom: var(--sp-5);
+}
+
+/* --------------------------------------------------------------------------
+   The read-only values.
+
+   The installation card lists the settings of the running instance. The
+   values are read-only, so they are laid out as a definition list rather
+   than as disabled inputs — a disabled input looks editable and is not.
+   -------------------------------------------------------------------------- */
+
+.set__value {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    word-break: break-word;
+}

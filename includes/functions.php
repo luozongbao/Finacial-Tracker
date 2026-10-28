@@ -275,6 +275,52 @@ function validateCsrfToken(?string $token): bool
 }
 
 // ---------------------------------------------------------------------------
+// The flash messages
+// ---------------------------------------------------------------------------
+
+/**
+ * Put a value in the session for the NEXT request.
+ *
+ * A POST that ends with a redirect needs a way to carry a message across
+ * the redirect: the query string is visible in the address bar and the
+ * Referer header, and a message in a URL is a message a stranger can
+ * write. The session is the only channel that survives the redirect.
+ *
+ * The value is read exactly once — takeFlash() removes it — so a refresh
+ * does not repeat the message.
+ */
+function setFlash(string $key, mixed $value): void
+{
+    startSession();
+
+    if (!isset($_SESSION['flash']) || !is_array($_SESSION['flash'])) {
+        $_SESSION['flash'] = [];
+    }
+
+    $_SESSION['flash'][$key] = $value;
+}
+
+/**
+ * Read a flash message — and forget it.
+ *
+ * The value is removed on the way out, so it is shown once and once only.
+ */
+function takeFlash(string $key, mixed $default = null): mixed
+{
+    startSession();
+
+    if (!isset($_SESSION['flash']) || !is_array($_SESSION['flash']) || !array_key_exists($key, $_SESSION['flash'])) {
+        return $default;
+    }
+
+    $value = $_SESSION['flash'][$key];
+
+    unset($_SESSION['flash'][$key]);
+
+    return $value;
+}
+
+// ---------------------------------------------------------------------------
 // Dates and periods
 // ---------------------------------------------------------------------------
 
@@ -556,6 +602,21 @@ function post(string $key, string $default = ''): string
     $value = $_POST[$key] ?? $default;
 
     return is_string($value) ? trim($value) : $default;
+}
+
+/**
+ * A POST value that is NOT trimmed.
+ *
+ * A password is the one field where a leading or a trailing space is part
+ * of the secret: trimming it would quietly change the password the
+ * visitor chose. The value is still refused unless it is a string, so a
+ * posted array can never reach a comparison.
+ */
+function postRaw(string $key, string $default = ''): string
+{
+    $value = $_POST[$key] ?? $default;
+
+    return is_string($value) ? $value : $default;
 }
 
 /**
@@ -1037,6 +1098,349 @@ function validateTransactionInput(array $input, array $categoryIds): array
     $values['description'] = $description;
 
     return ['errors' => $errors, 'values' => $values];
+}
+
+// ---------------------------------------------------------------------------
+// The categories, the profile and the installation
+// ---------------------------------------------------------------------------
+
+/**
+ * Is this exception the database's duplicate-key error?
+ *
+ * Two things have to match: the SQLSTATE 23000 (an integrity constraint
+ * violation) and the driver code 1062 (ER_DUP_ENTRY). The message text is
+ * never matched — it is localised and it changes between versions.
+ */
+function isDuplicateKeyError(Throwable $ex): bool
+{
+    if (!($ex instanceof PDOException)) {
+        return false;
+    }
+
+    if ((string) $ex->getCode() !== '23000') {
+        return false;
+    }
+
+    $driverCode = isset($ex->errorInfo[1]) ? (int) $ex->errorInfo[1] : 0;
+
+    return $driverCode === 1062;
+}
+
+/**
+ * The validation of the category form.
+ *
+ * The UNIQUENESS of the name is not checked here: the database owns it
+ * (uq_categories_user_name) and the duplicate-key error is mapped to the
+ * friendly message by the caller. A SELECT first would race — two
+ * simultaneous creates would both pass the SELECT, and the index would
+ * still refuse one of them.
+ *
+ * @return array{errors: array<string, string>, values: array{name: string, type: string}}
+ */
+function validateCategoryInput(string $name, string $type): array
+{
+    $errors = [];
+
+    $name = trim($name);
+
+    if ($name === '') {
+        $errors['name'] = 'Enter a name for the category.';
+    } elseif (!isValidCategoryName($name)) {
+        $errors['name'] = 'The name may be at most 60 characters long.';
+    }
+
+    if (!isValidType($type)) {
+        $errors['type'] = 'Choose either income or expense.';
+    }
+
+    return [
+        'errors' => $errors,
+        'values' => [
+            'name' => $name,
+            // The type is passed on as it was posted, valid or not: the
+            // radio group has to show what the visitor picked.
+            'type' => $type,
+        ],
+    ];
+}
+
+/**
+ * The label of a category type on the categories screen.
+ *
+ * The stored value is 'income' or 'expense'. This screen says "Expense"
+ * where the transaction screens say "Spending" — the inconsistency is
+ * recorded for the design owner in docs/issues/issue-020.md.
+ */
+function categoryTypeLabel(string $type): string
+{
+    return $type === 'income' ? 'Income' : 'Expense';
+}
+
+/**
+ * The total of a category, as the table shows it.
+ *
+ * A category without transactions shows an em dash: a total of 0.00 would
+ * look like a category that really spent nothing, and the difference
+ * matters.
+ *
+ * The sign follows the TRANSACTIONS, not the declared type. A category
+ * declared as an expense can hold an income entry, and the table has to
+ * tell the truth about the money, not about the label.
+ *
+ * The sign is read from the string, never from a float: the value comes
+ * from a DECIMAL(14,2) column and the money path must not turn it into a
+ * float to decide anything.
+ *
+ * @return array{label: string, modifier: string}
+ */
+function formatCategoryTotal(string $total, int $count): array
+{
+    if ($count === 0) {
+        return ['label' => '—', 'modifier' => 'muted'];
+    }
+
+    $trimmed = ltrim(trim($total), '+');
+    $negative = str_starts_with($trimmed, '-');
+    $zero = isZeroAmount($trimmed);
+
+    $sign = $zero ? '' : ($negative ? '−' : '+');
+
+    return [
+        'label' => formatSignedMoney($trimmed, $sign),
+        'modifier' => $zero ? 'zero' : ($negative ? 'expense' : 'income'),
+    ];
+}
+
+/**
+ * The sentence the delete confirmation carries.
+ *
+ * It is the most important sentence on the screen: it says that the
+ * transactions SURVIVE. One transaction takes the singular, more take the
+ * plural, and the count is the same number the table shows.
+ */
+function uncategorisedNotice(int $count): string
+{
+    if ($count === 1) {
+        return '1 transaction will become uncategorised. It will not be deleted.';
+    }
+
+    return $count . ' transactions will become uncategorised. They will not be deleted.';
+}
+
+/**
+ * The validation of the profile form.
+ *
+ * The UNIQUENESS is not checked here: the caller checks it, because the
+ * check has to leave the signed-in account's own row out.
+ *
+ * @return array{errors: array<string, string>, values: array{username: string, email: string}}
+ */
+function validateProfileInput(string $username, string $email): array
+{
+    $errors = [];
+
+    $username = trim($username);
+    $email = trim($email);
+
+    if (!isValidUsername($username)) {
+        $errors['username'] = usernameValidationMessage($username);
+    }
+
+    if (!isValidEmail($email)) {
+        $errors['email'] = 'Enter a valid email address.';
+    }
+
+    return [
+        'errors' => $errors,
+        'values' => [
+            'username' => $username,
+            // The address is stored lowercased, so the unique index sees
+            // one spelling of one address.
+            'email' => strtolower($email),
+        ],
+    ];
+}
+
+/**
+ * The uniqueness of a profile, leaving the signed-in account's own row out.
+ *
+ * The account's own row has to be left out: saving the profile without
+ * changing anything must not answer "already taken" with the visitor's
+ * own name.
+ *
+ * The comparison is case-insensitive, because the column's collation is
+ * — `Demo` and `demo` are one name in the database and one name here.
+ *
+ * @return array<string, string> The field errors. Empty when the input is free.
+ */
+function profileUniquenessErrors(string $username, string $email, int $userId): array
+{
+    $errors = [];
+
+    $db = Database::getInstance();
+
+    if ($username !== '') {
+        $row = $db->fetchOne(
+            'SELECT id FROM users WHERE username = ? AND id <> ? LIMIT 1',
+            [$username, $userId]
+        );
+
+        if ($row !== false) {
+            $errors['username'] = 'That username is already taken.';
+        }
+    }
+
+    if ($email !== '') {
+        $row = $db->fetchOne(
+            'SELECT id FROM users WHERE email = ? AND id <> ? LIMIT 1',
+            [$email, $userId]
+        );
+
+        if ($row !== false) {
+            $errors['email'] = 'That email address is already registered.';
+        }
+    }
+
+    return $errors;
+}
+
+/**
+ * The message for an invalid username.
+ *
+ * The copy is the registration screen's — one product, one voice — and it
+ * lives in one place so the two screens cannot drift apart.
+ */
+function usernameValidationMessage(string $username): string
+{
+    $length = function_exists('mb_strlen') ? mb_strlen($username) : strlen($username);
+
+    if ($length < 3) {
+        return 'The username must be at least 3 characters long.';
+    }
+
+    if ($length > 32) {
+        return 'The username may be at most 32 characters long.';
+    }
+
+    return 'The username may only contain letters, digits, underscore and hyphen.';
+}
+
+/**
+ * The validation of the change-password form.
+ *
+ * The password is NEVER trimmed: a leading or a trailing space is part of
+ * the password the visitor chose, and trimming it would quietly sign them
+ * out of the account they are trying to change.
+ *
+ * The two new passwords are compared with hash_equals(): a plain === on a
+ * secret is a timing leak.
+ *
+ * @return array<string, string> The field errors. Empty when the input is good.
+ */
+function validatePasswordChangeInput(string $password, string $confirmation): array
+{
+    $errors = [];
+
+    $min = defined('PASSWORD_MIN_LENGTH') ? PASSWORD_MIN_LENGTH : 10;
+    $max = defined('PASSWORD_MAX_LENGTH') ? PASSWORD_MAX_LENGTH : 200;
+
+    $length = function_exists('mb_strlen') ? mb_strlen($password) : strlen($password);
+
+    if ($length < $min) {
+        $errors['password'] = 'The password must be at least ' . $min . ' characters long.';
+    } elseif ($length > $max) {
+        $errors['password'] = 'The password may be at most ' . $max . ' characters long.';
+    } elseif (!hash_equals($password, $confirmation)) {
+        $errors['password_confirmation'] = 'The two passwords do not match.';
+    }
+
+    return $errors;
+}
+
+/**
+ * The name of the weekday a week starts on.
+ *
+ * WEEK_START is a weekday number, and the configuration and the helper
+ * document two spellings of Sunday — 0 and 7 — so both are accepted and
+ * normalised to 0 here. A number outside the range is shown as it is: a
+ * broken configuration is better visible than quietly hidden.
+ */
+function weekStartName(int $day): string
+{
+    if ($day === 7) {
+        $day = 0;
+    }
+
+    if ($day < 0 || $day > 6) {
+        return (string) $day;
+    }
+
+    $names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    return $names[$day];
+}
+
+/**
+ * The timezone the application renders timestamps in.
+ *
+ * The TIMEZONE constant is the only source: the server's own timezone is
+ * not the application's business.
+ */
+function appTimezone(): DateTimeZone
+{
+    $name = defined('TIMEZONE') ? (string) TIMEZONE : 'UTC';
+
+    try {
+        return new DateTimeZone($name);
+    } catch (Throwable) {
+        return new DateTimeZone('UTC');
+    }
+}
+
+/**
+ * A timestamp in the long form: "12 March 2026".
+ *
+ * The column is stored in UTC; the reading is rendered in the app's
+ * timezone, so the date a visitor sees is the date of THEIR day.
+ */
+function formatAccountDate(?string $datetime): string
+{
+    if ($datetime === null || trim($datetime) === '') {
+        return '';
+    }
+
+    try {
+        $moment = new DateTimeImmutable($datetime, new DateTimeZone('UTC'));
+    } catch (Throwable) {
+        return '';
+    }
+
+    return $moment->setTimezone(appTimezone())->format('j F Y');
+}
+
+/**
+ * The path of the current request, normalised.
+ *
+ * One leading slash, no trailing slash, no doubled slashes — the same
+ * shape the router matches. A view that serves more than one route reads
+ * the path to tell them apart.
+ *
+ * The normalisation is written out here and not borrowed from the router:
+ * the installer loads this file on its own, without the router.
+ */
+function requestPath(): string
+{
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+    $path = parse_url($uri, PHP_URL_PATH);
+    $path = is_string($path) && $path !== '' ? $path : '/';
+
+    $path = (string) preg_replace('#/{2,}#', '/', '/' . ltrim($path, '/'));
+
+    if ($path !== '/' && str_ends_with($path, '/')) {
+        $path = rtrim($path, '/');
+    }
+
+    return $path === '' ? '/' : $path;
 }
 
 // ---------------------------------------------------------------------------

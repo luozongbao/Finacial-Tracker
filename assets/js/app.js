@@ -411,6 +411,10 @@
      * trigger. A modal that has NO trigger is left visible: it is the only
      * way to reach it, and the delete must work without JavaScript.
      *
+     * A modal that carries data-modal-keep is left visible as well, even
+     * though it has a trigger: it is the dialog of a delete that FAILED,
+     * and it has to stay open with its error and its "Try again" button.
+     *
      * @returns {void}
      */
     function initModals() {
@@ -418,7 +422,7 @@
 
         Array.prototype.forEach.call(triggers, function (trigger) {
             var modal = document.getElementById(trigger.getAttribute('data-modal-open'));
-            if (modal) {
+            if (modal && !modal.hasAttribute('data-modal-keep')) {
                 modal.hidden = true;
             }
 

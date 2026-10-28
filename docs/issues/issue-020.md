@@ -1,6 +1,15 @@
 # Issue-020 — App: the categories and the settings
 
-> **Status:** Specification — ready for implementation
+> **Status:** **implemented and verified** — `views/categories.php`,
+> `views/category_save.php`, `views/category_delete.php` and `views/settings.php`
+> exist, `assets/css/pages/categories.css` and `assets/css/pages/settings.css`
+> are the stylesheets the two screens need, and the layer is guarded by
+> `database/categories_test.php` and `database/settings_test.php` (121 and 127
+> assertions, in two tiers each: the sources, and a sandbox that runs the real
+> screens against a scratch database). The walk-through found **one real
+> defect** — the password errors were overwritten before they were rendered, so
+> a wrong current password, a mismatch and a short password were all accepted
+> silently — which is fixed and now asserted.
 > **Target:** `index.php`, `includes/functions.php`, `views/categories.php`, `views/category_save.php`, `views/category_delete.php`, `views/settings.php`, `views/logout.php`, `assets/css/pages/categories.css`, `assets/css/pages/settings.css`
 > **Severity:** Medium — the last two screens of the application
 > **Requested by the user:** "I guess, we now have everything, ready for dev, write issue files for dev to implement the project."
@@ -939,17 +948,33 @@ Every count must be **0**. Then the stronger check — the constants must not ev
 be referenced in the views:
 
 ```bash
-grep -rn 'DB_PASS\|SMTP_PASS' views/ includes/ | grep -v 'config.template'
+# The strict rule: the views never name the secrets at all.
+grep -rn 'DB_PASS\|SMTP_PASS' views/          # expect nothing
+
+# Everywhere else, only the two files that legitimately *use* a password.
+grep -rn 'DB_PASS\|SMTP_PASS' includes/ | grep -v 'config.template'
 ```
 
-The only hits allowed are in the file that **writes** `config.php` (the
-installer, issue-015) and in `includes/mailer.php`, which legitimately needs
-the SMTP password to authenticate.
+The second command must return exactly two hits:
+
+```
+includes/Database.php:96:        $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+includes/mailer.php:67:    $mail->Password   = SMTP_PASS;
+```
+
+`includes/Database.php` opens the connection with the database password and
+`includes/mailer.php` authenticates with the SMTP password. They are the code
+that **uses** the secret, not the code that **shows** it. The file that
+**writes** `config.php` (the installer, issue-015) is allowed as well.
 
 ### 18.3 The seven installation rows, and only seven
 
 ```bash
-grep -o '<dt>[^<]*</dt>' /tmp/settings.html
+# The installation card is the only <dl class="readonly-list"> WITHOUT an
+# aria-labelledby — the Profile card's "Account created" row is not one of
+# the seven, so the block is extracted first.
+sed -n '/<dl class="readonly-list">/,/<\/dl>/p' /tmp/settings.html \
+  | grep -o '<dt>[^<]*</dt>'
 ```
 
 The output must be exactly the seven rows in §15 — and it must contain **no**
@@ -1104,3 +1129,73 @@ If the schema itself has to go, it is dropped by hand — **never**
 - **The `ALLOW_REGISTRATION` toggle in the UI.** It is an installer choice and a `config.php` edit; a UI switch would need a config-write path the application deliberately does not have.
 - **The weekly or monthly digest by email.**
 - **Export to CSV.** A later track; the reports screen (issue-019) is the source of the data.
+
+---
+
+## Implementation notes — 2026-10-29
+
+### What was built
+
+| File | Role |
+|---|---|
+| `views/categories.php` | The list, the create form, the empty state, the rename state and the delete dialogs. It is **re-entrant**: `views/category_delete.php` renders it when a delete fails. |
+| `views/category_save.php` | The write path of the create **and** the rename — one handler, two shapes of the same POST. |
+| `views/category_delete.php` | The write path of the delete. |
+| `views/settings.php` | The three settings routes: `GET /settings`, `POST /settings/profile`, `POST /settings/password`. |
+| `assets/css/pages/categories.css` | The stylesheet the categories screen needs. |
+| `assets/css/pages/settings.css` | The stylesheet the settings screen needs. |
+| `database/categories_test.php` | The guard — the sources, and a sandbox that runs the real screens. |
+| `database/settings_test.php` | The guard — the sources, and a sandbox that runs the real screens. |
+
+The helpers the two screens share live in `includes/functions.php`:
+`postRaw()`, `isDuplicateKeyError()`, `validateCategoryInput()`,
+`categoryTypeLabel()`, `formatCategoryTotal()`, `uncategorisedNotice()`,
+`validateProfileInput()`, `profileUniquenessErrors()`,
+`usernameValidationMessage()`, `validatePasswordChangeInput()`,
+`weekStartName()`, `formatAccountDate()`, `requestPath()` and `redirect()`.
+
+### The decisions the specification left open
+
+1. **The rename input is bound to its form with the HTML5 `form` attribute.** The input lives in the row-header cell and the buttons in the actions cell, and a form cannot span table cells. The input therefore carries `form="cat-rename-form-<id>"` and the form carries the matching `id` — the row is one form, split across two cells.
+2. **The failed delete is not a flash.** A redirect cannot carry a status code, and the failed delete must answer **500** with the dialog open. `views/category_delete.php` sets `$deleteFailure` and **requires** `views/categories.php`, which answers 500 and renders the dialog with `data-modal-keep` — the flag the modal script honours when it decides whether to hide a dialog on load.
+3. **Every POST ends with a redirect.** The success of a create, a rename, a delete, a profile save and a password change is confirmed on the **next** `GET`, out of a flash in the session. `redirect()` answers a **302** with an empty body, so a POST never renders the confirmation itself.
+4. **The uniqueness check is a `SELECT`, and the race is closed by the constraint.** The `SELECT` gives the friendly message; the `UNIQUE` key is what actually stops the second insert, and the duplicate-key error is caught and mapped to the same message (§16).
+5. **`views/settings.php` serves three routes.** One view, dispatched on the request method and `requestPath()` — the profile and the password are independent forms and never touch each other.
+
+### The defect the test found
+
+**The password errors were never rendered.** `views/settings.php` assigned `''` to `$passwordError` *before* the `if ($passwordError !== null)` check, so the guard was always false and a wrong current password, a mismatch and a short password were all **accepted silently** — the form came back with no error at all. The three messages now have their own variables (`$currentPasswordError`, `$newPasswordError`, `$confirmationError`), and the new-password input uses `$newPasswordError` for its `aria-describedby`, its `aria-invalid` and its error slot.
+
+### The mockups that changed with the screens
+
+| File | Change |
+|---|---|
+| `docs/mockup/09-categories.html` | The actions cell carried an **empty** `data-label=""` — the defect §6 names. It is `data-label="Actions"` now, in all seven rows. The **Groceries** row said 8 transactions and the **Groceries** dialog said 7 — §10 calls the mockup out and says the application uses **one** number, so both are 8 now. The submit-looking buttons were `type="button"`; they are real `type="submit"` buttons now, and the Rename action is the **link** to `?rename=<id>` that §3 specifies. The empty state omitted the create form; §7 says the form is still rendered, so it is there now. |
+| `docs/mockup/10-settings.html` | The **"No profile yet"** state has no reachable counterpart (`users.username` and `users.email` are `NOT NULL`) — §12 records it for the design owner and it is removed. The submit-looking buttons are real submits now, and the **profile saved** state of §12 is added. The sign-out stays an `<a>` in the mockup: the POST form in the application is a **documented deviation** (§14), not a mockup defect. |
+
+### The two verification commands that were not precise
+
+1. **§18.2** listed only `includes/mailer.php` as a legitimate hit for `DB_PASS` / `SMTP_PASS`. `includes/Database.php:96` opens the PDO connection with `DB_PASS` — it is the code that *uses* the secret, not the code that *shows* it. The command now names both files, and the strict rule is the first one: **the views never mention the constants.**
+2. **§18.3** grepped every `<dt>` on the page, but the **Profile** card has a `<dt>Account created</dt>` of its own, so the command returned eight rows for a seven-row card. It is now scoped to the installation `<dl>` — the only one without an `aria-labelledby`.
+
+### What the guards cover
+
+`database/categories_test.php` and `database/settings_test.php` each check two tiers:
+
+- **A — the sources.** `requireLogin()` is the first call of every view; the CSRF token is validated **before** any input is read; the ownership is in the SQL; every dynamic value is escaped; the two `UPDATE` statements are scoped on the signed-in user's id; the profile statement never touches `password_hash` and the password statement clears `failed_attempts` and `locked_until`; the session's credential version is refreshed after a password change; `DB_PASS` and `SMTP_PASS` are named nowhere in `views/`; the installation card has exactly seven rows and no input; the page stylesheets use the tokens only.
+- **B — the behaviour.** A sandbox copy of the application, served by the PHP built-in server against a scratch database, answers the real requests: the guard redirects a guest; the screens render; the counts and the totals are checked **against the database**; the create, the duplicate, the invalid create, the rename and the delete each answer with the right status and the right flash; the profile save updates the row and lowercases the email; a duplicate username is refused without rejecting the email, and the other way round; a wrong current password, a mismatch and a short password are each refused and the hash is untouched; a valid change invalidates the other session, keeps the current one, and the new password signs in while the old one does not; the password is **not** trimmed.
+
+### The verification
+
+```bash
+docker compose exec -T app php -l /var/www/html/views/categories.php
+docker compose exec -T app php -l /var/www/html/views/category_save.php
+docker compose exec -T app php -l /var/www/html/views/category_delete.php
+docker compose exec -T app php -l /var/www/html/views/settings.php
+docker compose exec -T app php -l /var/www/html/includes/functions.php
+docker compose exec -T app php /var/www/html/database/categories_test.php
+docker compose exec -T app php /var/www/html/database/settings_test.php
+.github/skills/dev-stack-ops/scripts/run-tests.sh
+```
+
+All of them pass, and the whole suite is green: **13 PASS / 0 FAIL**.

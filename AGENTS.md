@@ -10,13 +10,13 @@ This file holds only what an agent cannot infer from the tree.
 
 **Greenfield — the application code barely exists yet: only the schema, the
 core runtime, the design-token layer, the front controller, the install
-wizard, the authentication, the dashboard and the transaction screens have been
-written. The development infrastructure and the design deliverables are
-complete.**
+wizard, the authentication, the dashboard, the transaction and the
+categories/settings screens have been written. The development infrastructure
+and the design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 019–020** | the remaining three application screens (reports, categories, settings) and their page stylesheets |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issue 019** | the remaining application screen (reports) and its page stylesheet |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -32,7 +32,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first eight issues in.** Issue 011
+The **application track (issues 011–020) has nine of its ten issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -78,11 +78,20 @@ the edit screen from **one** template; `views/transaction_save.php` and
 in `includes/functions.php`; `assets/css/pages/transactions.css` is the
 stylesheet the screens share; and `database/transactions_test.php` guards all
 of it in two tiers — the sources, and a sandbox that runs the real screens
-against a scratch database. The remaining two issues (019–020) are
-**specified but not written** — they are the specification a developer picks up
-to build the remaining three application screens. The repository itself is
-still mostly greenfield — the page stylesheets of those screens arrive with
-their screen.
+against a scratch database. Issue 020 (the categories and the settings) is
+**implemented and verified** — `views/categories.php` holds the list, the
+create form, the empty state, the server-rendered rename and the delete
+dialogs; `views/category_save.php` and `views/category_delete.php` are the
+two write paths; `views/settings.php` serves the profile, the password and
+the read-only installation card from one view; the new helpers live in
+`includes/functions.php`; `assets/css/pages/categories.css` and
+`assets/css/pages/settings.css` are the two stylesheets the screens need; and
+`database/categories_test.php` and `database/settings_test.php` guard all of
+it in two tiers each — the sources, and a sandbox that runs the real screens
+against a scratch database. The remaining issue (019, the reports) is
+**specified but not written** — it is the specification a developer picks up to
+build the last application screen. The repository itself is still mostly
+greenfield — the page stylesheet of that screen arrives with its screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -133,13 +142,16 @@ views/                 # [exists] the six auth screens                   [issue-
                        # [exists] dashboard.php                          [issue-017]
                        # [exists] transactions.php, transaction_form.php,
                        #            transaction_save.php, transaction_delete.php [issue-018]
-                       # [TODO] one PHP view per application screen      [issues-019..020]
+                       # [exists] categories.php, category_save.php,
+                       #            category_delete.php, settings.php    [issue-020]
+                       # [TODO] one PHP view per application screen      [issue-019]
 assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
   pages/               # [exists] install.css                            [issue-015]
                        # [exists] auth.css                              [issue-016]
                        # [exists] dashboard.css                         [issue-017]
                        # [exists] transactions.css                     [issue-018]
-                       # [TODO] one page stylesheet per screen, with it    [issues-019..020]
+                       # [exists] categories.css, settings.css         [issue-020]
+                       # [TODO] one page stylesheet per screen, with it    [issue-019]
 assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
 assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/

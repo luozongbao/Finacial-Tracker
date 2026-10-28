@@ -404,15 +404,10 @@ function validateRegistrationInput(array $input): array
     $passwordConfirmation = (string) ($input['password_confirmation'] ?? '');
 
     // The username: 3 to 32 characters of letters, digits, underscore and
-    // hyphen.
-    $usernameLength = function_exists('mb_strlen') ? mb_strlen($username) : strlen($username);
-
-    if ($usernameLength < 3) {
-        $errors['username'] = 'The username must be at least 3 characters long.';
-    } elseif ($usernameLength > 32) {
-        $errors['username'] = 'The username may be at most 32 characters long.';
-    } elseif (preg_match('/^[A-Za-z0-9_-]+$/', $username) !== 1) {
-        $errors['username'] = 'The username may only contain letters, digits, underscore and hyphen.';
+    // hyphen. The message lives in the shared helper, so the registration
+    // screen and the settings screen cannot drift apart.
+    if (!isValidUsername($username)) {
+        $errors['username'] = usernameValidationMessage($username);
     }
 
     // The email address and its confirmation.

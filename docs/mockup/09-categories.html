@@ -66,7 +66,7 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn--primary">Add category</button>
+                    <button type="submit" class="btn btn--primary">Add category</button>
                 </form>
             </div>
 
@@ -89,9 +89,9 @@
                                 <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
                                 <td data-label="Transactions" class="num">8</td>
                                 <td data-label="Total" class="num amount amount--expense">−342.60</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html?rename=1">Rename</a>
                                         <button type="button" class="btn btn--ghost btn--sm"
                                                 data-modal-open="cat-del-groceries">Delete</button>
                                     </span>
@@ -102,9 +102,9 @@
                                 <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
                                 <td data-label="Transactions" class="num">5</td>
                                 <td data-label="Total" class="num amount amount--expense">−418.25</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html?rename=2">Rename</a>
                                         <button type="button" class="btn btn--ghost btn--sm"
                                                 data-modal-open="cat-del-utilities">Delete</button>
                                     </span>
@@ -115,9 +115,9 @@
                                 <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
                                 <td data-label="Transactions" class="num">3</td>
                                 <td data-label="Total" class="num amount amount--expense">−86.95</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html?rename=3">Rename</a>
                                         <button type="button" class="btn btn--ghost btn--sm"
                                                 data-modal-open="cat-del-eatingout">Delete</button>
                                     </span>
@@ -128,9 +128,9 @@
                                 <td data-label="Type"><span class="badge badge--income">Income</span></td>
                                 <td data-label="Transactions" class="num">1</td>
                                 <td data-label="Total" class="num amount amount--income">+1,200.00</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html?rename=4">Rename</a>
                                         <button type="button" class="btn btn--ghost btn--sm"
                                                 data-modal-open="cat-del-salary">Delete</button>
                                     </span>
@@ -158,6 +158,35 @@
             <p class="state__label" id="c-empty-h">State — no categories yet</p>
 
             <div class="card">
+                <h2>New category</h2>
+
+                <form aria-label="Create a category">
+                    <div class="field">
+                        <label class="field__label" for="cat-name-4">Name</label>
+                        <span class="field__hint" id="cat-name-4-hint">Up to 60 characters. The name must be unique.</span>
+                        <input class="input" id="cat-name-4" name="name" type="text"
+                               maxlength="60" aria-describedby="cat-name-4-hint">
+                    </div>
+
+                    <div class="field">
+                        <span class="field__label" id="cat-type4-label">Type</span>
+                        <div class="radio-group" role="radiogroup" aria-labelledby="cat-type4-label">
+                            <label class="radio radio--income" for="cat4-in">
+                                <input type="radio" id="cat4-in" name="type" value="income">
+                                Income
+                            </label>
+                            <label class="radio radio--expense" for="cat4-out">
+                                <input type="radio" id="cat4-out" name="type" value="expense" checked>
+                                Expense
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn--primary">Add category</button>
+                </form>
+            </div>
+
+            <div class="card">
                 <div class="empty">
                     <h3 class="empty__title">No categories yet.</h3>
                     <p class="empty__body">
@@ -165,6 +194,17 @@
                         every total and every report.
                     </p>
                 </div>
+            </div>
+
+            <div class="spec-note">
+                <span class="spec-note__label">Rule</span>
+                <p>
+                    The create form is <strong>still rendered</strong> when there
+                    are no categories — the visitor can create the first one
+                    without navigating anywhere. The <strong>table is
+                    omitted</strong> entirely: there is no table with an empty
+                    body.
+                </p>
             </div>
         </section>
 
@@ -201,7 +241,7 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn--primary">Add category</button>
+                    <button type="submit" class="btn btn--primary">Add category</button>
                 </form>
             </div>
         </section>
@@ -243,7 +283,7 @@
                         </div>
                     </div>
 
-                    <button type="button" class="btn btn--primary">Add category</button>
+                    <button type="submit" class="btn btn--primary">Add category</button>
                 </form>
             </div>
 
@@ -285,10 +325,10 @@
                                 <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
                                 <td data-label="Transactions" class="num">8</td>
                                 <td data-label="Total" class="num amount amount--expense">−342.60</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--primary btn--sm">Save</button>
-                                        <button type="button" class="btn btn--ghost btn--sm">Cancel</button>
+                                        <button type="submit" class="btn btn--primary btn--sm">Save</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html">Cancel</a>
                                     </span>
                                 </td>
                             </tr>
@@ -297,9 +337,9 @@
                                 <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
                                 <td data-label="Transactions" class="num">5</td>
                                 <td data-label="Total" class="num amount amount--expense">−418.25</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--ghost btn--sm">Rename</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html?rename=2">Rename</a>
                                         <button type="button" class="btn btn--ghost btn--sm">Delete</button>
                                     </span>
                                 </td>
@@ -340,10 +380,10 @@
                                 <td data-label="Type"><span class="badge badge--expense">Expense</span></td>
                                 <td data-label="Transactions" class="num">8</td>
                                 <td data-label="Total" class="num amount amount--expense">−342.60</td>
-                                <td data-label="">
+                                <td data-label="Actions">
                                     <span class="tx__actions">
-                                        <button type="button" class="btn btn--primary btn--sm">Save</button>
-                                        <button type="button" class="btn btn--ghost btn--sm">Cancel</button>
+                                        <button type="submit" class="btn btn--primary btn--sm">Save</button>
+                                        <a class="btn btn--ghost btn--sm" href="09-categories.html">Cancel</a>
                                     </span>
                                 </td>
                             </tr>
@@ -371,12 +411,14 @@
             <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del-title" id="cat-del-groceries">
                 <h3 class="modal__title" id="cat-del-title">Delete 'Groceries'?</h3>
                 <p>
-                    <strong>7 transactions will become uncategorised. They will not be deleted.</strong>
+                    <strong>8 transactions will become uncategorised. They will not be deleted.</strong>
                 </p>
-                <div class="modal__actions">
-                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-groceries">Cancel</button>
-                    <button type="button" class="btn btn--danger">Delete category</button>
-                </div>
+                <form aria-label="Delete the category">
+                    <div class="modal__actions">
+                        <button type="button" class="btn btn--secondary" data-modal-close="cat-del-groceries">Cancel</button>
+                        <button type="submit" class="btn btn--danger">Delete category</button>
+                    </div>
+                </form>
             </div>
 
             <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del2-title" id="cat-del-utilities">
@@ -384,10 +426,12 @@
                 <p>
                     <strong>5 transactions will become uncategorised. They will not be deleted.</strong>
                 </p>
-                <div class="modal__actions">
-                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-utilities">Cancel</button>
-                    <button type="button" class="btn btn--danger">Delete category</button>
-                </div>
+                <form aria-label="Delete the category">
+                    <div class="modal__actions">
+                        <button type="button" class="btn btn--secondary" data-modal-close="cat-del-utilities">Cancel</button>
+                        <button type="submit" class="btn btn--danger">Delete category</button>
+                    </div>
+                </form>
             </div>
 
             <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del3-title" id="cat-del-eatingout">
@@ -395,10 +439,12 @@
                 <p>
                     <strong>3 transactions will become uncategorised. They will not be deleted.</strong>
                 </p>
-                <div class="modal__actions">
-                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-eatingout">Cancel</button>
-                    <button type="button" class="btn btn--danger">Delete category</button>
-                </div>
+                <form aria-label="Delete the category">
+                    <div class="modal__actions">
+                        <button type="button" class="btn btn--secondary" data-modal-close="cat-del-eatingout">Cancel</button>
+                        <button type="submit" class="btn btn--danger">Delete category</button>
+                    </div>
+                </form>
             </div>
 
             <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cat-del4-title" id="cat-del-salary">
@@ -406,10 +452,12 @@
                 <p>
                     <strong>1 transaction will become uncategorised. It will not be deleted.</strong>
                 </p>
-                <div class="modal__actions">
-                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-salary">Cancel</button>
-                    <button type="button" class="btn btn--danger">Delete category</button>
-                </div>
+                <form aria-label="Delete the category">
+                    <div class="modal__actions">
+                        <button type="button" class="btn btn--secondary" data-modal-close="cat-del-salary">Cancel</button>
+                        <button type="submit" class="btn btn--danger">Delete category</button>
+                    </div>
+                </form>
             </div>
 
             <div class="spec-note">
@@ -442,12 +490,14 @@
                 </div>
 
                 <p>
-                    <strong>7 transactions will become uncategorised. They will not be deleted.</strong>
+                    <strong>8 transactions will become uncategorised. They will not be deleted.</strong>
                 </p>
-                <div class="modal__actions">
-                    <button type="button" class="btn btn--secondary" data-modal-close="cat-del-failed">Cancel</button>
-                    <button type="button" class="btn btn--danger">Try again</button>
-                </div>
+                <form aria-label="Delete the category">
+                    <div class="modal__actions">
+                        <button type="button" class="btn btn--secondary" data-modal-close="cat-del-failed">Cancel</button>
+                        <button type="submit" class="btn btn--danger">Try again</button>
+                    </div>
+                </form>
             </div>
 
             <div class="spec-note">
