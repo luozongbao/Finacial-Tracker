@@ -53,7 +53,7 @@ services:
       # binding :80 on a workstation needs privileges on some hosts.
       - "${APP_PORT:-8088}:80"
       # WebAdmin console. Bound to loopback only: it is an admin surface.
-      - "127.0.0.1:${OLS_ADMIN_PORT:-7080}:7080"
+      - ${OLS_ADMIN_PORT:-7080}:7080
     volumes:
       # The project itself, served at "/".
       - ./:/var/www/vhosts/localhost/html
@@ -63,6 +63,12 @@ services:
       # makes the container exit immediately.
       - ols_conf:/usr/local/lsws/conf
       - ols_admin_conf:/usr/local/lsws/admin/conf
+    environment:
+      - TZ=Asia/Bangkok
+      - ADMIN_USER=${OLS_ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${OLS_ADMIN_PASSWORD:-P@ssw0rd}
+    command: >
+      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && chmod +x /usr/local/bin/wp-wrapper.sh && [ -e /usr/bin/wp.real ] || mv /usr/bin/wp /usr/bin/wp.real && ln -sf /usr/local/bin/wp-wrapper.sh /usr/bin/wp && chown -R $${WP_USER}:$${WP_GROUP} /var/www/vhosts/localhost/html && touch /usr/local/lsws/admin/conf/enable_webadmin && /usr/local/lsws/bin/lswsctrl restart && /entrypoint.sh'
     depends_on:
       db:
         condition: service_healthy
