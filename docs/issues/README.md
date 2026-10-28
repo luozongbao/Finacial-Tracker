@@ -11,7 +11,7 @@ Two tracks run through this folder:
 |---|---|---|---|
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
-| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **Issues 011–018 and 020 are implemented & verified; issue 019 is specification only.** |
+| **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **All ten issues (011–020) are implemented & verified.** |
 
 ---
 
@@ -37,7 +37,7 @@ Two tracks run through this folder:
 | [016](issue-016.md) | App: authentication and the mailer | App | **implemented & verified** | 012, 014, 015 | `includes/auth.php`, `views/login.php` … `views/verify_email.php`, `assets/css/pages/auth.css`, the two-sided registration gate — guarded by `database/auth_test.php` |
 | [017](issue-017.md) | App: the dashboard | App | **implemented & verified** | 013, 014, 016 | `views/dashboard.php`, `assets/css/pages/dashboard.css` — the period tiles, the recent card, the empty states — guarded by `database/dashboard_test.php` |
 | [018](issue-018.md) | App: the transaction list and the transaction form | App | **implemented & verified** | 013, 014, 016 | `views/transactions.php`, `views/transaction_form.php`, `views/transaction_save.php`, `views/transaction_delete.php`, `assets/css/pages/transactions.css` — the filters, the presets, the table, the validation — guarded by `database/transactions_test.php` |
-| [019](issue-019.md) | App: the reports | App | **specification** | 013, 014, 016 | `views/reports.php` — the period selector, the "Over time" and "By category" tables |
+| [019](issue-019.md) | App: the reports | App | **implemented & verified** | 013, 014, 016 | `views/reports.php`, `assets/css/pages/reports.css` — the period selector, the "Over time" and "By category" tables — guarded by `database/reports_test.php` |
 | [020](issue-020.md) | App: the categories and the settings | App | **implemented & verified** | 013, 014, 016 | `views/categories.php`, `views/category_save.php`, `views/category_delete.php`, `views/settings.php`, `assets/css/pages/categories.css`, `assets/css/pages/settings.css` — the category list, the profile, the read-only installation card — guarded by `database/categories_test.php` and `database/settings_test.php` |
 
 > **The Application track has its first seven issues in.** Issue 011 — the
@@ -96,8 +96,16 @@ Two tracks run through this folder:
 > `assets/css/pages/categories.css` and `assets/css/pages/settings.css` are
 > the two stylesheets the screens need. `database/categories_test.php` and
 > `database/settings_test.php` guard all of it — a source tier and a sandbox
-> tier each. Issue 019 — the reports — is the one specification left; none of
-> it exists yet.
+> tier each. Issue 019 — the reports — is **implemented and verified** as
+> well: `views/reports.php` holds the period selector, the custom-range form,
+> the status line, the three tiles and the two tables, the eight report
+> helpers live in `includes/functions.php`, and
+> `assets/css/pages/reports.css` is the stylesheet the screen needs.
+> `database/reports_test.php` guards all of it — a source tier and a sandbox
+> tier that runs the real screen against a scratch database. **The mockup's
+> own figures did not reconcile**, so `docs/mockup/08-reports.html` was
+> corrected to a set that does, and three of the verification recipes were
+> corrected with it.
 
 ---
 
@@ -195,7 +203,7 @@ The implementation copies the shape, not the text.
 | [016](issue-016.md) | `includes/auth.php`, the auth screens | 012, 014, 015 |
 | [017](issue-017.md) | `views/dashboard.php`, `assets/css/pages/dashboard.css` | 013, 014, 016 |
 | [018](issue-018.md) | `views/transactions.php`, `views/transaction_form.php`, `views/transaction_save.php`, `views/transaction_delete.php`, `assets/css/pages/transactions.css` | 013, 014, 016 |
-| [019](issue-019.md) | `views/reports.php` | 013, 014, 016 |
+| [019](issue-019.md) | `views/reports.php`, `assets/css/pages/reports.css` | 013, 014, 016 |
 | [020](issue-020.md) | `views/categories.php`, `views/category_save.php`, `views/category_delete.php`, `views/settings.php`, `assets/css/pages/categories.css`, `assets/css/pages/settings.css` | 013, 014, 016 |
 
 > **Two known contradictions between the issues**, both flagged in place:
@@ -204,7 +212,8 @@ The implementation copies the shape, not the text.
 > table now carries the query-parameter form, because the router matches
 > exactly and has no placeholder syntax; and the mockups' figures do not
 > reconcile — issue-019 §13 lists the four contradictions and the
-> corrected figure set.
+> corrected figure set, and `docs/mockup/08-reports.html` now carries the
+> corrected set.
 
 > The DevOps track is done: the stack runs **on PHP 8.5.12**, the mockup viewer
 > runs, and the web root is hardened with a regression test that guards it. The
@@ -215,7 +224,7 @@ The implementation copies the shape, not the text.
 > git-ignored and never served, and `includes/mailer.php` is guarded by
 > `database/mailer_test.php`.
 >
-> **The Application track has nine of its ten issues in.** Issue 011 — the schema
+> **The Application track has all ten issues in.** Issue 011 — the schema
 > and the data model — is **implemented and verified**: `database/schema.sql`
 > creates the five tables and `database/schema_test.php` guards them against
 > `information_schema`. Issue 012 — the core runtime — is **implemented and
@@ -226,15 +235,14 @@ The implementation copies the shape, not the text.
 > the three CSS layers are carried over from `docs/mockup/assets/` verbatim,
 > `assets/js/app.js` holds every behaviour, `includes/header.php` and
 > `includes/footer.php` render the two shells, and `database/assets_test.php`
-> guards all of it. Issues 014–018 and 020 are **implemented and verified**
-> too: `index.php` is the front controller, `install.php` is the wizard,
+> guards all of it. Issues 014–020 are **implemented and verified** too:
+> `index.php` is the front controller, `install.php` is the wizard,
 > `views/` holds the six auth screens, `views/dashboard.php` the first
-> application screen, `views/transactions.php` the second and
-> `views/categories.php` and `views/settings.php` the last two — each guarded
-> by its own regression test. Issue 019 — the reports — is the specification a
-> developer picks up to build the remaining application screen. The repository
-> itself is still mostly greenfield — one of the five screens does not exist
-> yet.
+> application screen, `views/transactions.php` the second,
+> `views/reports.php` the third and `views/categories.php` and
+> `views/settings.php` the last two — each guarded by its own regression test.
+> The repository itself is still mostly greenfield — **all five screens
+> exist**; what is left is the user's own data, not more code.
 
 ---
 

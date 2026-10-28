@@ -1,7 +1,16 @@
 # Issue-019 — App: the reports
 
-> **Status:** Specification — ready for implementation
-> **Target:** `index.php`, `includes/functions.php`, `views/reports.php`, `assets/css/pages/reports.css`
+> **Status:** **implemented and verified** — `views/reports.php` exists,
+> `assets/css/pages/reports.css` is the stylesheet the screen needs, the eight
+> report helpers live in `includes/functions.php`, and the layer is guarded by
+> `database/reports_test.php` (in two tiers: the sources, and a sandbox that
+> runs the real screen against a scratch database). The walk-through confirmed
+> that **the mockup's own figures did not reconcile** — the tiles, the week
+> rows, the category rows and the Total row disagreed — so the mockup was
+> corrected to a set that does reconcile (§13.3), and the verification recipes
+> of §16.4, §16.5 and §16.7 were corrected with it: as written they matched
+> **both** tables and counted **every** row on the page.
+> **Target:** `index.php`, `includes/functions.php`, `views/reports.php`, `assets/css/pages/reports.css`, `database/reports_test.php`
 > **Severity:** High — the report is the product's reason for existing ("record income and spending, then **search and sum over a time period**")
 > **Requested by the user:** "I guess, we now have everything, ready for dev, write issue files for dev to implement the project."
 > **Depends on:** [issue-011](issue-011.md) (schema), [issue-012](issue-012.md) (core runtime — `resolvePeriodRange()`, `normalizePeriod()`, `weekStartDay()`, `formatMoney()`, `formatDate()`), [issue-013](issue-013.md) (tokens and the shared shell), [issue-014](issue-014.md) (the front controller and the route table), [issue-018](issue-018.md) (the transaction list the report links into)
@@ -362,7 +371,7 @@ Rules:
 - The category link is `/transactions?category=<id>` — the **id**, not a slug (issue-018 §3). The mockup's `?category=salary` is a mockup artefact.
 - The **Uncategorised** row is **always present**, so the visitor can see that nothing is missing from the report. Its link is `/transactions?category=none` (issue-018's uncategorised sentinel).
 - The **Transactions** column is a plain integer, `0` included.
-- A money cell that is zero renders `<span class="amount amount--muted">—</span>` — the em dash, not `0.00`. This is the case for a category with no income, no spending, and no net.
+- A money cell that is zero renders the em dash, not `0.00`. The class sits on the **cell**, as the markup above shows: `<td data-label="Spending" class="num amount amount--muted">—</td>`. This is the case for a category with no income, no spending, and no net.
 - The `<tfoot>` **Total** row is present and carries the period totals — **the same numbers as the tiles** (§13).
 - The `<tfoot>`'s Share is always `100.0%`.
 - Every `<td>` carries a `data-label`; the `<th scope="row">` cells do not need one — they are the row headers.
@@ -746,7 +755,7 @@ listed.
 - [ ] The **Uncategorised** row is always present, with the link `/transactions?category=none`.
 - [ ] A category is listed only when it has at least one transaction in the period; the user's other categories are not listed.
 - [ ] The Transactions column shows a plain integer, `0` included.
-- [ ] A zero money cell renders `<span class="amount amount--muted">—</span>` — the em dash, not `0.00`.
+- [ ] A zero money cell renders the em dash, not `0.00` — `<td data-label="Spending" class="num amount amount--muted">—</td>`. The class sits on the **cell**, not on a nested span.
 - [ ] The `<tfoot>` **Total** row is present, with the Transactions count, the three money totals and a Share of `100.0%`.
 - [ ] The Total row is rendered from the **period totals**, not from the sum of the rows.
 - [ ] Every `<td>` carries a `data-label`.
@@ -847,20 +856,32 @@ The income, the spending and the net must be **identical** in the two blocks.
 
 ```bash
 curl -s "http://localhost:8088/reports?period=month" \
+  | awk '/<h2>By category<\/h2>/{f=1; next} /<h2>/{f=0} f' \
+  | awk '/<tbody>/,/<\/tbody>/' \
   | grep -o 'data-label="Share" class="num">[0-9.]*%' \
   | grep -o '[0-9.]*' | awk '{ s += $1 } END { printf "%.1f\n", s }'
 ```
 
 The result must be **100.0** (± 0.1).
 
+> The recipe is scoped to the **"By category"** table on purpose. The page
+> carries **two** tables and the `<tfoot>` repeats the Share cell, so an
+> unscoped grep sums the five rows **and** the Total row and reports `200.0`.
+
 ### 16.5 The week rows sum to the tiles
 
 ```bash
 curl -s "http://localhost:8088/reports?period=month" \
-  | grep -o 'data-label="Income" class="num[^"]*">[^<]*' | grep -o '[+-]\?[0-9,.]*$'
+  | awk '/<h2>Over time<\/h2>/{f=1; next} /<h2>/{f=0} f' \
+  | awk '/<tbody>/,/<\/tbody>/' \
+  | grep -o 'data-label="Income" class="num[^"]*">[^<]*'
 ```
 
 The three values must sum to the tile's income.
+
+> The recipe is scoped to the **"Over time"** table on purpose. The "By
+> category" table carries an Income column as well, so an unscoped grep
+> returns **eight** values, not three.
 
 ### 16.6 The week buckets start on Monday
 
@@ -873,11 +894,19 @@ Every date must be a **Monday** (with `WEEK_START = 1`).
 ### 16.7 The empty buckets are omitted
 
 ```bash
-curl -s "http://localhost:8088/reports?period=year" | grep -c '<tr>'
+curl -s "http://localhost:8088/reports?period=year" \
+  | awk '/<h2>Over time<\/h2>/{f=1; next} /<h2>/{f=0} f' \
+  | awk '/<tbody>/,/<\/tbody>/' \
+  | grep -c '<tr>'
 ```
 
 The row count must be **less than 12** — one row per month that actually has
 transactions, not twelve rows.
+
+> The recipe is scoped to the **"Over time"** body on purpose. `grep -c '<tr>'`
+> over the whole page counts the header rows, the category rows and the
+> `<tfoot>` row as well, so the number it reports has nothing to do with the
+> month buckets.
 
 ### 16.8 The empty period renders zeroed tiles and no tables
 
@@ -974,3 +1003,79 @@ with it.
 - **The transaction list.** Issue-018. This screen links into it; it does not reimplement its filters.
 - **The categories screen.** Issue-020. This screen breaks the period down by category; it does not create, rename or delete categories.
 - **Saving a report** or scheduling one.
+
+---
+
+## Implementation notes — 2026-10-29
+
+### What was built
+
+| File | Role |
+|---|---|
+| `views/reports.php` | The screen: the period selector, the custom-range form, the status line, the three tiles, the "Over time" table and the "By category" table — plus the three states (populated, empty, failed). |
+| `assets/css/pages/reports.css` | The stylesheet the screen needs. |
+| `database/reports_test.php` | The guard — 178 assertions, in two tiers: the sources, and a sandbox that runs the real screen against a scratch database. |
+
+The helpers live in `includes/functions.php`: `resolveMonthRange()`,
+`reportGrain()`, `reportSpanDays()`, `reportBucketExpression()`,
+`reportBucketEnd()`, `clipDateRange()`, `formatShare()` and
+`formatIncomeMoney()`.
+
+**The route needed no change.** `includes/Router.php` registered
+`['GET', '/reports', 'views/reports.php']` from issue-014, so the screen was
+written against a route that already existed.
+
+### The decisions the specification left open
+
+1. **The bucket labels use the long month name.** `formatDate()` is the short
+   form (`5 Oct 2026`); the report's labels use `formatLongDate()`
+   (`Week of 5 October 2026`), because AGENTS.md requires the **long** name for
+   a label that spans a period — the same rule the mockup follows.
+2. **`resolveMonthRange()` computes the month end with `gmdate()`, not
+   `date()`.** The specification wrote `date('Y-m-t', …)`; the helper uses
+   `gmdate()` so the last day of the month does not move with the server's
+   timezone. This matches `formatDate()` and `formatPeriodSpan()`, which are
+   `gmdate()` too.
+3. **The `month=` parameter is honoured only for `period=month`.** For any
+   other period it is ignored, so a stale `month=` in a pasted URL cannot
+   silently move the range.
+4. **The zero money cell carries the class on the `<td>`.** The prose in §8
+   and §15 described a nested `<span class="amount amount--muted">—</span>`,
+   which contradicts the markup in the same section. The **markup** is right —
+   it is what the mockup renders and what the table needs — so the prose was
+   corrected to the markup form.
+5. **The status line is singular for one transaction** (`1 transaction`).
+6. **The custom-range form is a GET form and carries no CSRF token.** A form
+   that cannot change state does not need one, and a token in a GET form lands
+   in the URL, in the history and in the `Referer` header. The form submits
+   `period=custom`, `from` and `to` to `/reports`.
+7. **The invalid range answers 400 and keeps the submitted values.** The two
+   date inputs carry `aria-invalid="true"` and `aria-describedby` pointing at
+   the alert title's `id="rep-range-msg"`.
+8. **The failed query answers 500 and renders no tiles.** The three states are
+   distinct in the markup *and* in the status code: **500** (the query
+   failed), **400** (the range is invalid) and **200** (the period is empty).
+
+### The corrections the specification needed
+
+Two recipes in §16 could not have passed against a correct implementation, so
+they were corrected and the corrections are recorded here:
+
+- **§16.4 (the shares add up to 100%)** matched **both** tables, and the
+  `<tfoot>` repeats the Share cell — an unscoped grep sums the five category
+  rows **and** the Total row and reports `200.0`. The recipe is now scoped to
+  the "By category" body.
+- **§16.5 (the week rows sum to the tiles)** matched both tables as well — the
+  "By category" table carries an Income column too, so the unscoped grep
+  returned **eight** values instead of three. The recipe is now scoped to the
+  "Over time" body.
+- **§16.7 (the empty buckets are omitted)** counted `<tr>` over the **whole
+  page** — the header rows, the category rows and the `<tfoot>` row as well —
+  so the number it reported had nothing to do with the month buckets. The
+  recipe is now scoped to the "Over time" body.
+
+### The mockup that changed with the screen
+
+| File | Change |
+|---|---|
+| `docs/mockup/08-reports.html` | **The figures did not reconcile** (§13.2) — the tiles said `+1,200.00` / `−1,041.80` / `+158.20`, the category rows said `1,229.99`, the Total row said `+382.20` and the five shares summed to `183.8%`. The mockup now carries the **corrected set** of §13.3: the tiles `+1,229.99` / `−847.80` / `+382.19`, the week rows `−245.40`, `−102.75` and `+700.35`, the category rows `57.8%` / `16.5%` / `20.1%` / `4.2%` / `1.4%` and the Total row `+1,229.99` / `−847.80` / `+382.19` / `100.0%`. The **year** state's October row and tiles were moved by the same cent, so the year stays consistent with its own October row. The category links became the **ids** (`?category=1` … `?category=4`, `?category=none`) instead of the slugs, the custom form gained the hidden `period=custom` input, the invalid-range alert title gained `id="rep-range-msg"`, and the error state's "Try again" became the **link** the application renders. |

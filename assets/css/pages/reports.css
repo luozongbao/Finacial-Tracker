@@ -1,0 +1,37 @@
+/* ==========================================================================
+   assets/css/pages/reports.css
+   --------------------------------------------------------------------------
+   The reports screen — issue-019.
+
+   Everything the screen renders already exists in the component layer
+   (components.css): .period, .pagination__status, .tiles, .tile, .card,
+   .card--flush, .table-wrap, .data-table, .num, .badge, .amount, .filters,
+   .alert, .empty, .btn, .tx__desc-meta.
+
+   This file holds only what is genuinely page-specific, and it uses the
+   design tokens only — there is no literal colour in it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The blocks of the screen.
+
+   The component layer puts no gap between the blocks of a page — every
+   block brings its own margin — so the screen spaces its own: the two
+   tables are two blocks that follow each other, and the second table's
+   heading must not ride up against the first table's card.
+   -------------------------------------------------------------------------- */
+
+.rep__block {
+    margin-bottom: var(--sp-5);
+}
+
+/* --------------------------------------------------------------------------
+   The custom-range form.
+
+   The form stands between the period selector and the report, and it
+   carries the space the tiles would have carried.
+   -------------------------------------------------------------------------- */
+
+.rep__range {
+    margin-bottom: var(--sp-5);
+}

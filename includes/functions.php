@@ -441,6 +441,43 @@ function resolvePeriodRange(string $period, ?string $from = null, ?string $to = 
 }
 
 /**
+ * Resolve a YYYY-MM string into an inclusive [from, to] date range.
+ *
+ * The reports screen needs one month other than the current one — the
+ * year view's month rows drill into it. It is a helper of its own and
+ * not a parameter of resolvePeriodRange(), because "the current month"
+ * and "a named month" are two different things and must not be
+ * confused.
+ *
+ * A string that is not a real calendar month — 2026-13, 2026-00,
+ * 2026-8 — is not a range at all, and null says so.
+ *
+ * @return array{0: string, 1: string}|null The two dates, YYYY-MM-DD, or null.
+ */
+function resolveMonthRange(string $ym): ?array
+{
+    if (!preg_match('/^(\d{4})-(\d{2})$/', $ym, $m)) {
+        return null;
+    }
+
+    $year  = (int) $m[1];
+    $month = (int) $m[2];
+
+    if ($month < 1 || $month > 12) {
+        return null;
+    }
+
+    $from = sprintf('%04d-%02d-01', $year, $month);
+
+    // gmdate() and not date(): the timestamp is midnight UTC, and a
+    // server that is not itself on UTC would render the previous day —
+    // and with it the last day of the PREVIOUS month.
+    $to = gmdate('Y-m-t', strtotime($from . ' UTC'));
+
+    return [$from, $to];
+}
+
+/**
  * Is this a real calendar date in YYYY-MM-DD?
  *
  * checkdate() and not DateTime::createFromFormat(): the latter returns a
@@ -585,6 +622,191 @@ function transactionRangeLabel(string $from, string $to): string
     }
 
     return formatPeriodSpan($from, $to);
+}
+
+// ---------------------------------------------------------------------------
+// The report
+// ---------------------------------------------------------------------------
+
+/**
+ * The grain of the report's "Over time" table: one step below the
+ * period.
+ *
+ * The rules are fixed (docs/issues/issue-019.md §7):
+ *
+ *   day     one row per day
+ *   week    one row per day
+ *   month   one row per week
+ *   year    one row per month
+ *   custom  by the length of the range — daily for 62 days and fewer,
+ *           weekly for 366 and fewer, monthly beyond that
+ *
+ * The grain is never a visitor's choice. It follows from the period,
+ * so the dashboard and the report always break the same period down
+ * the same way.
+ *
+ * @return array{grain: string, header: string} The bucket size — day,
+ *                                                    week or month —
+ *                                                    and the first
+ *                                                    column's header.
+ */
+function reportGrain(string $period, string $from, string $to): array
+{
+    switch (normalizePeriod($period)) {
+        case 'day':
+            return ['grain' => 'day', 'header' => 'Day'];
+
+        case 'week':
+            return ['grain' => 'day', 'header' => 'Day'];
+
+        case 'month':
+            return ['grain' => 'week', 'header' => 'Week of'];
+
+        case 'year':
+            return ['grain' => 'month', 'header' => 'Month'];
+    }
+
+    // The custom range: the span decides the grain. The thresholds are
+    // inclusive — a 62-day range is daily, a 63-day range is weekly.
+    $days = reportSpanDays($from, $to);
+
+    if ($days <= 62) {
+        return ['grain' => 'day', 'header' => 'Day'];
+    }
+
+    if ($days <= 366) {
+        return ['grain' => 'week', 'header' => 'Week of'];
+    }
+
+    return ['grain' => 'month', 'header' => 'Month'];
+}
+
+/**
+ * The number of days in an inclusive date range.
+ *
+ * The count is inclusive on both ends: a range that starts and ends on
+ * the same day is ONE day, not zero.
+ */
+function reportSpanDays(string $from, string $to): int
+{
+    $fromTs = strtotime($from . ' UTC');
+    $toTs   = strtotime($to . ' UTC');
+
+    if ($fromTs === false || $toTs === false) {
+        return 0;
+    }
+
+    return (int) floor(($toTs - $fromTs) / 86400) + 1;
+}
+
+/**
+ * The SQL expression that buckets a transaction by time.
+ *
+ * The expression is selected from LITERAL strings by the grain and by
+ * the WEEK_START constant. Nothing from the query string ever reaches
+ * the SQL — the bucket is the one place where an interpolated fragment
+ * would be a hole in the wall.
+ *
+ * The week bucket starts on WEEK_START, the same constant the
+ * dashboard uses, so the two screens agree about what "this week"
+ * means. A week that starts on Monday is not the same week as one that
+ * starts on Sunday, and a hard-coded Monday would quietly disagree
+ * with the dashboard.
+ */
+function reportBucketExpression(string $grain): string
+{
+    if ($grain === 'day') {
+        return 'occurred_on';
+    }
+
+    if ($grain === 'month') {
+        return 'DATE_SUB(occurred_on, INTERVAL (DAYOFMONTH(occurred_on) - 1) DAY)';
+    }
+
+    $start = weekStartDay();
+
+    if ($start === 0 || $start === 7) {
+        // A week that starts on Sunday.
+        return 'DATE_SUB(occurred_on, INTERVAL (DAYOFWEEK(occurred_on) - 1) DAY)';
+    }
+
+    if ($start === 1) {
+        // A week that starts on Monday.
+        return 'DATE_SUB(occurred_on, INTERVAL WEEKDAY(occurred_on) DAY)';
+    }
+
+    // A week that starts on Tuesday, Wednesday, Thursday, Friday or
+    // Saturday: the offset is the number of days since the week start.
+    // The day number is the config constant, never a request value.
+    return 'DATE_SUB(occurred_on, INTERVAL ((DAYOFWEEK(occurred_on) - ' . $start . ' + 7) MOD 7) DAY)';
+}
+
+/**
+ * The last day of the bucket a start date opens.
+ *
+ * A day bucket is one day, a week bucket is seven days and a month
+ * bucket is the calendar month.
+ */
+function reportBucketEnd(string $start, string $grain): string
+{
+    $ts = strtotime($start . ' UTC');
+
+    if ($ts === false) {
+        return $start;
+    }
+
+    if ($grain === 'day') {
+        return gmdate('Y-m-d', $ts);
+    }
+
+    if ($grain === 'week') {
+        return gmdate('Y-m-d', $ts + 6 * 86400);
+    }
+
+    return gmdate('Y-m-t', $ts);
+}
+
+/**
+ * Clip a bucket's range to the period it belongs to.
+ *
+ * The LABEL names the natural bucket — the whole week — but the LINK
+ * must show the transactions that are actually in the report, so the
+ * range is clipped to the period on both ends.
+ *
+ * @return array{0: string, 1: string} The clipped range, YYYY-MM-DD.
+ */
+function clipDateRange(string $from, string $to, string $periodFrom, string $periodTo): array
+{
+    return [
+        $from >= $periodFrom ? $from : $periodFrom,
+        $to <= $periodTo ? $to : $periodTo,
+    ];
+}
+
+/**
+ * A share of the period's volume, as a percentage.
+ *
+ * The share is the ONE float in the money path: it is a ratio, not an
+ * amount, and a ratio rounded to one decimal is not money. The
+ * denominator is the period's income plus its spending — ONE
+ * denominator for the whole column, so the shares add up to 100%.
+ */
+function formatShare(float $share): string
+{
+    return number_format($share, 1, '.', '') . '%';
+}
+
+/**
+ * Format an income cell of a report table.
+ *
+ * The income column keeps its "+" on a zero — "+0.00" — because the
+ * column says "income" and the sign is part of the reading. The
+ * spending column does not: a zero there is "0.00", and a minus sign
+ * in front of nothing is a lie.
+ */
+function formatIncomeMoney(string $amount): string
+{
+    return '+' . formatMoney(ltrim(trim($amount), '+-'));
 }
 
 // ---------------------------------------------------------------------------
