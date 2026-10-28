@@ -191,11 +191,7 @@ function asset_url(string $path): string
  */
 function absoluteUrl(string $path): string
 {
-    $https = isset($_SERVER['HTTPS'])
-        && $_SERVER['HTTPS'] !== ''
-        && strtolower((string) $_SERVER['HTTPS']) !== 'off';
-
-    $scheme = $https ? 'https' : 'http';
+    $scheme = requestIsHttps() ? 'https' : 'http';
 
     $host = trim((string) ($_SERVER['SERVER_NAME'] ?? ''));
 
@@ -211,15 +207,56 @@ function absoluteUrl(string $path): string
 // ---------------------------------------------------------------------------
 
 /**
+ * Is this request HTTPS?
+ *
+ * The answer decides two things: the scheme of a link in a mail, and the
+ * Secure flag on the session cookie. It lives in ONE place so the two can
+ * never disagree.
+ */
+function requestIsHttps(): bool
+{
+    if (isset($_SERVER['HTTPS'])
+        && $_SERVER['HTTPS'] !== ''
+        && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+        return true;
+    }
+
+    return (string) ($_SERVER['SERVER_PORT'] ?? '') === '443';
+}
+
+/**
  * Start the session.
  *
  * This is the FIRST call in every request. It opens ob_start() because
  * output_buffering is 0 in this stack: any byte emitted before it breaks
  * header() and silently drops the security headers.
+ *
+ * The cookie parameters are set BEFORE the session starts, because PHP
+ * only applies them to the cookie it issues at that moment:
+ *
+ *   - httponly  -- a script injected into the page cannot read the session
+ *                  id out of document.cookie. Without it, any XSS is an
+ *                  instant account takeover.
+ *   - samesite  -- Lax, so the browser does not attach the session cookie
+ *                  to a cross-site POST. The CSRF token is the real
+ *                  defence; this is the second lock on the same door.
+ *   - secure    -- ONLY over HTTPS. A plain-HTTP installation (a box on
+                  the LAN, a reverse proxy in front) would otherwise
+ *                  never get its session cookie back and every request
+ *                  would land on the sign-in screen.
  */
 function startSession(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path'     => '/',
+            'domain'   => '',
+            'secure'   => requestIsHttps(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+
         session_start();
         ob_start();
     }

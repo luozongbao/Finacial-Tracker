@@ -13,6 +13,13 @@
 #   * additionally rejects output containing "ASSERTION(S) FAILED",
 #   * and, when the test prints a "Failed: N" summary line, requires N == 0.
 #
+# It ALSO requires the test to have PRINTED a completion marker -- a
+# "Failed: N" line or "ALL ASSERTIONS PASSED". A test that died half way
+# through leaves exit code 0 and no summary: a handler that calls exit(),
+# or a fatal error with display_errors off, ends the process silently and
+# every tier after that point never runs. Without this check such a run
+# reports PASS -- the false green that hides a dead test tier.
+#
 # Usage:
 #   run-tests.sh                       # every database/*_test.php
 #   run-tests.sh database/foo_test.php # a single test (repeatable)
@@ -103,9 +110,23 @@ for t in "${TESTS[@]}"; do
     # A test that prints a "Failed: N" summary line must report N == 0.
     nf="$(printf '%s\n' "$out" | grep -oE '^Failed: [0-9]+' | tail -1 | grep -oE '[0-9]+')"
 
-    if [ "$code" -eq 0 ] && [ "${nf:-0}" = "0" ] && ! printf '%s\n' "$out" | grep -qiE 'ASSERTION\(S\) FAILED'; then
+    # A test that printed NO completion marker did not finish. It died
+    # somewhere -- silently, because display_errors is Off -- and whatever
+    # came after the point of death never ran. Exit code 0 is not evidence
+    # that the whole test ran.
+    completed=1
+    if ! printf '%s\n' "$out" | grep -qE '^Failed: [0-9]+' \
+        && ! printf '%s\n' "$out" | grep -qiE 'ALL ASSERTIONS PASSED'; then
+        completed=0
+    fi
+
+    if [ "$code" -eq 0 ] && [ "$completed" -eq 1 ] && [ "${nf:-0}" = "0" ] && ! printf '%s\n' "$out" | grep -qiE 'ASSERTION\(S\) FAILED'; then
         printf '  [PASS] %s\n' "$t"
         PASS=$((PASS + 1))
+    elif [ "$completed" -eq 0 ]; then
+        printf '  [ERROR] %s -- no completion marker: the run ended early (exit %s)\n' "$t" "$code"
+        printf '%s\n' "$out" | tail -20 | sed 's/^/         /'
+        FAIL=$((FAIL + 1)); FAILED_TESTS+=("$t")
     else
         printf '  [FAIL] %s (exit %s)\n' "$t" "$code"
         printf '%s\n' "$out" | sed 's/^/         /'

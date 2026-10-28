@@ -16,7 +16,7 @@ infrastructure and the design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | — |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | — |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -164,7 +164,10 @@ assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/
   schema.sql           # single source of truth for a fresh install   [issue-011 — exists]
   migrations/          # YYYYMMDD_short_name.sql, applied by hand (README.md = the contract)
-  *_test.php           # standalone PHP CLI regression tests
+  *_test.php           # standalone PHP CLI regression tests (the SOURCE tier)
+  live/                # the LIVE tier — sweeps the running application over HTTP
+    *_test.php         # live_app_test.php, live_security_test.php
+    run-live-tests.sh  # the runner (NOT part of run-tests.sh)
 docs/
   About.md             # the product brief
   issues/              # issue specifications (20) — see docs/issues/README.md
@@ -295,7 +298,15 @@ docker compose exec -T db mariadb -u root -p"$MYSQL_ROOT_PASSWORD" financial_tra
     < database/schema.sql
 
 # Whole suite (the helper handles pass/fail detection correctly)
+# It requires exit code 0 AND a completion marker — a test that died half way
+# through is reported as [ERROR], never as [PASS].
 .github/skills/dev-stack-ops/scripts/run-tests.sh
+
+# The LIVE tier — sweeps the RUNNING application over HTTP.
+# It is deliberately NOT part of run-tests.sh: it needs a booted stack and an
+# installed config.php, and it writes to (and cleans up) the dev database.
+bash database/live/run-live-tests.sh
+# LIVE_BASE_URL=http://127.0.0.1:8088 bash database/live/run-live-tests.sh
 
 # Install the PHP dependencies — a VENDOR-TIME step, run from the project root.
 # Composer is not in the runtime image, so it is mounted in from /tmp.
@@ -387,6 +398,64 @@ Success markers are inconsistent — some print `ALL ASSERTIONS PASSED`, some pr
 nothing. **Detect success by exit code 0.** Never grep for the literal `Failed` (`Failed: 0`
 is an informational line). Never treat "no output" as a pass, and never let a missing
 interpreter masquerade as one.
+
+**Exit code 0 alone is not enough — the test must also have printed a completion
+marker** (a `Failed: N` line, or `ALL ASSERTIONS PASSED`). A test that dies half way
+through leaves exit code 0 and no summary: a handler that calls `exit()`, or a fatal
+error with `display_errors` off, ends the process silently and every tier after the
+point of death never runs. `run-tests.sh` enforces this and reports such a run as
+`[ERROR]`, never `[PASS]`.
+
+> This is not theoretical. `database/runtime_test.php` §D used to dispatch a real
+> route; the handler called `requireLogin()` → `redirect()` → `exit()`; the test
+> died silently; **§E (the database tier) and §F (the gate and the guard tier)
+> never ran** — and the suite still reported PASS. A test must never call
+> `exit`-terminating application code in-process: use a child process.
+
+### A bare substring scan over a page body is a flaky assertion
+
+Every rendered page carries a **random 64-character hex CSRF token**. A
+`str_contains($body, '587')` scan for the SMTP port therefore matches the
+*token*, not a leak — roughly one run in nine. The token is the only
+dynamic value with that property: `SMTP`, `smtp`, `SQLSTATE` and
+`PDOException` all contain letters outside the hex alphabet, so they cannot
+be faked that way.
+
+- A **numeric** needle must not match inside a longer word or digit run:
+  `/(?<![\w.])587(?![\w.])/`. A real leak still reads `:587`.
+- **Prove a tightened guard can still fire.** `database/auth_test.php` carries
+  two self-checks: a synthetic real leak must be caught, and the offending
+  token must be ignored. A guard nobody has proved can still fire is not a
+  guard.
+- **A failing assertion must print where the needle matched** — the offset
+  and the surrounding text — not just which needle. Without that, the next
+  person has to guess.
+
+### The SOURCE tier and the LIVE tier answer different questions
+
+`database/*_test.php` (the **SOURCE** tier) exercises the code without a browser:
+it greps the sources, and it drives the classes against a scratch database. It
+is fast, hermetic and it runs in CI.
+
+`database/live/*_test.php` (the **LIVE** tier) drives the **running** application
+over HTTP — real routing, real cookies, real headers, real forms. It is slower
+and it needs a booted stack, so `run-tests.sh` does **not** include it. Run it
+with `bash database/live/run-live-tests.sh`.
+
+> The LIVE tier exists because the SOURCE tier could not see a whole class of
+> defect. The install bug was **web-SAPI-only**: under `PHP_SAPI === 'litespeed'`
+> (what `install.php` runs under) `PHP_BINARY` is the **empty string**, while
+> under `PHP_SAPI === 'cli'` (what every test ran under) it is the full path.
+> A CLI-only suite passed cleanly while the shipped installer could never
+> succeed. **A defect that only exists in the deployed SAPI is invisible to a
+> CLI-only suite** — so the release gate needs both tiers.
+
+A LIVE test **writes to the dev database**, so it must clean up after itself.
+Every live test registers a shutdown function that deletes the accounts it
+created (`live_test_*`). A live test that rewrites `config.php` does **not**
+belong in this tier — that belongs in a sandbox (`database/auth_test.php`
+covers the `ALLOW_REGISTRATION` gate two-sided, in a sandbox, for exactly that
+reason).
 
 ### `Database::execute()` returns bool, not a row count
 

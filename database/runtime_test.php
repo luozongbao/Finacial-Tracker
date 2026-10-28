@@ -425,6 +425,21 @@ ok('getCsrfToken() uses random_bytes(32)', str_contains($fnSource, 'random_bytes
 ok('startSession() opens an output buffer', str_contains($fnSource, 'ob_start()'));
 ok('formatMoney() uses explicit separators', (bool) preg_match('/number_format\([^;]*2,\s*\'\.\',\s*\'\,\'/', $fnSource));
 
+// The session cookie flags. A session id that JavaScript can read is one
+// injected script away from an account takeover, so the cookie is HttpOnly
+// and SameSite=Lax. The Secure flag follows the scheme of the request --
+// a plain-HTTP installation must still get its cookie back.
+ok('the session cookie is HttpOnly', str_contains($fnSource, "'httponly' => true"));
+ok('the session cookie is SameSite=Lax', str_contains($fnSource, "'samesite' => 'Lax'"));
+ok('the Secure flag follows the scheme of the request', str_contains($fnSource, "'secure'   => requestIsHttps()"));
+ok('the cookie parameters are set before the session starts',
+    strpos($fnSource, 'session_set_cookie_params') !== false
+    && strpos($fnSource, 'session_start()') !== false
+    && strpos($fnSource, 'session_set_cookie_params') < strpos($fnSource, 'session_start()'));
+ok('requestIsHttps() decides the scheme in ONE place',
+    substr_count($fnSource, 'requestIsHttps()') >= 3,
+    'found ' . substr_count($fnSource, 'requestIsHttps()'));
+
 // The hard session settings.
 ok('loginUser() regenerates the session id', str_contains($authSource, 'session_regenerate_id(true)'));
 ok('the password is hashed with password_hash()', str_contains($authSource, 'password_hash'));
@@ -635,6 +650,15 @@ echo "\n## C. The session and the CSRF token\n";
 
 ok('the session is started', session_status() === PHP_SESSION_ACTIVE, (string) session_status());
 
+// The cookie the session actually asked for.
+$cookieParams = session_get_cookie_params();
+ok('the live session cookie is HttpOnly', (bool) $cookieParams['httponly'], (string) $cookieParams['httponly']);
+ok('the live session cookie is SameSite=Lax', ($cookieParams['samesite'] ?? '') === 'Lax',
+    (string) ($cookieParams['samesite'] ?? ''));
+ok('the live session cookie is not Secure over plain HTTP',
+    (bool) $cookieParams['secure'] === requestIsHttps(),
+    'secure=' . (string) $cookieParams['secure']);
+
 $token = getCsrfToken();
 ok('the CSRF token is 64 hex characters', (bool) preg_match('/^[0-9a-f]{64}$/', $token), $token);
 ok('the CSRF token is stable within a session', getCsrfToken() === $token);
@@ -728,9 +752,19 @@ ok('dispatch() throws a 405 for the wrong method',
 ok('the 405 exception carries the Allow header',
     $thrown instanceof HttpException && ($thrown->headers['Allow'] ?? '') === 'GET');
 
+// A router whose route points at a file that does not exist. The
+// route table is NOT used here on purpose: dispatching a real route
+// runs a real handler, and a handler calls requireLogin(), which
+// calls redirect(), which calls exit(). The test process would die in
+// the middle of the run -- silently, because display_errors is Off --
+// and every tier after this one would never be reached while the
+// exit code still said zero.
+$missingHandler = new Router();
+$missingHandler->get('/no-such-handler', 'views/this_handler_does_not_exist.php');
+
 $thrown = null;
 try {
-    $router->dispatch('GET', '/dashboard');
+    $missingHandler->dispatch('GET', '/no-such-handler');
 } catch (Throwable $e) {
     $thrown = $e;
 }

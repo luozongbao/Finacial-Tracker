@@ -41,6 +41,12 @@
     # direct request is denied as defence in depth.
     RewriteRule "^/?config\.php$" - [F,L]
 
+    # The installer's temporary file holds the database password and the SMTP
+    # password in clear text while it is being written. It is named with a
+    # leading dot, so the dotfile rule above already refuses it; this rule is
+    # the belt to that braces, and it also covers a stray backup copy.
+    RewriteRule "^/?\.?config\.php\.(tmp|bak|old)$" - [F,L]
+
     # ---- Internal source trees ------------------------------------------
     # None of these are entry points; they are included or read from disk.
     # views/ holds the PHP screens. They are rendered by the front controller

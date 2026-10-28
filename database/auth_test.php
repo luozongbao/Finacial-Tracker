@@ -1812,15 +1812,61 @@ ok(
     'an unknown address got the failure state'
 );
 
+// The SMTP port is the only needle a random CSRF token can fake: the token
+// is 64 hex characters, and no other needle here can be spelled with hex
+// characters alone (s, m, t, p, x, i, o, n are not hex digits). A bare
+// substring scan for '587' therefore failed at random -- roughly one run in
+// sixty -- with the port sitting inside the token:
+//
+//   value="5578d994...ffb5878adf7cb8695d914f2"
+//
+// The number must now stand on its own: not inside a longer word or digit
+// run. A real leak still reads ':587' or '587,' and still matches.
+$portPattern = '/(?<![\w.])587(?![\w.])/';
+
 $leaks = [];
 
-foreach (['SMTP', 'smtp', '587', 'Connection refused', 'SQLSTATE', 'PDOException'] as $needle) {
-    if (str_contains($failed['body'], $needle)) {
-        $leaks[] = $needle;
+foreach (['SMTP', 'smtp', 'Connection refused', 'SQLSTATE', 'PDOException'] as $needle) {
+    $at = strpos($failed['body'], $needle);
+    if ($at !== false) {
+        $from = max(0, $at - 60);
+        $leaks[] = $needle . ' @' . $at . ' context: '
+            . preg_replace('/\s+/', ' ', substr($failed['body'], $from, 140));
     }
 }
 
-ok('the failed screen leaks no SMTP detail', $leaks === [], implode(', ', $leaks));
+if (preg_match($portPattern, $failed['body'], $portMatch, PREG_OFFSET_CAPTURE)) {
+    $portAt = (int) $portMatch[0][1];
+    $portFrom = max(0, $portAt - 60);
+    $leaks[] = '587 @' . $portAt . ' context: '
+        . preg_replace('/\s+/', ' ', substr($failed['body'], $portFrom, 140));
+}
+
+ok('the failed screen leaks no SMTP detail', $leaks === [], implode(' | ', $leaks));
+
+// The tightened pattern must still catch a real leak, and must still ignore
+// the token that used to trip it. A guard nobody has proved can still fire
+// is not a guard.
+$syntheticLeak = '<p>Mail failed: SMTP connect to smtp.example.com:587 failed '
+    . '- Connection refused</p>';
+$syntheticHits = [];
+
+foreach (['SMTP', 'smtp', 'Connection refused'] as $needle) {
+    if (str_contains($syntheticLeak, $needle)) {
+        $syntheticHits[] = $needle;
+    }
+}
+if (preg_match($portPattern, $syntheticLeak)) {
+    $syntheticHits[] = '587';
+}
+ok('the leak detector still catches a real SMTP leak',
+    count($syntheticHits) === 4,
+    'caught: ' . implode(', ', $syntheticHits));
+
+$tokenOnly = 'value="5578d994b503d537c179cbb68d2937af77e9186d1ffb5878adf7cb8695d914f2"';
+ok('the leak detector ignores a random CSRF token',
+    preg_match($portPattern, $tokenOnly) !== 1,
+    'the token was read as a port leak');
 
 // The not-configured state.
 set_mailer_mode($sandbox, 'off');

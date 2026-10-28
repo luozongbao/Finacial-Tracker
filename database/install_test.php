@@ -79,6 +79,65 @@ function pos_of(string $haystack, string $needle): int
 }
 
 /**
+ * Extract the source of a named function from a PHP file.
+ *
+ * The tokenizer does the work, so a brace inside a string or a comment does
+ * not throw the brace counter off. The result is the function, verbatim, from
+ * the `function` keyword to the matching closing brace — ready to be written
+ * into a probe file and executed.
+ */
+function extract_function_source(string $src, string $name): string
+{
+    $tokens = token_get_all($src);
+    $count  = count($tokens);
+
+    for ($i = 0; $i < $count; $i++) {
+        if (!is_array($tokens[$i]) || $tokens[$i][0] !== T_FUNCTION) {
+            continue;
+        }
+
+        // The name is the next significant token after the keyword.
+        $j = $i + 1;
+
+        while ($j < $count && is_array($tokens[$j]) && $tokens[$j][0] === T_WHITESPACE) {
+            $j++;
+        }
+
+        if ($j >= $count || !is_array($tokens[$j]) || $tokens[$j][0] !== T_STRING) {
+            continue;
+        }
+
+        if ($tokens[$j][1] !== $name) {
+            continue;
+        }
+
+        // Collect up to the matching closing brace.
+        $depth = 0;
+        $out   = '';
+
+        for ($k = $i; $k < $count; $k++) {
+            $text = is_array($tokens[$k]) ? $tokens[$k][1] : $tokens[$k];
+
+            if ($text === '{') {
+                $depth++;
+            } elseif ($text === '}') {
+                $depth--;
+
+                if ($depth === 0) {
+                    return $out . $text;
+                }
+            }
+
+            $out .= $text;
+        }
+
+        return '';
+    }
+
+    return '';
+}
+
+/**
  * Remove the comments from a source string.
  *
  * The leak check reads the source, and a docblock that says "no stack trace"
@@ -608,15 +667,32 @@ ok(
 );
 ok(
     'the file is written to a temporary file and renamed into place',
-    str_contains($code, "'.tmp'") && str_contains($code, 'rename(')
+    str_contains($code, '.config.php.tmp') && str_contains($code, 'rename(')
+);
+ok(
+    'the temporary file is hidden, so the dotfile deny rule refuses it',
+    str_contains($code, "'/.config.php.tmp'")
 );
 ok(
     'the file that was written is parse-checked',
     str_contains($code, "' -l '") || str_contains($code, '-l ')
 );
+// The parse check must NOT be built on PHP_BINARY alone. LiteSpeed's LSPHP
+// reports an EMPTY PHP_BINARY (PHP_SAPI === 'litespeed'), so a check that
+// shells out to PHP_BINARY runs "'' -l file", the shell fails, and the wizard
+// reports a perfectly good config.php as unwritable. That is a release
+// blocker that shipped once, so it is pinned here.
 ok(
-    'the parse check uses the PHP binary of the running interpreter',
-    str_contains($code, 'PHP_BINARY')
+    'the parse check does not shell out to PHP_BINARY directly',
+    preg_match('/shell_exec\(\s*escapeshellarg\(PHP_BINARY\)/', $code) !== 1
+);
+ok(
+    'the parse check resolves an interpreter explicitly',
+    str_contains($code, 'installPhpBinary')
+);
+ok(
+    'the parse check falls back to the parser when no interpreter is found',
+    str_contains($code, 'catch (ParseError')
 );
 
 // The constants.
@@ -1143,6 +1219,87 @@ if ($live['status'] === null) {
         'the live failure page says something in plain words',
         str_contains($res['body'], 'alert__title')
     );
+
+    // -------------------------------------------------------------------
+    // The parse check, under the SAPI that actually serves the app.
+    //
+    // The sandbox above runs the wizard under the PHP built-in server, where
+    // PHP_BINARY points at a real interpreter. LiteSpeed's LSPHP reports an
+    // EMPTY PHP_BINARY, so a parse check built on PHP_BINARY alone fails
+    // there — and the wizard then reports a perfectly good config.php as
+    // unwritable. The bug shipped green because no tier ran the real parse
+    // check under the real web SAPI.
+    //
+    // This probe writes the REAL installParses() source into a file in the
+    // document root and calls it there, over HTTP. The function under test
+    // is the shipped one, not a re-implementation of it.
+    // -------------------------------------------------------------------
+
+    $probeName = '_ft_install_parse_probe_' . bin2hex(random_bytes(6)) . '.php';
+    $probePath = $root . '/' . $probeName;
+
+    $parseFn = extract_function_source((string) file_get_contents($installFile), 'installParses');
+    $binaryFn = extract_function_source((string) file_get_contents($installFile), 'installPhpBinary');
+
+    if ($parseFn === '') {
+        skip('the live parse check', 'installParses() could not be extracted from install.php');
+    } else {
+        $probe = "<?php\n"
+            . "// TEMPORARY probe written by database/install_test.php.\n"
+            . $parseFn . "\n\n"
+            . $binaryFn . "\n\n"
+            . '$ft_good = __DIR__ . "/" . (string) ($_GET["g"] ?? "");' . "\n"
+            . '$ft_bad  = __DIR__ . "/" . (string) ($_GET["b"] ?? "");' . "\n"
+            . 'file_put_contents($ft_good, "<?php\nconst FT_PROBE = 1;\n");' . "\n"
+            . 'file_put_contents($ft_bad,  "<?php\nconst FT_PROBE = ;\n");' . "\n"
+            . 'header("Content-Type: application/json");' . "\n"
+            . 'echo json_encode([' . "\n"
+            . '    "sapi"       => PHP_SAPI,' . "\n"
+            . '    "php_binary" => PHP_BINARY,' . "\n"
+            . '    "bindir"     => PHP_BINDIR,' . "\n"
+            . '    "binary"     => installPhpBinary(),' . "\n"
+            . '    "good"       => installParses($ft_good),' . "\n"
+            . '    "bad"        => installParses($ft_bad),' . "\n"
+            . ']);' . "\n"
+            . '@unlink($ft_good);' . "\n"
+            . '@unlink($ft_bad);' . "\n";
+
+        file_put_contents($probePath, $probe);
+
+        $goodName = '_ft_install_fx_good_' . bin2hex(random_bytes(6)) . '.inc';
+        $badName  = '_ft_install_fx_bad_' . bin2hex(random_bytes(6)) . '.inc';
+
+        $probeRes = http_request('GET', $liveBase . '/' . $probeName . '?g=' . $goodName . '&b=' . $badName);
+
+        @unlink($probePath);
+        @unlink($root . '/' . $goodName);
+        @unlink($root . '/' . $badName);
+
+        $decoded = json_decode((string) $probeRes['body'], true);
+
+        if (!is_array($decoded)) {
+            skip(
+                'the live parse check',
+                'the probe did not answer — status ' . (string) $probeRes['status']
+            );
+        } else {
+            echo "        (SAPI " . ($decoded['sapi'] ?? '?')
+                . ", PHP_BINARY " . var_export($decoded['php_binary'] ?? null, true)
+                . ", interpreter " . var_export($decoded['binary'] ?? null, true) . ")\n";
+
+            ok(
+                'the live parse check accepts a file that parses',
+                ($decoded['good'] ?? null) === true,
+                'installParses() said no — the SAPI reports PHP_BINARY='
+                    . var_export($decoded['php_binary'] ?? null, true)
+            );
+            ok(
+                'the live parse check rejects a file that does not parse',
+                ($decoded['bad'] ?? null) === false,
+                'installParses() said yes to a broken file'
+            );
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

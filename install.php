@@ -766,7 +766,14 @@ function installApplySchema(PDO $pdo, string $sql): array
 function installWriteConfig(array $values): array
 {
     $path = __DIR__ . '/config.php';
-    $temp = $path . '.tmp';
+
+    // The temporary file holds the database password and the SMTP password in
+    // clear text. It is therefore HIDDEN — a leading dot makes the existing
+    // dotfile deny rule in .htaccess refuse it — and it is made owner-only
+    // before it is even parse-checked. A temp file named "config.php.tmp"
+    // would be served to anyone who asked for it, and would survive on disk
+    // if the process died between the write and the rename.
+    $temp = __DIR__ . '/.config.php.tmp';
 
     $lines = [
         '<?php',
@@ -826,6 +833,10 @@ function installWriteConfig(array $values): array
         ];
     }
 
+    // The credentials must not be readable by anyone but the web server,
+    // even for the few milliseconds between the write and the rename.
+    @chmod($temp, 0600);
+
     // The parse check runs on the temporary file, which holds exactly the
     // bytes that are about to be moved into place.
     if (!installParses($temp)) {
@@ -859,14 +870,37 @@ function installWriteConfig(array $values): array
  * php -l is the parser's own verdict. When the binary cannot be run, the
  * parser itself answers: a syntax error in an included file is a ParseError,
  * and it is catchable.
+ *
+ * PHP_BINARY is NOT always the running interpreter. LiteSpeed's LSPHP
+ * reports an EMPTY PHP_BINARY (PHP_SAPI === 'litespeed'), so a shell check
+ * built on PHP_BINARY alone runs "'' -l file" — the shell cannot execute an
+ * empty command, prints its own error, and the wizard then reports a
+ * perfectly good config.php as unwritable. The interpreter is therefore
+ * resolved explicitly, and a shell result that is not a verdict is never
+ * trusted: an unrecognised answer falls through to the parser.
  */
 function installParses(string $path): bool
 {
-    if (function_exists('shell_exec')) {
-        $output = shell_exec(escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($path) . ' 2>&1');
+    $binary = installPhpBinary();
+
+    if ($binary !== '' && function_exists('shell_exec')) {
+        $output = @shell_exec(escapeshellarg($binary) . ' -l ' . escapeshellarg($path) . ' 2>&1');
 
         if (is_string($output) && $output !== '') {
-            return str_contains($output, 'No syntax errors');
+            // Only an answer that is actually a verdict counts. "sh: 1: php:
+            // not found" is not a verdict — it means the check never ran.
+            if (str_contains($output, 'No syntax errors')) {
+                return true;
+            }
+
+            if (str_contains($output, 'syntax error')
+                || str_contains($output, 'Parse error')
+                || str_contains($output, 'Fatal error')
+            ) {
+                error_log('[install] config parse: ' . trim($output));
+
+                return false;
+            }
         }
     }
 
@@ -879,6 +913,36 @@ function installParses(string $path): bool
 
         return false;
     }
+}
+
+/**
+ * The path of a PHP interpreter that can be run from a shell.
+ *
+ * PHP_BINARY is the first choice, but it is empty under LiteSpeed's LSPHP.
+ * PHP_BINDIR is set there and points at the directory that holds the
+ * interpreter, so PHP_BINDIR . '/php' is the fallback. An empty string means
+ * "no interpreter found" — the caller then uses the parser itself.
+ */
+function installPhpBinary(): string
+{
+    $candidates = [];
+
+    if (defined('PHP_BINARY') && PHP_BINARY !== '') {
+        $candidates[] = PHP_BINARY;
+    }
+
+    if (defined('PHP_BINDIR') && PHP_BINDIR !== '') {
+        $candidates[] = PHP_BINDIR . '/php';
+        $candidates[] = PHP_BINDIR . '/lsphp';
+    }
+
+    foreach ($candidates as $candidate) {
+        if (is_file($candidate) && is_executable($candidate)) {
+            return $candidate;
+        }
+    }
+
+    return '';
 }
 
 /**
