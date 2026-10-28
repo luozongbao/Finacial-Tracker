@@ -9,13 +9,13 @@ This file holds only what an agent cannot infer from the tree.
 ## Status
 
 **Greenfield — the application code barely exists yet: only the schema, the
-core runtime, the design-token layer, the front controller and the install
-wizard have been written. The development infrastructure and the design
-deliverables are complete.**
+core runtime, the design-token layer, the front controller, the install
+wizard and the authentication have been written. The development infrastructure
+and the design deliverables are complete.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 016–020** | `views/`, the page stylesheets of the five screens |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out), `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | `docs/issues/` — the UX/UI issues 004–008 (implemented) and **the application issues 017–020** | the five application screens (dashboard, transactions, transaction form, reports, categories, settings) and their page stylesheets |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -31,7 +31,7 @@ and the SMTP mailer) is **implemented and verified** — the dependency policy
 holds, `includes/mailer.php` wraps PHPMailer, and `database/mailer_test.php`
 guards both.
 
-The **application track (issues 011–020) has its first five issues in.** Issue 011
+The **application track (issues 011–020) has its first six issues in.** Issue 011
 (the schema and the data model) is **implemented and verified** —
 `database/schema.sql` creates the five tables, and `database/schema_test.php`
 guards the column types, the unique keys, the indexes and the foreign-key
@@ -55,11 +55,17 @@ controller, and `database/front_controller_test.php` guards all of it. Issue 015
 the database, the mail and the access settings across three steps, proves each
 one before it advances, loads the schema, writes `config.php` atomically and
 refuses to run once `config.php` exists, and `database/install_test.php` guards
-all of it. The remaining five issues (016–020) are **specified but not
-written** — they are the specification a developer picks up to build the
-authentication and the five screens. The repository itself is still mostly
-greenfield — `views/` does not exist yet, and the page stylesheets of the five
-screens arrive with their screen.
+all of it. Issue 016 (the authentication) is **implemented and verified** —
+`includes/auth.php` holds the session, the sign-in throttle, the password and
+verification tokens and the credential version; `views/` holds the six auth
+screens; `assets/css/pages/auth.css` is the stylesheet they share; the
+mailer is loaded by the front controller; and `database/auth_test.php` guards
+all of it in two tiers — the sources, and a sandbox that runs the real screens
+against a scratch database with a stub mailer. The remaining four issues
+(017–020) are **specified but not written** — they are the specification a
+developer picks up to build the five application screens. The repository itself
+is still mostly greenfield — the page stylesheets of those five screens arrive
+with their screen.
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -106,10 +112,12 @@ docker/
 includes/              # [exists] mailer.php, bootstrap.php, Database.php, functions.php, auth.php, Router.php
                        # [exists] header.php, footer.php — the two shells   [issue-013]
   views/               # [exists] the four error pages + the bootstrap page [issue-014]
-views/                 # [TODO] one PHP view per screen                     [issues-016..020]
+views/                 # [exists] the six auth screens                   [issue-016]
+                       # [TODO] one PHP view per application screen      [issues-017..020]
 assets/css/            # [exists] tokens.css → base.css → components.css   [issue-013]
   pages/               # [exists] install.css                            [issue-015]
-                       # [TODO] one page stylesheet per screen, with it    [issues-016..020]
+                       # [exists] auth.css                              [issue-016]
+                       # [TODO] one page stylesheet per screen, with it    [issues-017..020]
 assets/js/app.js       # [exists] every behaviour, one DOMContentLoaded     [issue-013]
 assets/img/            # [exists] empty — the app has no raster assets in v0.2
 database/
@@ -414,6 +422,33 @@ The two states a caller must distinguish:
 |---|---|
 | Mail is not configured at all | `mailIsConfigured()` is `false` — the user must be told, and no connection is attempted. |
 | Mail is configured but the send failed | `sendMail()` returned `false` — the user gets a "try again later" message. |
+
+### The auth layer — the traps that leak other people's money records
+
+- **The front controller loads the mailer.** `index.php` requires
+  `includes/mailer.php`. A view that calls `mailIsConfigured()` or `sendMail()`
+  without it dies with *"Call to undefined function"*, which the error boundary
+  turns into a **500**. This was a real defect, found by `database/auth_test.php`
+  — the mailer file existed and was tested, but nothing required it.
+- **A link in a mail is built with `absoluteUrl()`.** It reads
+  `$_SERVER['SERVER_NAME']` and **never** `HTTP_HOST` — the `Host:` header is
+  client-controlled, and a reset link built from it can be pointed at an
+  attacker's host.
+- **The session carries the user id — never the password hash.** It also carries
+  a *credential version* (the hash of the stored hash), and the front controller
+  compares it with the row on every request, so a password change ends the
+  other sessions. `loginUser()` and `requireLogin()` must not touch the
+  database.
+- **The sign-in throttle is counted per identifier**, in `login_attempts`,
+  keyed by a SHA-256 of the lower-cased identifier. The account row can only
+  lock an account that exists, so without the table the limit is bypassable by
+  typing a name that does not exist.
+- **The registration gate is two-sided** — `GET` and `POST`, and the `POST`
+  check runs **before** the CSRF check and before any input is read (see the
+  install/config contract above).
+- **`views/` is denied in `.htaccess`.** The views are rendered by the front
+  controller and never requested directly. **Extend the deny block — never
+  replace the file wholesale.**
 
 ### Never `docker compose down -v`
 

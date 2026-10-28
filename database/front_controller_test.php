@@ -295,7 +295,7 @@ function make_sandbox(string $root): string
 
     copy($root . '/index.php', $dir . '/index.php');
 
-    foreach (['functions.php', 'bootstrap.php', 'Database.php', 'auth.php', 'Router.php', 'header.php', 'footer.php'] as $file) {
+    foreach (['functions.php', 'bootstrap.php', 'Database.php', 'auth.php', 'Router.php', 'header.php', 'footer.php', 'mailer.php'] as $file) {
         copy($root . '/includes/' . $file, $dir . '/includes/' . $file);
     }
 
@@ -494,7 +494,8 @@ foreach ($table as $route) {
     $routes[$route[0] . ' ' . $route[1]] = $route[2];
 }
 
-ok('the route table has 23 entries', count($table) === 23, (string) count($table));
+// 23 routes from issue-012 plus GET /verify-email, which issue-016 added.
+ok('the route table has 24 entries', count($table) === 24, (string) count($table));
 ok(
     'the root path redirects to the dashboard',
     ($routes['GET /'] ?? '') === 'redirect:/dashboard',

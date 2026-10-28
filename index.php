@@ -87,6 +87,17 @@ require_once __DIR__ . '/includes/Database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/Router.php';
 
+// The mailer is part of the runtime, so the front controller loads it.
+//
+// The registration and the forgot-password screens call mailIsConfigured()
+// and sendMail(). The functions live in includes/mailer.php, and a view that
+// calls a function nobody loaded dies with "Call to undefined function" —
+// which the error boundary below turns into a 500.
+//
+// The file is safe to load here: it only declares functions, and it reads
+// the SMTP constants when a function is CALLED, not when it is declared.
+require_once __DIR__ . '/includes/mailer.php';
+
 // ---------------------------------------------------------------------------
 // 3. The session.
 //
@@ -103,6 +114,28 @@ startSession();
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: same-origin');
+
+// ---------------------------------------------------------------------------
+// 3b. The credentials of the session.
+//
+// A password change must end every other session of that account
+// (issue-016 §10). The schema has no sessions table, so the version of the
+// credentials travels in the session and is compared with the stored
+// password hash here — before any handler runs.
+//
+// The check runs here and not inside requireLogin() on purpose: it has to
+// happen for EVERY route, including the ones that never call the guard.
+//
+// A visitor who is not signed in costs nothing: the answer comes from the
+// session alone, and no query is made.
+// ---------------------------------------------------------------------------
+if (isLoggedIn() && ! sessionCredentialsAreCurrent()) {
+    // The session lost its identity. The visitor signs in again — and lands
+    // where they were going, because the guard remembers it.
+    $_SESSION['intended_url'] = safeRedirectTarget($_SERVER['REQUEST_URI'] ?? '/');
+
+    redirect('/login');
+}
 
 // ---------------------------------------------------------------------------
 // 4. The route table and the dispatch.

@@ -494,6 +494,64 @@ PHP,
 
 stop_refusing_smtp_server($server);
 
+echo "\n## G. The message is plain text\n";
+
+// The body of every message in v0.2 is plain text (issue-016 §11): a
+// message carries a link, and a plain-text message cannot carry a phishing
+// lure. prepareMessage() is the one place that decides it, so it is the one
+// place the assertion belongs.
+$res = run_child(
+    child_config() . <<<'PHP'
+require $argv[1];
+require $argv[2];
+$m = createMailer();
+prepareMessage($m, 'someone@example.com', 'Reset your password', "Open this link:\n\nhttps://example.com/reset-password?token=abc\n");
+$to = array_values($m->getToAddresses());
+echo json_encode([
+    'content_type' => $m->ContentType,
+    'subject' => $m->Subject,
+    'body' => $m->Body,
+    'to' => $to,
+]);
+PHP,
+    [$autoload, $mailerFile]
+);
+$data = json_decode(trim($res['stdout']), true);
+
+ok('the message child process ran', is_array($data), $res['stdout']);
+
+if (is_array($data)) {
+    ok(
+        'the message is plain text',
+        $data['content_type'] === 'text/plain',
+        'ContentType is ' . var_export($data['content_type'], true)
+    );
+    ok(
+        'the message is not HTML',
+        stripos((string) $data['content_type'], 'html') === false,
+        'ContentType is ' . var_export($data['content_type'], true)
+    );
+    ok('the subject is carried', $data['subject'] === 'Reset your password');
+    ok(
+        'the recipient is carried',
+        str_contains((string) json_encode($data['to']), 'someone@example.com'),
+        'the recipient list is ' . json_encode($data['to'])
+    );
+    ok(
+        'the body is carried verbatim',
+        str_contains((string) $data['body'], 'https://example.com/reset-password?token=abc')
+    );
+}
+
+$mailerSrc = (string) file_get_contents($mailerFile);
+$mailerSrc = strip_php_comments($mailerSrc);
+
+ok(
+    'prepareMessage() turns the HTML mode off',
+    str_contains($mailerSrc, 'isHTML(false)'),
+    'the mailer could send HTML'
+);
+
 echo "\n";
 echo "Failed: " . count($failures) . "\n";
 if (count($failures) > 0) {

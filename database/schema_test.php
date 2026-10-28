@@ -151,6 +151,13 @@ function expected_schema(): array
             'locked_until'      => ['datetime', true],
         ] + $audit,
 
+        'login_attempts' => [
+            'id'              => ['int unsigned', false],
+            'identifier_hash' => ['char(64)', false],
+            'failed_attempts' => ['int unsigned', false],
+            'locked_until'    => ['datetime', true],
+        ] + $audit,
+
         'categories' => [
             'id'      => ['int unsigned', false],
             'user_id' => ['int unsigned', false],
@@ -206,6 +213,7 @@ function expected_indexes(): array
         ],
         'password_resets'     => ['idx_reset_user' => ['user_id', 'expires_at']],
         'email_verifications' => ['idx_verification_user' => ['user_id', 'expires_at']],
+        'login_attempts'      => ['idx_login_attempts_updated' => ['updated_at']],
     ];
 }
 
@@ -408,7 +416,7 @@ foreach ($statements as $statement) {
 }
 
 ok(
-    'the file creates exactly the five tables',
+    'the file creates exactly the six tables',
     $declared === $expectedTables,
     'declared=[' . implode(', ', $declared) . '] expected=[' . implode(', ', $expectedTables) . ']'
 );
@@ -537,7 +545,7 @@ if ($pdo === null) {
     $extra   = array_values(array_diff(array_keys($tableMap), $expectedTables));
 
     ok(
-        'the database holds the five tables',
+        'the database holds the six tables',
         $missing === [],
         'missing=[' . implode(', ', $missing) . ']'
     );
@@ -710,6 +718,7 @@ if ($pdo === null) {
         'categories'          => ['uq_categories_user_name' => ['user_id', 'name']],
         'password_resets'     => ['uq_reset_token' => ['token_hash']],
         'email_verifications' => ['uq_verification_token' => ['token_hash']],
+        'login_attempts'      => ['uq_login_attempts_identifier' => ['identifier_hash']],
     ];
 
     foreach ($uniqueExpectations as $table => $wanted) {
@@ -738,6 +747,16 @@ if ($pdo === null) {
         'categories is NOT unique on the name alone',
         !$globalCategoryNameKey,
         'a global UNIQUE(name) would break a multi-user install'
+    );
+
+    // The identifier of the throttle is stored as a hash too: the table must
+    // never keep the address that was typed at the sign-in form.
+    $identifierHash = $columns['login_attempts']['identifier_hash'] ?? null;
+    ok(
+        'login_attempts.identifier_hash is CHAR(64) — the SHA-256 hash, never the identifier',
+        $identifierHash !== null
+            && strtolower((string) $identifierHash['DATA_TYPE']) === 'char'
+            && (int) $identifierHash['CHARACTER_MAXIMUM_LENGTH'] === 64
     );
 
     // The reset tokens are stored as a hash and a hash is unique.

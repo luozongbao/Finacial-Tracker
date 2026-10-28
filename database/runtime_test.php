@@ -657,7 +657,8 @@ ok('the rotated token is 64 hex characters', (bool) preg_match('/^[0-9a-f]{64}$/
 echo "\n## D. The router\n";
 
 $table = Router::defaultRoutes();
-ok('the route table has 23 entries', count($table) === 23, (string) count($table));
+// 23 routes from issue-012 plus GET /verify-email, which issue-016 added.
+ok('the route table has 24 entries', count($table) === 24, (string) count($table));
 
 $routes = [];
 foreach ($table as $route) {

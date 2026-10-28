@@ -48,7 +48,9 @@ Three facts belong on the record:
   the controller. The deny block was left **untouched**, because the acceptance
   criteria require it unchanged and there is nothing to expose yet (the directory
   does not exist). **Issue-016 must add the `views/` rule when it creates the
-  first screen.**
+  first screen.** — **Paid on 2026-10-28 by issue-016**: the rule is in
+  `.htaccess`, and `database/webroot_hardening_test.php` asserts that `/views/`
+  and `/views/login.php` answer **403** over live HTTP.
 - **Two acceptance criteria cannot be met until the installer and the screens
   exist — and are met in the sandbox instead.** §9 expects `/nope` → 404,
   `POST /dashboard` → 405 and `/dashboard` → 302/200. Those need an installed

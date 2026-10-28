@@ -18,6 +18,9 @@
  *   5. The From: address comes from MAIL_FROM / MAIL_FROM_NAME, not from
  *      SMTP_USER. A company SMTP account may send on behalf of a different
  *      mailbox, and a message with no From: is refused by most servers.
+ *   6. The body is PLAIN TEXT (issue-016 §11). There is no HTML mail in
+ *      v0.2 — the messages carry a link, and plain text cannot carry a
+ *      phishing lure.
  *
  * The runtime never runs Composer. vendor/ is produced by a deliberate
  * vendor-time install and is git-ignored — see docs/issues/issue-010.md.
@@ -80,7 +83,25 @@ function createMailer(): PHPMailer
 }
 
 /**
- * Send one HTML mail.
+ * Fill a message: the recipient, the subject and a PLAIN-TEXT body.
+ *
+ * Split out of sendMail() so the plain-text mode is assertable without
+ * opening a connection — a regression test needs to check the content type
+ * of the message, and that needs no server.
+ *
+ * The body is plain text on purpose (issue-016 §11): it is a plain-text
+ * link, and plain text cannot carry a phishing lure.
+ */
+function prepareMessage(PHPMailer $mail, string $to, string $subject, string $body): void
+{
+    $mail->addAddress($to);
+    $mail->Subject = $subject;
+    $mail->isHTML(false);
+    $mail->Body = $body;
+}
+
+/**
+ * Send one plain-text mail.
  *
  * Returns true only when the message was handed to the server. false means
  * "not sent", for every reason: not configured, refused, unreachable, or the
@@ -94,10 +115,8 @@ function sendMail(string $to, string $subject, string $body): bool
 
     try {
         $mail = createMailer();
-        $mail->addAddress($to);
-        $mail->Subject = $subject;
-        $mail->isHTML(true);
-        $mail->Body = $body;
+
+        prepareMessage($mail, $to, $subject, $body);
 
         return $mail->send();
     } catch (Throwable $ex) {

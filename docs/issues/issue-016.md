@@ -1,7 +1,11 @@
 # Issue-016 — App: authentication and the mailer
 
-> **Status:** **specified, not implemented** — `includes/auth.php` and the five auth
-> screens do not exist yet.
+> **Status:** **implemented and verified** — `includes/auth.php` and the six auth
+> screens exist, the mailer is wired into the front controller, and the layer is
+> guarded by `database/auth_test.php` (176 assertions, in two tiers: the sources
+> and a sandbox that runs the real screens). The walk-through found **one real
+> defect** — `includes/mailer.php` was never loaded by anything — which is
+> fixed and is now asserted.
 > **Target:** v0.2 (the application) — the screens that stand between a visitor and
 > the data.
 > **Severity:** **critical** — this issue carries every authentication control in
@@ -24,7 +28,76 @@
 
 ---
 
+## Implementation notes — 2026-10-28
+
+The specification left a few questions open — where the screens live, how the
+throttle covers an identifier that matches no account, how the two
+forgot-password responses are made to take the same time — and one of its
+assumptions was simply wrong: it said the mailer "already exists and is already
+tested", which was true of the *file* and false of the *application*. Every
+decision is recorded here and guarded by `database/auth_test.php`, so a later
+change cannot quietly reintroduce the shape this issue rejected.
+
+| # | The spec said | The decision | Why |
+|---|---|---|---|
+| 1 | The screens are `pages/login.php` … (§14 step 1) | **The screens live in `views/`** — `views/login.php`, `views/register.php`, `views/forgot_password.php`, `views/reset_password.php`, `views/verify_email.php`, `views/logout.php` — and the page stylesheet is `assets/css/pages/auth.css`. | The spec's `pages/` was a slip: the repository's layout puts one PHP view per screen in `views/`, the front controller renders a view by that name, and issues 017–020 already name `views/dashboard.php` and friends. Only the *stylesheet* directory is `assets/css/pages/`. §14's command block pointed at `pages/` and has been corrected. |
+| 2 | §6 — the count lives in `users.failed_attempts` and `users.locked_until`, and "pick one mechanism and apply it to both cases" | **One mechanism, two tables: the account row when the identifier matches an account, the new `login_attempts` table when it does not.** | The spec itself names `login_attempts` (issue-011 option B) as the answer to the unknown-identifier case, and it is the only way to throttle an identifier with no row to lock. The counter is keyed by a SHA-256 of the lower-cased identifier, so a non-existent name cannot be walked around by changing its case. The schema change is a **migration**, not an edit of `schema.sql` alone: `database/migrations/20261028_add_login_attempts.sql` (idempotent), mirrored in `database/schema.sql` for a fresh install. |
+| 3 | §9 — "the same response time" | **A timing floor of 500 ms** (`AUTH_TIMING_FLOOR_MILLISECONDS`) is applied to the forgot-password request, on **both** branches. | The two bodies are byte-identical, but the known-address branch sends a mail and the unknown one does not — so the known one is *slower*, which is a timing oracle with a smaller margin. The floor is a constant in `includes/auth.php`, **not** a config constant: the config contract is thirteen names, and a knob nobody tunes is a liability. |
+| 4 | §5 — "a missing user and a wrong password take the same branch" | **The same branch, and the same *work*.** A missing account is verified against a **decoy bcrypt hash** (`decoyPasswordHash()` / `verifyPasswordOrDecoy()`). | A branch that returns early is a timing oracle even when the message is identical. The decoy hash is generated once per process and cached, so the unknown-identifier path costs what the known one costs. |
+| 5 | §10 — "on success … every other session is invalidated" | **The session carries a credential version, and the front controller compares it with the row on every request** (`sessionCredentialsAreCurrent()`, called from `index.php`). | There is no session table in the schema, and issue-011 did not add one. A password change rewrites `users.password_hash`, so the version changes; the stale session no longer matches and the visitor is signed out. The check lives in the front controller because that is where every request passes. |
+| 6 | §5 — "the session stores the user id" | **The session stores the user id, the username and the credential version — and never the password hash.** | The spec forbids the hash in the session. The credential version is the hash *of* the hash: it identifies the credential without carrying it, and it is what makes the comparison in §5 of these notes possible. |
+| 7 | §11 — "the mailer already exists and is already tested … this issue wires it into the application" | **The mailer is now loaded by the front controller — it was not loaded anywhere.** | **This is the real defect the test found.** `includes/mailer.php` was never required by the application, so `mailIsConfigured()` and `sendMail()` were *undefined functions*, and the front controller's error boundary turned that into a **500** on the registration success path and on every forgot-password POST. `index.php` now requires the file, and `database/auth_test.php` asserts the require is present — otherwise the next refactor silently breaks the mail again. |
+| 8 | §3 — ten auth routes | **Ten routes, and `GET /verify-email` is one of them.** | The route count is a tripwire in `database/runtime_test.php` and `database/front_controller_test.php`; it moved from 23 to 24, and both tests now say why. |
+| 9 | The closed-registration screen is a separate mockup (`03-register-closed.html`) | **One view, two states: `views/register.php` renders the form or the closed card.** | The closed state is the *same route* with a 403 — the spec's "the page, not a status-code dump" — so the two live in one file and the gate is a single `registrationAllowed()` call. Splitting them would duplicate the shell for no gain. |
+
+Eight facts belong on the record:
+
+- **The `views/` deny rule is paid.** Issue-015 recorded it as owed: the deny
+  block refused dotfiles, `config.php`, `database/`, `includes/`, `docker/`,
+  `vendor/` and `composer.json|lock` — but not `views/`, which did not exist
+  yet. The rule is in `.htaccess` now, and
+  `database/webroot_hardening_test.php` asserts that `/views/` and
+  `/views/login.php` answer **403** over live HTTP. (LiteSpeed caches the parsed
+  `.htaccess`; the app was restarted after the edit.)
+- **The mail bodies are plain text.** `includes/mailer.php` gained
+  `prepareMessage()`, which sets `isHTML(false)`. `database/mailer_test.php` §G
+  asserts the content type is `text/plain` and that the body is verbatim — a
+  plain-text reset link cannot carry a phishing lure.
+- **The links are built from `SERVER_NAME`, never `HTTP_HOST`.**
+  `absoluteUrl()` in `includes/functions.php` reads `$_SERVER['SERVER_NAME']` and
+  never `HTTP_HOST`; `database/auth_test.php` checks the source **with the
+  comments stripped**, so a docblock cannot satisfy the assertion. The test also
+  sends a `Host: evil.example.com` header and proves the link still points at
+  the server's own name.
+- **One live reset link at a time.** `createPasswordReset()` deletes the
+  account's unused rows before it inserts the new one — the spec's "old rows"
+  rule. It has a consequence the tests must respect: requesting a second link
+  for the same address retires the first, so a test that needs both must use
+  two accounts.
+- **`sendMail()` stays a `false`.** The register screen and the forgot-password
+  screen distinguish "not configured" from "the send failed" by
+  `mailIsConfigured()` and `sendMail() === false`. Neither screen calls
+  `createMailer()`, and neither wraps the call in a try/catch.
+- **The screens are guarded by `database/auth_test.php`**, in two tiers: a
+  structural tier that reads the sources (the gate order, the CSRF order, the
+  escape discipline, the plain-text mailer, the ten routes) and a behaviour tier
+  that runs the **real screens** in a sandbox against a scratch database. The
+  sandbox swaps in a **stub mailer** (`includes/mailer-mode.txt` = `ok` /
+  `fail` / `off`), so the three mail states are walked through without an SMTP
+  server.
+- **The `users` table is unchanged.** The only schema change is the new
+  `login_attempts` table. `database/schema_test.php` guards it.
+- **The verification recipe below is the specification's own.** The executed
+  guard is the test file: it is repeatable, it needs no live SMTP server, and
+  it fails on the exact defect that a curl-and-grep recipe cannot see — a
+  function that exists but is never loaded.
+
+---
+
 ## Table of contents
+
+*Implementation notes — 2026-10-28* (the places where the specification
+contradicted itself, and how each was resolved)
 
 1. Objective
 2. Constraints
@@ -747,15 +820,30 @@ $url    = $scheme . '://' . $host . '/reset-password?token=' . urlencode($token)
 
 ## 14. Verification
 
+> **As implemented**, the executed guard is `database/auth_test.php` — a
+> repeatable two-tier test that needs no live SMTP server and no curl session
+> juggling:
+>
+> ```bash
+> docker compose exec -T app php /var/www/html/database/auth_test.php
+> echo "exit=$?"     # 0
+> ```
+>
+> The recipe below is the **specification's own** and still applies to a running
+> installation. Note the two corrections: the screens are in **`views/`**, and
+> the file names use **underscores**.
+
 ```bash
 cd /home/zongbao/projects/financial-tracker
 
 # 1 — lint every file this issue touches
 docker compose exec -T app php -l /var/www/html/includes/auth.php
-docker compose exec -T app php -l /var/www/html/pages/login.php
-docker compose exec -T app php -l /var/www/html/pages/register.php
-docker compose exec -T app php -l /var/www/html/pages/forgot-password.php
-docker compose exec -T app php -l /var/www/html/pages/reset-password.php
+docker compose exec -T app php -l /var/www/html/views/login.php
+docker compose exec -T app php -l /var/www/html/views/register.php
+docker compose exec -T app php -l /var/www/html/views/forgot_password.php
+docker compose exec -T app php -l /var/www/html/views/reset_password.php
+docker compose exec -T app php -l /var/www/html/views/verify_email.php
+docker compose exec -T app php -l /var/www/html/views/logout.php
 
 # 2 — the screens render
 for p in login register forgot-password; do
@@ -819,8 +907,16 @@ prints **403**, **403** and **0**; step 6 shows a bcrypt/argon2 prefix; step 7 s
 The auth screens are new files. Removing them removes the feature and nothing else:
 
 ````bash
-rm -f pages/login.php pages/register.php pages/forgot-password.php \
-      pages/reset-password.php pages/verify-email.php
+rm -f views/login.php views/register.php views/forgot_password.php \
+      views/reset_password.php views/verify_email.php views/logout.php
+````
+
+The `login_attempts` table is dropped separately, and it holds **no** user data
+— it is a throttle counter:
+
+````bash
+docker compose exec -T db mariadb -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" \
+    -e "DROP TABLE IF EXISTS login_attempts;"
 ````
 
 The schema is unchanged — `users`, `password_resets` and `email_verifications`

@@ -43,10 +43,14 @@
 
     # ---- Internal source trees ------------------------------------------
     # None of these are entry points; they are included or read from disk.
+    # views/ holds the PHP screens. They are rendered by the front controller
+    # and never requested directly — a direct request would run a screen
+    # outside the front controller, with no configuration loaded.
     RewriteRule "^/?database/"  - [F,L]
     RewriteRule "^/?includes/"  - [F,L]
     RewriteRule "^/?docker/"    - [F,L]
     RewriteRule "^/?vendor/"    - [F,L]
+    RewriteRule "^/?views/"     - [F,L]
 
     # ---- Dependency manifest ---------------------------------------------
     # composer.json and composer.lock describe the dependency tree. They are

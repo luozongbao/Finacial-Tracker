@@ -97,8 +97,12 @@ DEALLOCATE PREPARE ft_stmt;
 --                      algorithm may change and the column must not have to.
 --   status             'disabled' is the "This account is not available."
 --                      state on the sign-in screen.
---   failed_attempts    server-side login throttle. There is no separate
---   locked_until       login_attempts table — one counter, not two.
+--   failed_attempts    server-side login throttle — the ACCOUNT's own copy of
+--   locked_until       the counter. The authoritative counter lives in
+--                      login_attempts, against the identifier, because an
+--                      identifier that matches no account has no users row to
+--                      lock (issue-016 §6). Both are written together and
+--                      both are cleared by a successful sign-in.
 -- --------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `users` (
     `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -114,6 +118,39 @@ CREATE TABLE IF NOT EXISTS `users` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uq_users_username` (`username`),
     UNIQUE KEY `uq_users_email` (`email`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------------------------
+-- login_attempts — the sign-in throttle, counted per IDENTIFIER.
+--
+--   identifier_hash  sha256 of the lowercased sign-in identifier (a username
+--                    or an email address). The hash is the key: it is a
+--                    fixed length, it is case-insensitive by construction,
+--                    and the table never stores an address that was typed at
+--                    the sign-in form.
+--   failed_attempts  the number of failures in the current window.
+--   locked_until     when the counter reached the threshold, the moment the
+--                    wait ends. NULL while the identifier is not locked.
+--
+-- WHY A TABLE OF ITS OWN: the throttle has to cover an identifier that
+-- matches NO account. `users.failed_attempts` can only lock an account that
+-- exists, so a visitor who types a name that does not exist five times
+-- would never be throttled — the limit would be bypassable by using a
+-- non-existent name. The counter therefore lives against the IDENTIFIER,
+-- and the users columns hold the same numbers for the account that was
+-- matched (issue-016 §6).
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `login_attempts` (
+    `id`              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `identifier_hash` CHAR(64)     NOT NULL,
+    `failed_attempts` INT UNSIGNED NOT NULL DEFAULT 0,
+    `locked_until`    DATETIME     NULL DEFAULT NULL,
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_login_attempts_identifier` (`identifier_hash`),
+    KEY `idx_login_attempts_updated` (`updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -231,6 +268,7 @@ CREATE TABLE IF NOT EXISTS `email_verifications` (
 -- The tables:
 --
 --   users               the accounts
+--   login_attempts      the sign-in throttle, counted per identifier
 --   categories          the per-user labels (income | expense)
 --   transactions        the ledger — income and spending in one table
 --   password_resets     the single-use password reset tokens (hash only)

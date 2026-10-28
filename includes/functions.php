@@ -127,6 +127,39 @@ function asset_url(string $path): string
 }
 
 // ---------------------------------------------------------------------------
+// Absolute URLs
+// ---------------------------------------------------------------------------
+
+/**
+ * An absolute URL on this installation.
+ *
+ * The host comes from `$_SERVER['SERVER_NAME']` and NEVER from
+ * `$_SERVER['HTTP_HOST']`. The latter is the `Host:` header, which the
+ * client controls: a password-reset link built from it can be pointed at an
+ * attacker's host, and the victim would carry their own token to it.
+ * SERVER_NAME comes from the server configuration.
+ *
+ * The path is always a literal at the call site — never a user-supplied
+ * value.
+ */
+function absoluteUrl(string $path): string
+{
+    $https = isset($_SERVER['HTTPS'])
+        && $_SERVER['HTTPS'] !== ''
+        && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+
+    $scheme = $https ? 'https' : 'http';
+
+    $host = trim((string) ($_SERVER['SERVER_NAME'] ?? ''));
+
+    if ($host === '') {
+        $host = 'localhost';
+    }
+
+    return $scheme . '://' . $host . '/' . ltrim($path, '/');
+}
+
+// ---------------------------------------------------------------------------
 // Session and CSRF
 // ---------------------------------------------------------------------------
 

@@ -61,7 +61,9 @@ Three facts belong on the record:
   `config.php`, `database/`, `includes/`, `docker/`, `vendor/` and
   `composer.json|lock` — but not `views/`, which does not exist yet. **Issue-016
   must add the `views/` rule when it creates the first screen**, exactly as
-  issue-014 recorded it.
+  issue-014 recorded it. — **Paid on 2026-10-28 by issue-016**: the rule is in
+  `.htaccess`, and `database/webroot_hardening_test.php` asserts that `/views/`
+  and `/views/login.php` answer **403** over live HTTP.
 
 ---
 

@@ -1,0 +1,40 @@
+/* ==========================================================================
+   AUTH SCREENS — the five guest screens (issue-016 §4)
+
+   One file for sign in, register, registration-closed, forgot password and
+   reset password. The components they are built from live in
+   components.css; only the rules that belong to this group of screens are
+   here.
+
+   The colours come from the tokens. There is no literal colour in this file.
+   ========================================================================== */
+
+/* The card title is the first thing in the card — it must not carry the
+   margin of a heading in the middle of a page. */
+.auth .card > h2 {
+    margin-top: 0;
+    margin-bottom: var(--sp-4);
+}
+
+/* The alert sits inside the card, above the fields. */
+.auth .card .alert {
+    margin-bottom: var(--sp-4);
+}
+
+/* The "Show" reveal button lives inside the hint paragraph, which is a
+   paragraph and not a block of text. */
+.auth .field__hint .btn {
+    margin-top: var(--sp-1);
+}
+
+/* The screens that replace the form with a single button need the button to
+   clear the paragraph above it. */
+.auth .card > p + .btn {
+    margin-top: var(--sp-4);
+}
+
+/* A single link under a form reads better centred than pinned to the left
+   edge of the column. */
+.auth__links--center {
+    justify-content: center;
+}

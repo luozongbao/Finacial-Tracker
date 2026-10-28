@@ -86,6 +86,7 @@ final class Router
             ['POST', '/forgot-password',       'views/forgot_password.php'],
             ['GET',  '/reset-password',        'views/reset_password.php'],
             ['POST', '/reset-password',        'views/reset_password.php'],
+            ['GET',  '/verify-email',          'views/verify_email.php'],
 
             // One canonical home URL.
             ['GET',  '/',                      'redirect:/dashboard'],
