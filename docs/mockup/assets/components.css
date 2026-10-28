@@ -1,0 +1,1494 @@
+/* ==========================================================================
+   docs/mockup/assets/components.css
+   --------------------------------------------------------------------------
+   The component vocabulary shared by every mockup screen — issue-004 §6.4.
+
+   Naming rule (mirrors .github/instructions/frontend.instructions.md):
+   modifiers use a DOUBLE hyphen — .badge--income, .btn--primary.
+   A single hyphen matches nothing and renders unstyled.
+
+   RULE: no literal colours, font sizes, spacing values or radii here.
+   Every value comes from a token in tokens.css.
+   ========================================================================== */
+
+/* ---- Page shell ---------------------------------------------------------- */
+.shell {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: var(--sp-6) var(--sp-4);
+}
+
+.shell__header {
+    margin-bottom: var(--sp-6);
+}
+
+.shell__title {
+    margin-bottom: var(--sp-2);
+}
+
+.shell__subtitle {
+    color: var(--gray-700);
+    margin-bottom: 0;
+}
+
+/* ---- Card ---------------------------------------------------------------- */
+.card {
+    background-color: var(--surface);
+    color: var(--gray-900);
+    border-radius: var(--r-lg);
+    padding: var(--sp-5);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--gray-300);
+}
+
+.card__title {
+    margin-bottom: var(--sp-2);
+}
+
+/* ---- Gallery grid -------------------------------------------------------- */
+.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: var(--sp-4);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.gallery__item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    background-color: var(--surface);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-md);
+    padding: var(--sp-4);
+}
+
+.gallery__item[aria-disabled="true"] {
+    opacity: 0.6;
+}
+
+.gallery__name {
+    font-weight: 650;
+    color: var(--gray-900);
+}
+
+.gallery__meta {
+    font-size: var(--fs-sm);
+    color: var(--gray-700);
+}
+
+/* ---- Badge --------------------------------------------------------------- */
+.badge {
+    display: inline-block;
+    font-size: var(--fs-xs);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    padding: var(--sp-1) var(--sp-2);
+    border-radius: var(--r-full);
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+}
+
+.badge--income {
+    background-color: var(--success-100);
+    color: var(--success-700);
+}
+
+.badge--expense {
+    background-color: var(--danger-100);
+    color: var(--danger-700);
+}
+
+.badge--pending {
+    background-color: var(--info-100);
+    color: var(--info-700);
+}
+
+/* ---- Notice -------------------------------------------------------------- */
+.notice {
+    border-left: 4px solid var(--info-500);
+    background-color: var(--info-100);
+    color: var(--info-700);
+    padding: var(--sp-4);
+    border-radius: var(--r-sm);
+    margin-bottom: var(--sp-5);
+}
+
+.notice--warning {
+    border-left-color: var(--warning-500);
+    background-color: var(--warning-100);
+    color: var(--warning-700);
+}
+
+/* ==========================================================================
+   APP SHELL
+   issue-004 §6.4 / §7 — header/nav, page title, content column, footer.
+   ========================================================================== */
+
+.app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.app__bar {
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--gray-300);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.app__bar-inner {
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: var(--sp-3) var(--sp-4);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+.app__brand {
+    font-weight: 700;
+    font-size: var(--fs-lg);
+    color: var(--gray-900);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+}
+
+.app__brand:hover {
+    text-decoration: none;
+}
+
+.app__spacer {
+    flex: 1 1 auto;
+}
+
+.app__user {
+    font-size: var(--fs-sm);
+    color: var(--gray-700);
+    white-space: nowrap;
+}
+
+/* ---- Nav ---------------------------------------------------------------- */
+.nav {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    flex-wrap: wrap;
+}
+
+.nav__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--r-md);
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    transition: background-color var(--dur-fast) ease,
+                color var(--dur-fast) ease;
+}
+
+.nav__link:hover {
+    background-color: var(--surface-2);
+    color: var(--gray-900);
+    text-decoration: none;
+}
+
+.nav__link:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+}
+
+.nav__link[aria-current="page"] {
+    background-color: var(--brand-100);
+    color: var(--brand-700);
+}
+
+/* ---- Page --------------------------------------------------------------- */
+.app__main {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: var(--content-max);
+    margin: 0 auto;
+    padding: var(--sp-6) var(--sp-4) var(--sp-8);
+}
+
+.page__header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-5);
+}
+
+.page__title {
+    margin-bottom: var(--sp-1);
+}
+
+.page__subtitle {
+    color: var(--gray-700);
+    margin-bottom: 0;
+}
+
+.page__actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+}
+
+.app__footer {
+    border-top: 1px solid var(--gray-300);
+    background-color: var(--surface);
+    padding: var(--sp-4);
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+    text-align: center;
+}
+
+/* ---- Mobile bottom navigation (under 640px, issue-004 §9) ---------------- */
+.bottom-nav {
+    display: none;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background-color: var(--surface);
+    border-top: 1px solid var(--gray-300);
+}
+
+.bottom-nav__inner {
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+}
+
+.bottom-nav__link {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--tap-min);
+    padding: var(--sp-2) var(--sp-1);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
+.bottom-nav__link:hover {
+    text-decoration: none;
+}
+
+.bottom-nav__link[aria-current="page"] {
+    color: var(--brand-700);
+    background-color: var(--brand-100);
+}
+
+/* ==========================================================================
+   CARD
+   ========================================================================== */
+
+.card--muted {
+    background-color: var(--surface-2);
+    box-shadow: none;
+}
+
+.card--flush {
+    padding: 0;
+    overflow: hidden;
+}
+
+.card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-4);
+}
+
+.card__header .card__title {
+    margin-bottom: 0;
+}
+
+/* The padded content area of a card. Used inside .card--flush, where the
+   card itself has no padding and the body provides it instead. */
+.card__body {
+    padding: var(--sp-5);
+}
+
+.card__footer {
+    margin-top: var(--sp-4);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--gray-300);
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+}
+
+/* ==========================================================================
+   SUMMARY TILE — the income / spending / net trio (issue-006 §4.2)
+   ========================================================================== */
+
+.tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-5);
+}
+
+/* Column-count modifiers. They are classes, never inline styles, so the
+   responsive rules below can collapse them with the viewport. */
+.tiles--2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.tiles--3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.tile {
+    background-color: var(--surface);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-lg);
+    padding: var(--sp-4);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+}
+
+.tile__label {
+    font-size: var(--fs-sm);
+    font-weight: 650;
+    color: var(--gray-700);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.tile__amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    line-height: var(--lh-tight);
+}
+
+.tile__period {
+    font-size: var(--fs-xs);
+    color: var(--gray-700);
+}
+
+.tile--income .tile__amount { color: var(--success-700); }
+.tile--spending .tile__amount { color: var(--danger-700); }
+.tile--net .tile__amount { color: var(--gray-900); }
+
+.tile--net-positive .tile__amount { color: var(--success-700); }
+.tile--net-negative .tile__amount { color: var(--danger-700); }
+.tile--net-zero .tile__amount { color: var(--gray-700); }
+
+/* ==========================================================================
+   AMOUNT — positive / negative / zero / large / muted (issue-004 §6.4)
+   ========================================================================== */
+
+.amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.amount--income { color: var(--success-700); }
+.amount--expense { color: var(--danger-700); }
+.amount--zero { color: var(--gray-700); }
+.amount--muted { color: var(--gray-700); }
+.amount--large {
+    font-size: var(--fs-xl);
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   BADGE
+   ========================================================================== */
+
+.badge--success {
+    background-color: var(--success-100);
+    color: var(--success-700);
+}
+
+.badge--danger {
+    background-color: var(--danger-100);
+    color: var(--danger-700);
+}
+
+.badge--warning {
+    background-color: var(--warning-100);
+    color: var(--warning-700);
+}
+
+.badge--info {
+    background-color: var(--info-100);
+    color: var(--info-700);
+}
+
+.badge--ready {
+    background-color: var(--success-100);
+    color: var(--success-700);
+}
+
+.badge--neutral {
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+}
+
+/* A badge may wrap a link (the reports category breakdown). The link
+   inherits the badge colour so the whole pill reads as one object. */
+.badge a {
+    color: inherit;
+}
+
+.badge a:hover,
+.badge a:focus-visible {
+    color: inherit;
+    text-decoration: underline;
+}
+
+/* ==========================================================================
+   BUTTON — primary / secondary / ghost / danger; sm / md / lg;
+             disabled / loading (issue-004 §6.4)
+   ========================================================================== */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    min-height: var(--tap-min);
+    padding: var(--sp-2) var(--sp-4);
+    border-radius: var(--r-md);
+    border: 1px solid transparent;
+    font-family: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 650;
+    line-height: var(--lh-normal);
+    text-align: center;
+    cursor: pointer;
+    transition: background-color var(--dur-fast) ease,
+                border-color var(--dur-fast) ease,
+                color var(--dur-fast) ease;
+}
+
+.btn:hover {
+    text-decoration: none;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+}
+
+.btn[disabled],
+.btn[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.btn--primary {
+    background-color: var(--brand-500);
+    border-color: var(--brand-500);
+    color: var(--surface);
+}
+
+.btn--primary:hover:not([disabled]) {
+    background-color: var(--brand-700);
+    border-color: var(--brand-700);
+}
+
+.btn--secondary {
+    background-color: var(--surface);
+    border-color: var(--gray-300);
+    color: var(--gray-900);
+}
+
+.btn--secondary:hover:not([disabled]) {
+    background-color: var(--surface-2);
+    border-color: var(--gray-500);
+}
+
+.btn--ghost {
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--brand-500);
+}
+
+.btn--ghost:hover:not([disabled]) {
+    background-color: var(--brand-100);
+}
+
+.btn--danger {
+    background-color: var(--danger-500);
+    border-color: var(--danger-500);
+    color: var(--surface);
+}
+
+.btn--danger:hover:not([disabled]) {
+    background-color: var(--danger-700);
+    border-color: var(--danger-700);
+}
+
+.btn--sm {
+    min-height: var(--tap-min);
+    padding: var(--sp-1) var(--sp-3);
+    font-size: var(--fs-xs);
+}
+
+.btn--lg {
+    min-height: var(--tap-min);
+    padding: var(--sp-3) var(--sp-5);
+    font-size: var(--fs-md);
+}
+
+.btn--block {
+    width: 100%;
+}
+
+.btn--loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn--loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    margin: calc(var(--sp-2) * -1) 0 0 calc(var(--sp-2) * -1);
+    border: 2px solid var(--surface);
+    border-radius: var(--r-full);
+    border-top-color: transparent;
+    animation: btn-spin var(--dur-base) linear infinite;
+}
+
+@keyframes btn-spin {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .btn--loading::after {
+        animation: none;
+    }
+}
+
+/* ---- Button group ------------------------------------------------------- */
+.btn-group {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+/* ==========================================================================
+   FORM FIELD — label ABOVE, hint BELOW, error BELOW the hint (issue-004 §6.4)
+   ========================================================================== */
+
+.field {
+    margin-bottom: var(--sp-4);
+}
+
+.field__label {
+    display: block;
+    font-weight: 650;
+    font-size: var(--fs-sm);
+    margin-bottom: var(--sp-1);
+    color: var(--gray-900);
+}
+
+.field__hint {
+    display: block;
+    font-size: var(--fs-xs);
+    color: var(--gray-700);
+    margin-bottom: var(--sp-2);
+}
+
+.field__error {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 650;
+    color: var(--danger-700);
+    margin-top: var(--sp-2);
+}
+
+.input,
+.select,
+.textarea {
+    display: block;
+    width: 100%;
+    min-height: var(--tap-min);
+    padding: var(--sp-2) var(--sp-3);
+    font-family: inherit;
+    font-size: var(--fs-md);
+    color: var(--gray-900);
+    background-color: var(--surface);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-md);
+    transition: border-color var(--dur-fast) ease,
+                box-shadow var(--dur-fast) ease;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+    border-color: var(--brand-500);
+    box-shadow: 0 0 0 3px var(--brand-100);
+    outline: none;
+}
+
+.input:focus-visible,
+.select:focus-visible,
+.textarea:focus-visible {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 1px;
+}
+
+.input[aria-invalid="true"],
+.select[aria-invalid="true"] {
+    border-color: var(--danger-500);
+}
+
+.input[aria-invalid="true"]:focus,
+.select[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 3px var(--danger-100);
+}
+
+.input[disabled],
+.select[disabled],
+.textarea[disabled] {
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+    cursor: not-allowed;
+}
+
+.input[readonly] {
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+}
+
+.textarea {
+    min-height: calc(var(--tap-min) * 2);
+    resize: vertical;
+}
+
+.input--mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.input--amount {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    text-align: right;
+    padding: var(--sp-3);
+}
+
+/* ---- Radio group -------------------------------------------------------- */
+.radio-group {
+    display: flex;
+    gap: var(--sp-4);
+    flex-wrap: wrap;
+}
+
+.radio {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-height: var(--tap-min);
+    font-size: var(--fs-md);
+    cursor: pointer;
+}
+
+.radio input {
+    width: var(--sp-4);
+    height: var(--sp-4);
+    accent-color: var(--brand-500);
+    margin: 0;
+}
+
+.radio--income input { accent-color: var(--success-500); }
+.radio--expense input { accent-color: var(--danger-500); }
+
+/* ---- Switch ------------------------------------------------------------- */
+.switch {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: var(--tap-min);
+    cursor: pointer;
+}
+
+.switch input {
+    position: absolute;
+    opacity: 0;
+    width: 1px;
+    height: 1px;
+}
+
+.switch__track {
+    position: relative;
+    display: inline-block;
+    width: var(--sp-8);
+    height: var(--sp-5);
+    border-radius: var(--r-full);
+    background-color: var(--gray-300);
+    transition: background-color var(--dur-fast) ease;
+    flex: 0 0 auto;
+}
+
+.switch__track::after {
+    content: "";
+    position: absolute;
+    top: var(--sp-1);
+    left: var(--sp-1);
+    width: calc(var(--sp-5) - (var(--sp-2) * 2));
+    height: calc(var(--sp-5) - (var(--sp-2) * 2));
+    border-radius: var(--r-full);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--dur-fast) ease;
+}
+
+.switch input:checked + .switch__track {
+    background-color: var(--success-500);
+}
+
+.switch input:checked + .switch__track::after {
+    transform: translateX(calc(var(--sp-3) + var(--sp-1)));
+}
+
+.switch input:focus-visible + .switch__track {
+    outline: 2px solid var(--brand-500);
+    outline-offset: 2px;
+}
+
+/* ==========================================================================
+   PERIOD SELECTOR — Today / This week / This month / This year / Custom
+   ========================================================================== */
+
+.period {
+    display: flex;
+    gap: var(--sp-1);
+    flex-wrap: wrap;
+    background-color: var(--surface);
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-md);
+    padding: var(--sp-1);
+    margin-bottom: var(--sp-4);
+}
+
+.period__link {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--tap-min);
+    padding: var(--sp-1) var(--sp-3);
+    border-radius: var(--r-sm);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--gray-700);
+    white-space: nowrap;
+}
+
+.period__link:hover {
+    background-color: var(--surface-2);
+    text-decoration: none;
+}
+
+.period__link[aria-current="true"] {
+    background-color: var(--brand-100);
+    color: var(--brand-700);
+}
+
+/* ==========================================================================
+   TABLE — numeric alignment right + tabular (issue-004 §6.4)
+   ========================================================================== */
+
+.table-wrap {
+    /* `position: relative` keeps absolutely positioned descendants — the
+       screen-reader-only captions and sort hints — inside this scroll
+       container, so they can never widen the page. */
+    position: relative;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.data-table {
+    width: 100%;
+    font-size: var(--fs-sm);
+}
+
+.data-table th,
+.data-table td {
+    padding: var(--sp-3);
+    border-bottom: 1px solid var(--gray-300);
+}
+
+.data-table thead th {
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.data-table tbody tr:hover {
+    background-color: var(--surface-2);
+}
+
+.data-table tbody tr[aria-selected="true"] {
+    background-color: var(--brand-100);
+}
+
+.data-table .num {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.data-table__sort {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-1);
+    color: inherit;
+    font: inherit;
+}
+
+.data-table__sort:hover {
+    text-decoration: none;
+}
+
+/* ==========================================================================
+   EMPTY STATE — icon-free, one sentence, one action (issue-004 §6.4)
+   ========================================================================== */
+
+.empty {
+    text-align: center;
+    padding: var(--sp-6) var(--sp-4);
+    color: var(--gray-700);
+}
+
+.empty__title {
+    color: var(--gray-900);
+    margin-bottom: var(--sp-2);
+}
+
+.empty__body {
+    margin-bottom: var(--sp-4);
+}
+
+/* ==========================================================================
+   ALERT / NOTICE — info, success, warning, danger (issue-004 §6.4)
+   ========================================================================== */
+
+.alert {
+    display: flex;
+    gap: var(--sp-3);
+    align-items: flex-start;
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-md);
+    border-left: 4px solid var(--info-500);
+    background-color: var(--info-100);
+    color: var(--info-700);
+    margin-bottom: var(--sp-4);
+}
+
+.alert__body {
+    flex: 1 1 auto;
+}
+
+.alert__title {
+    font-weight: 700;
+    margin-bottom: var(--sp-1);
+}
+
+.alert__body p:last-child {
+    margin-bottom: 0;
+}
+
+.alert--success {
+    border-left-color: var(--success-500);
+    background-color: var(--success-100);
+    color: var(--success-700);
+}
+
+.alert--warning {
+    border-left-color: var(--warning-500);
+    background-color: var(--warning-100);
+    color: var(--warning-700);
+}
+
+.alert--danger {
+    border-left-color: var(--danger-500);
+    background-color: var(--danger-100);
+    color: var(--danger-700);
+}
+
+.alert--neutral {
+    border-left-color: var(--gray-500);
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+}
+
+/* ==========================================================================
+   PAGINATION
+   ========================================================================== */
+
+.pagination {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-top: var(--sp-4);
+}
+
+.pagination__status {
+    font-size: var(--fs-sm);
+    color: var(--gray-700);
+}
+
+/* ==========================================================================
+   MODAL — delete confirmation (issue-007 §5)
+   ========================================================================== */
+
+.modal {
+    border: 1px solid var(--gray-300);
+    border-radius: var(--r-lg);
+    background-color: var(--surface);
+    box-shadow: var(--shadow-md);
+    padding: var(--sp-5);
+    max-width: var(--auth-max);
+    margin: 0 auto;
+}
+
+.modal__title {
+    margin-bottom: var(--sp-2);
+}
+
+.modal__actions {
+    display: flex;
+    gap: var(--sp-2);
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    margin-top: var(--sp-5);
+}
+
+/* ==========================================================================
+   TRANSACTION ROW — one row design, two screens (issue-006 §5)
+   ========================================================================== */
+
+.tx {
+    display: grid;
+    grid-template-columns: 6.5rem 1fr auto;
+    gap: var(--sp-3);
+    align-items: center;
+    padding: var(--sp-3) 0;
+    border-bottom: 1px solid var(--gray-300);
+}
+
+.tx:last-child {
+    border-bottom: 0;
+}
+
+.tx__date {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-sm);
+    color: var(--gray-700);
+    white-space: nowrap;
+}
+
+.tx__desc {
+    min-width: 0;
+}
+
+.tx__desc-title {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tx__desc-meta {
+    font-size: var(--fs-xs);
+    color: var(--gray-700);
+}
+
+.tx__amount {
+    text-align: right;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.tx__actions {
+    display: flex;
+    gap: var(--sp-2);
+    justify-content: flex-end;
+}
+
+/* ==========================================================================
+   FILTER BAR — the server-side filter form (issue-006 §6)
+   ========================================================================== */
+
+.filters {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--sp-3);
+    align-items: end;
+}
+
+.filters .field {
+    margin-bottom: 0;
+}
+
+.filters__search { grid-column: span 12; }
+.filters__type   { grid-column: span 3; }
+.filters__cat    { grid-column: span 3; }
+.filters__from   { grid-column: span 3; }
+.filters__to     { grid-column: span 3; }
+.filters__actions {
+    grid-column: span 12;
+    display: flex;
+    gap: var(--sp-2);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filters__presets {
+    display: flex;
+    gap: var(--sp-2);
+    flex-wrap: wrap;
+    margin-bottom: var(--sp-3);
+}
+
+/* ==========================================================================
+   SHARE BAR — the category-breakdown visual aid (issue-007 §4)
+   ========================================================================== */
+
+.share {
+    display: inline-block;
+    height: var(--sp-2);
+    min-width: var(--sp-1);
+    border-radius: var(--r-full);
+    background-color: var(--brand-500);
+    vertical-align: middle;
+}
+
+/* ==========================================================================
+   STEPPER — install wizard (issue-008 §5)
+   ========================================================================== */
+
+.stepper {
+    display: flex;
+    gap: var(--sp-2);
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--sp-5);
+    flex-wrap: wrap;
+}
+
+.stepper__item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border-radius: var(--r-md);
+    background-color: var(--surface-2);
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    flex: 1 1 10rem;
+}
+
+.stepper__num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--sp-5);
+    height: var(--sp-5);
+    border-radius: var(--r-full);
+    background-color: var(--gray-300);
+    color: var(--gray-900);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    flex: 0 0 auto;
+}
+
+.stepper__item[aria-current="step"] {
+    background-color: var(--brand-100);
+    color: var(--brand-700);
+}
+
+.stepper__item[aria-current="step"] .stepper__num {
+    background-color: var(--brand-500);
+    color: var(--surface);
+}
+
+/* ==========================================================================
+   DEFINITION LIST — read-only information (issue-007 §6)
+   ========================================================================== */
+
+.readonly-list {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--sp-2);
+}
+
+.readonly-list__row {
+    display: flex;
+    gap: var(--sp-3);
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: var(--sp-2) 0;
+    border-bottom: 1px solid var(--gray-300);
+}
+
+.readonly-list__row:last-child {
+    border-bottom: 0;
+}
+
+.readonly-list dt {
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+}
+
+.readonly-list dd {
+    margin: 0;
+    font-weight: 650;
+    font-size: var(--fs-sm);
+}
+
+.readonly-list dd.masked {
+    font-family: var(--font-mono);
+    letter-spacing: 0.08em;
+}
+
+/* ==========================================================================
+   SKELETON — loading state (issue-006 §5, issue-007 §4)
+   ========================================================================== */
+
+.skeleton {
+    background-color: var(--gray-300);
+    border-radius: var(--r-sm);
+    min-height: var(--sp-4);
+    display: block;
+}
+
+.skeleton--title { width: 60%; height: var(--sp-5); margin-bottom: var(--sp-2); }
+.skeleton--line  { width: 100%; margin-bottom: var(--sp-2); }
+.skeleton--short { width: 40%; }
+.skeleton--tile  { height: var(--sp-8); margin-bottom: var(--sp-2); }
+
+/* ==========================================================================
+   AUTH LAYOUT — a single centred column (issue-005 §4)
+   ========================================================================== */
+
+.auth {
+    max-width: var(--auth-max);
+    margin: 0 auto;
+    padding: var(--sp-6) var(--sp-4);
+}
+
+.auth__brand {
+    text-align: center;
+    margin-bottom: var(--sp-5);
+}
+
+.auth__brand-name {
+    font-size: var(--fs-xl);
+    margin-bottom: var(--sp-1);
+}
+
+.auth__brand-note {
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+    margin-bottom: 0;
+}
+
+.auth__footer {
+    text-align: center;
+    margin-top: var(--sp-5);
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+}
+
+.auth__links {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    margin-top: var(--sp-4);
+    font-size: var(--fs-sm);
+}
+
+/* ==========================================================================
+   TOAST — inline confirmation after a save or delete (issue-004 §6.4)
+   ========================================================================== */
+
+.toast {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    border-radius: var(--r-md);
+    background-color: var(--success-100);
+    color: var(--success-700);
+    border: 1px solid var(--success-500);
+    font-size: var(--fs-sm);
+    font-weight: 650;
+    margin-bottom: var(--sp-4);
+}
+
+/* ==========================================================================
+   SPEC NOTE — implementation notes visible to the designer / developer
+   ========================================================================== */
+
+.spec-note {
+    border: 1px dashed var(--gray-300);
+    border-radius: var(--r-md);
+    padding: var(--sp-3) var(--sp-4);
+    color: var(--gray-700);
+    font-size: var(--fs-sm);
+    background-color: var(--surface-2);
+    margin-bottom: var(--sp-4);
+}
+
+.spec-note__label {
+    display: block;
+    font-weight: 700;
+    color: var(--gray-900);
+    text-transform: uppercase;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.06em;
+    margin-bottom: var(--sp-1);
+}
+
+.spec-note p:last-child {
+    margin-bottom: 0;
+}
+
+/* ==========================================================================
+   SECTION LABEL — used to separate the states on a screen
+   ========================================================================== */
+
+.state {
+    margin-bottom: var(--sp-6);
+}
+
+.state__label {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-700);
+    background-color: var(--surface-2);
+    border-radius: var(--r-full);
+    padding: var(--sp-1) var(--sp-3);
+    margin-bottom: var(--sp-3);
+}
+
+/* ==========================================================================
+   RESPONSIVE — issue-004 §9
+   ========================================================================== */
+
+@media (max-width: 1023px) {
+    .tiles {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 639px) {
+    /* ---- Shell -----------------------------------------------------------
+       The bottom navigation is fixed to the bottom of the viewport, so the
+       content column and the footer reserve room for it. */
+    .app__bar-inner {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--sp-2);
+    }
+
+    .app__bar .nav {
+        display: none;
+    }
+
+    .app__main {
+        padding: var(--sp-4) var(--sp-4) var(--sp-6);
+    }
+
+    /* The footer is the last element in the flow and the navigation is
+       fixed over it, so the footer reserves the navigation's height. */
+    .app__footer {
+        padding: var(--sp-4) var(--sp-4) calc(var(--tap-min) + var(--sp-4));
+    }
+
+    .bottom-nav {
+        display: block;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+
+    /* ---- Page header ---------------------------------------------------- */
+    .page__header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--sp-3);
+    }
+
+    .page__actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .page__actions .btn {
+        flex: 1 1 auto;
+    }
+
+    /* ---- Surfaces -------------------------------------------------------- */
+    .card,
+    .card__body,
+    .modal {
+        padding: var(--sp-4);
+    }
+
+    .tiles {
+        grid-template-columns: 1fr;
+    }
+
+    .tiles--2,
+    .tiles--3 {
+        grid-template-columns: 1fr;
+    }
+
+    .period {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .filters__type,
+    .filters__cat,
+    .filters__from,
+    .filters__to {
+        grid-column: span 12;
+    }
+
+    .tx {
+        grid-template-columns: 1fr auto;
+        row-gap: var(--sp-1);
+    }
+
+    .tx__date {
+        grid-column: 1 / -1;
+    }
+
+    .tx__actions {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+    }
+
+    .stepper__item {
+        flex: 1 1 100%;
+    }
+
+    /* ---- Tables become stacked cards (issue-004 §9) ----------------------
+       The header row is kept in the accessibility tree with the
+       screen-reader-only pattern, so the column names survive; each value
+       is prefixed with its own column name via `data-label`. */
+    .data-table,
+    .data-table tbody,
+    .data-table tfoot,
+    .data-table tr,
+    .data-table td,
+    .data-table th {
+        display: block;
+        width: auto;
+    }
+
+    .data-table thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .data-table tbody tr,
+    .data-table tfoot tr {
+        padding: var(--sp-3) 0;
+        border-bottom: 1px solid var(--gray-300);
+    }
+
+    .data-table tbody tr:last-child,
+    .data-table tfoot tr:last-child {
+        border-bottom: 0;
+    }
+
+    .data-table tbody th[scope="row"] {
+        padding: 0 var(--sp-4) var(--sp-2);
+        border-bottom: 0;
+        text-align: left;
+        font-size: var(--fs-md);
+    }
+
+    .data-table td {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--sp-3);
+        padding: var(--sp-1) var(--sp-4);
+        border-bottom: 0;
+        text-align: left;
+    }
+
+    .data-table td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        font-size: var(--fs-xs);
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--gray-700);
+    }
+
+    .data-table td[data-label=""]::before {
+        content: none;
+    }
+
+    .data-table td[data-label=""] {
+        justify-content: flex-start;
+    }
+
+    .data-table .num {
+        text-align: left;
+    }
+
+    .data-table tbody tr:hover {
+        background-color: transparent;
+    }
+}
+

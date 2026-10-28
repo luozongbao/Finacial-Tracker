@@ -1,0 +1,176 @@
+# docker-compose.yml — Financial Tracker development stack
+#
+# Dev ONLY. The application must install and run with Docker entirely out of
+# the picture (plain LiteSpeed + PHP + MariaDB in production). Nothing in
+# includes/ or index.php may read these variables — config.php is the only
+# configuration source for application code.
+#
+# Usage:
+#   cp .env.example .env          # then edit the values
+#   docker compose up -d           # app + db + phpmyadmin
+#   docker compose up -d mockup    # add the static mockup server
+#   docker compose down            # stops everything, keeps the DB volume
+#
+# NEVER run `docker compose down -v` — it deletes the MariaDB data volume.
+# See docs/issues/issue-001.md (app stack), issue-002.md (mockup server) and
+# issue-003.md (web-root hardening).
+
+name: financial-tracker
+
+services:
+  # ---------------------------------------------------------------------
+  # app — OpenLiteSpeed + LSPHP (PHP 8.5.12).
+  #
+  # The whole project is mounted at the vhost docroot, so the application
+  # lives at "/" and the URL space matches production exactly:
+  #
+  #   http://localhost:${APP_PORT}/                 -> the app front controller
+  #   http://localhost:${APP_PORT}/docs/mockup/     -> the mockups (read-only
+  #                                                     static files; see the
+  #                                                     `mockup` service for
+  #                                                     the sanctioned viewer)
+  #
+  # The docroot path is fixed by the image: the `docker` vhost template
+  # resolves vhRoot to /var/www/vhosts/localhost/ and docRoot to
+  # /var/www/vhosts/localhost/html/. Verified against
+  # litespeedtech/openlitespeed:1.9.4-lsphp85 (LiteSpeed 1.9.4 / LSPHP
+  # 8.5.12, built 2026-10-21 — the PHP2Shell patch release).
+  #
+  # The tag is PINNED, not `latest`: `latest` can silently move the PHP
+  # version under the repository, and the PHP floor is a security floor.
+  # See docs/issues/issue-009.md.
+  # ---------------------------------------------------------------------
+  app:
+    image: litespeedtech/openlitespeed:1.9.4-lsphp85
+    container_name: ft-app
+    restart: unless-stopped
+    # The wrapper only creates a compatibility symlink and then hands over to
+    # the image's own entrypoint. It never writes config.php — install.php is
+    # the only writer of config.php, in dev and in production alike.
+    entrypoint: ["/bin/bash", "/docker-entrypoint.sh"]
+    ports:
+      # Host port 8088 by default: it must not collide with a sibling stack, and
+      # binding :80 on a workstation needs privileges on some hosts.
+      - "${APP_PORT:-8088}:80"
+      # WebAdmin console. Bound to loopback only: it is an admin surface.
+      - ${OLS_ADMIN_PORT:-7080}:7080
+    volumes:
+      # The project itself, served at "/".
+      - ./:/var/www/vhosts/localhost/html
+      - ./docker/entrypoint.sh:/docker-entrypoint.sh:ro
+      # Named volumes, NOT bind mounts: the image seeds these directories
+      # only when they are empty, so a bind mount of a populated directory
+      # makes the container exit immediately.
+      - ols_conf:/usr/local/lsws/conf
+      - ols_admin_conf:/usr/local/lsws/admin/conf
+    environment:
+      - TZ=Asia/Bangkok
+      - ADMIN_USER=${OLS_ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${OLS_ADMIN_PASSWORD:-P@ssw0rd}
+    command: >
+      sh -c 'HASH=$$(openssl passwd -1 "$${ADMIN_PASSWORD}"); printf "$${ADMIN_USER}:$${HASH}\n" > /usr/local/lsws/admin/conf/htpasswd && chown lsadm:lsadm /usr/local/lsws/admin/conf/htpasswd && chmod 600 /usr/local/lsws/admin/conf/htpasswd && chmod +x /usr/local/bin/wp-wrapper.sh && [ -e /usr/bin/wp.real ] || mv /usr/bin/wp /usr/bin/wp.real && ln -sf /usr/local/bin/wp-wrapper.sh /usr/bin/wp && chown -R $${WP_USER}:$${WP_GROUP} /var/www/vhosts/localhost/html && touch /usr/local/lsws/admin/conf/enable_webadmin && /usr/local/lsws/bin/lswsctrl restart && /entrypoint.sh'
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ft-net
+
+  # ---------------------------------------------------------------------
+  # db — MariaDB 10.11, internal to the compose network only.
+  #
+  # Credentials in .env MUST match what is typed into the install wizard:
+  # DB_NAME / DB_USER / DB_PASSWORD, with the host set to "db" (the compose
+  # service name) — NOT "localhost", which inside the container is the
+  # container itself.
+  # ---------------------------------------------------------------------
+  db:
+    image: mariadb:10.11
+    container_name: ft-db
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_NAME:-financial_tracker}
+      MARIADB_USER: ${DB_USER:-ft_user}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-ft_password}
+      MARIADB_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ft_root_password}
+    volumes:
+      - ft-db-data:/var/lib/mysql
+      # Every *.sql file placed directly in database/ is executed once, on a
+      # FRESH volume only. The container sees database/schema.sql as
+      # /docker-entrypoint-initdb.d/schema.sql and runs it first (it sorts
+      # before any other *.sql that may be added).
+      #
+      # database/schema.sql is the single source of truth for a fresh install;
+      # migrations under database/migrations/ are NOT auto-run — the MariaDB
+      # entrypoint only processes the top level of the initdb directory, so
+      # they are applied by hand. See issue-001.md and
+      # .github/instructions/database.instructions.md.
+      - ./database:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - ft-net
+
+  # ---------------------------------------------------------------------
+  # phpmyadmin — optional database admin UI.
+  # ---------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: ft-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PHPMYADMIN_PORT:-8090}:80"
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - ft-net
+
+  # ---------------------------------------------------------------------
+  # mockup — static server for the UX/UI mockups in docs/mockup/.
+  #
+  # It is INDEPENDENT of the application stack: no PHP, no database, no
+  # depends_on, read-only mounts, and it never sees the rest of the repo.
+  # It sits behind a compose profile so a plain `docker compose up -d` does
+  # not start it.
+  #
+  #   docker compose up -d mockup     # then open http://localhost:8089/
+  #   docker compose down mockup      # stop and remove it
+  #
+  # See docs/issues/issue-002.md.
+  # ---------------------------------------------------------------------
+  mockup:
+    image: nginx:alpine
+    container_name: ft-mockup
+    restart: unless-stopped
+    profiles:
+      - mockup
+    ports:
+      # 8089 by default — distinct from APP_PORT so both can run at once.
+      - "${MOCKUP_PORT:-8089}:80"
+    volumes:
+      - ./docs/mockup:/usr/share/nginx/html:ro
+      - ./docker/mockup-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      - ft-net
+
+volumes:
+  ft-db-data:
+  ols_conf:
+  ols_admin_conf:
+
+networks:
+  ft-net:
+    driver: bridge

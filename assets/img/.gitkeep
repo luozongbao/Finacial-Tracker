@@ -1,0 +1,3 @@
+The v0.2 interface is text and CSS only — there are no raster assets and no icon
+font (issue-013 §15). The directory is tracked so it exists in a fresh clone and
+so the web-root hardening rules (issue-003) have something to cover.

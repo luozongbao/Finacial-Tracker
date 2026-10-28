@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financial Tracker — UI mockups</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body>
+<main class="shell">
+
+    <header class="shell__header">
+        <h1 class="shell__title">Financial Tracker — UI mockups</h1>
+        <p class="shell__subtitle">
+            Static design artefacts for the personal finance tracker: record income
+            and spending, then search and sum over a period (day, week, month, year).
+        </p>
+    </header>
+
+    <div class="notice">
+        <strong>Design gallery.</strong> Every screen below is built from the
+        shared design tokens in <code>assets/tokens.css</code>. Open any screen
+        to review its states — each page shows the populated, empty, loading,
+        error and success variants side by side.
+    </div>
+
+    <h2>Screen inventory</h2>
+
+    <ul class="gallery">
+        <li class="gallery__item">
+            <span class="gallery__name">index.html</span>
+            <span class="gallery__meta">This gallery. Entry point of the folder.</span>
+            <span class="badge">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="00-design-system.html">00-design-system.html</a>
+            <span class="gallery__meta">Colour, type, spacing, components — issue-004</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="01-login.html">01-login.html</a>
+            <span class="gallery__meta">Sign in — issue-005</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="02-register.html">02-register.html</a>
+            <span class="gallery__meta">Create account — issue-005</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="03-register-closed.html">03-register-closed.html</a>
+            <span class="gallery__meta">Registration disabled state — issue-005</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="04-forgot-password.html">04-forgot-password.html</a>
+            <span class="gallery__meta">Request a reset link — issue-005</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="05-dashboard.html">05-dashboard.html</a>
+            <span class="gallery__meta">Dashboard and period summary — issue-006</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="06-transactions.html">06-transactions.html</a>
+            <span class="gallery__meta">Transaction list, search and filters — issue-006</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="07-transaction-form.html">07-transaction-form.html</a>
+            <span class="gallery__meta">Add / edit a transaction — issue-006</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="08-reports.html">08-reports.html</a>
+            <span class="gallery__meta">Day / week / month / year reports — issue-007</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="09-categories.html">09-categories.html</a>
+            <span class="gallery__meta">Category management — issue-007</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="10-settings.html">10-settings.html</a>
+            <span class="gallery__meta">Profile and settings — issue-007</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+
+        <li class="gallery__item">
+            <a class="gallery__name" href="11-install-wizard.html">11-install-wizard.html</a>
+            <span class="gallery__meta">First-run installer — issue-008</span>
+            <span class="badge badge--ready">ready</span>
+        </li>
+    </ul>
+
+    <h2>Contract</h2>
+    <ul>
+        <li>One file per screen, named <code>NN-screen-name.html</code>.</li>
+        <li>Self-contained: every screen renders correctly from <code>file://</code>.</li>
+        <li>Shared CSS and JS live in <code>assets/</code>, referenced with relative paths.</li>
+        <li>Vanilla CSS and JS only — no framework, no bundler, no build step.</li>
+        <li>Colours come from tokens, never from literal values.</li>
+        <li>Empty, loading, validation-error, success and permission-denied states are part of each screen.</li>
+    </ul>
+    <p>
+        Full detail: <a href="README.md">docs/mockup/README.md</a>. The issue
+        specifications live in <code>docs/issues/</code> in the repository — they
+        are named above by issue number, and are not linked from here, because the
+        viewer serves this folder only.
+    </p>
+
+</main>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

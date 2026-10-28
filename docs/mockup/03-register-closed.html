@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Registration is closed — Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body>
+
+<main class="auth">
+
+    <header class="auth__brand">
+        <h1 class="auth__brand-name">Financial Tracker</h1>
+        <p class="auth__brand-note">Record income and spending, then sum it over any period.</p>
+    </header>
+
+    <section class="card">
+        <h2>Registration is closed</h2>
+
+        <p>
+            This tracker is currently in private use, so new accounts cannot be
+            created.
+        </p>
+
+        <p>
+            If you already have an account, sign in as usual. If you do not,
+            ask the person who runs this installation for an account.
+        </p>
+
+        <a class="btn btn--primary btn--block" href="01-login.html">Sign in</a>
+    </section>
+
+    <div class="spec-note">
+        <span class="spec-note__label">Implementation note — for the developer</span>
+        <p>
+            This screen is reached when <code>ALLOW_REGISTRATION === false</code>.
+            The register route returns <strong>403</strong> and renders this
+            page or an equivalent; the visitor-facing experience is the page
+            above, not a status-code dump.
+        </p>
+        <p>
+            The gate is enforced on <strong>both</strong> sides: the page does
+            not render a form, <em>and</em> the POST handler rejects the
+            request independently. A check in only one of the two places is a
+            bug.
+        </p>
+    </div>
+
+    <footer class="auth__footer">
+        <p>Personal finance tracker · your data stays on your server.</p>
+    </footer>
+
+</main>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

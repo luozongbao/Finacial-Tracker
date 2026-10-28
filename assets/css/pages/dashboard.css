@@ -1,0 +1,23 @@
+/* ==========================================================================
+   assets/css/pages/dashboard.css
+   --------------------------------------------------------------------------
+   The dashboard's own page styles — issue-017.
+
+   Everything the dashboard renders already exists in the component layer
+   (components.css): .tiles, .tile, .card, .tx, .period, .empty, .alert.
+   This file holds only what is genuinely page-specific, and it uses the
+   design tokens only — there is no literal colour in it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The custom-range form.
+
+   The form stands in for the tiles: when a custom period has no usable
+   range, the tiles are not rendered at all and the form takes their
+   place. It therefore carries the same space below it that the tile grid
+   would have carried, so the recent card does not ride up against it.
+   -------------------------------------------------------------------------- */
+
+.dashboard__range {
+    margin-bottom: var(--sp-5);
+}

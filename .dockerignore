@@ -1,0 +1,16 @@
+# Files that must never end up in a build context.
+.git
+.gitignore
+.github
+.env
+.env.*
+!.env.example
+config.php
+vendor/
+node_modules/
+docs/mockup/_build/
+*.log
+*.swp
+*~
+.DS_Store
+Thumbs.db

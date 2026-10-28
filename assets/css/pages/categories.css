@@ -1,0 +1,59 @@
+/* ==========================================================================
+   assets/css/pages/categories.css
+   --------------------------------------------------------------------------
+   The categories screen — issue-020.
+
+   Everything the screen renders already exists in the component layer
+   (components.css): .card, .card--flush, .table-wrap, .data-table, .badge,
+   .field, .radio-group, .alert, .modal, .btn, .empty, .amount, .num.
+
+   This file holds only what is genuinely page-specific, and it uses the
+   design tokens only — there is no literal colour in it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   The blocks of the screen.
+
+   The component layer puts no gap between the blocks of a page — every
+   block brings its own margin — so the screen spaces its own: the create
+   card, the list and the empty state are three blocks that follow each
+   other.
+   -------------------------------------------------------------------------- */
+
+.cat__block {
+    margin-bottom: var(--sp-5);
+}
+
+/* --------------------------------------------------------------------------
+   The delete confirmations.
+
+   One dialog per row, stacked at the foot of the list. The gap is what
+   keeps them apart when they are ALL visible — which is what happens
+   without JavaScript, and without JavaScript the delete still has to be
+   reachable.
+   -------------------------------------------------------------------------- */
+
+.cat__dialogs {
+    display: grid;
+    gap: var(--sp-4);
+}
+
+/* --------------------------------------------------------------------------
+   The rename row.
+
+   The input is bound to the form in the actions cell with the HTML5 form
+   attribute — a table row cannot hold a form, and a form cannot hold a
+   table row — so the form has to sit in the actions cell and the input
+   has to name it.
+   -------------------------------------------------------------------------- */
+
+.cat__rename-form {
+    display: inline;
+}
+
+/* The name column holds an input while the row is being renamed, and the
+   input needs room to type in. */
+
+.cat__name {
+    min-width: 9rem;
+}

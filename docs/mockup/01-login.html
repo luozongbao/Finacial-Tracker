@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body>
+
+<main class="auth">
+
+    <header class="auth__brand">
+        <h1 class="auth__brand-name">Financial Tracker</h1>
+        <p class="auth__brand-note">Record income and spending, then sum it over any period.</p>
+    </header>
+
+    <!-- ==============================================================
+         STATE — default (empty)
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-empty-h">
+        <p class="state__label" id="s-empty-h">State — empty (default)</p>
+
+        <div class="card">
+            <h2>Sign in</h2>
+
+            <div class="field">
+                <label class="field__label" for="login-user">Username or email</label>
+                <span class="field__hint" id="login-user-hint">Either your username or your email address.</span>
+                <input class="input" id="login-user" name="username" type="text"
+                       autocomplete="username" aria-describedby="login-user-hint"
+                       placeholder="demo">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-pass">Password</label>
+                <input class="input" id="login-pass" name="password" type="password"
+                       autocomplete="current-password">
+                <p class="field__hint">
+                    <button type="button" class="btn btn--ghost btn--sm"
+                            data-reveal-target="login-pass" aria-pressed="false">Show</button>
+                </p>
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Sign in</button>
+
+            <div class="auth__links">
+                <a href="04-forgot-password.html">Forgot password?</a>
+                <a href="02-register.html">Create an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The "Create an account" link is rendered <strong>only</strong>
+                when <code>ALLOW_REGISTRATION === true</code>. When registration
+                is closed, the link is absent and
+                <a href="03-register-closed.html">03-register-closed.html</a>
+                shows what replaces it.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — client-side validation error
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-invalid-h">
+        <p class="state__label" id="s-invalid-h">State — validation error</p>
+
+        <div class="card">
+            <h2>Sign in</h2>
+
+            <div class="field">
+                <label class="field__label" for="login-user-2">Username or email</label>
+                <span class="field__hint" id="login-user-2-hint">Either your username or your email address.</span>
+                <input class="input" id="login-user-2" name="username" type="text"
+                       autocomplete="username" value="demo" aria-describedby="login-user-2-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-pass-2">Password</label>
+                <input class="input" id="login-pass-2" name="password" type="password"
+                       autocomplete="current-password" aria-invalid="true"
+                       aria-describedby="login-pass-2-msg">
+                <span class="field__error" id="login-pass-2-msg">Enter your password.</span>
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Sign in</button>
+
+            <div class="auth__links">
+                <a href="04-forgot-password.html">Forgot password?</a>
+                <a href="02-register.html">Create an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                Focus moves to the first field with an error. The error is
+                announced — the alert region below carries
+                <code>aria-live="polite"</code>.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — server rejection: bad credentials
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-bad-h">
+        <p class="state__label" id="s-bad-h">State — server rejection, bad credentials</p>
+
+        <div class="card">
+            <h2>Sign in</h2>
+
+            <div role="status" aria-live="polite">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">That username and password do not match.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-user-3">Username or email</label>
+                <span class="field__hint" id="login-user-3-hint">Either your username or your email address.</span>
+                <input class="input" id="login-user-3" name="username" type="text"
+                       autocomplete="username" value="demo" aria-describedby="login-user-3-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-pass-3">Password</label>
+                <input class="input" id="login-pass-3" name="password" type="password"
+                       autocomplete="current-password">
+                <p class="field__hint">
+                    <button type="button" class="btn btn--ghost btn--sm"
+                            data-reveal-target="login-pass-3" aria-pressed="false">Show</button>
+                </p>
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Sign in</button>
+
+            <div class="auth__links">
+                <a href="04-forgot-password.html">Forgot password?</a>
+                <a href="02-register.html">Create an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Security rule</span>
+            <p>
+                The message does <strong>not</strong> say which half was wrong —
+                that would confirm whether an account exists. The username
+                field is not cleared; the password field is.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — server rejection: too many attempts
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-many-h">
+        <p class="state__label" id="s-many-h">State — server rejection, too many attempts</p>
+
+        <div class="card">
+            <h2>Sign in</h2>
+
+            <div role="status" aria-live="polite">
+                <div class="alert alert--warning">
+                    <div class="alert__body">
+                        <p class="alert__title">Too many attempts. Try again in 15 minutes.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-user-4">Username or email</label>
+                <span class="field__hint" id="login-user-4-hint">Either your username or your email address.</span>
+                <input class="input" id="login-user-4" name="username" type="text"
+                       autocomplete="username" value="demo" aria-describedby="login-user-4-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-pass-4">Password</label>
+                <input class="input" id="login-pass-4" name="password" type="password"
+                       autocomplete="current-password">
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block" disabled>Sign in</button>
+
+            <div class="auth__links">
+                <a href="04-forgot-password.html">Forgot password?</a>
+                <a href="02-register.html">Create an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The server enforces the attempt limit and publishes the wait.
+                The client never counts attempts itself. The submit button is
+                disabled while the wait is in force.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — account unavailable
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-locked-h">
+        <p class="state__label" id="s-locked-h">State — account locked or disabled</p>
+
+        <div class="card">
+            <h2>Sign in</h2>
+
+            <div role="status" aria-live="polite">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">This account is not available.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-user-5">Username or email</label>
+                <span class="field__hint" id="login-user-5-hint">Either your username or your email address.</span>
+                <input class="input" id="login-user-5" name="username" type="text"
+                       autocomplete="username" value="demo" aria-describedby="login-user-5-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-pass-5">Password</label>
+                <input class="input" id="login-pass-5" name="password" type="password"
+                       autocomplete="current-password">
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Sign in</button>
+
+            <div class="auth__links">
+                <a href="04-forgot-password.html">Forgot password?</a>
+                <a href="02-register.html">Create an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The message is deliberately vague. It does not reveal
+                <em>why</em> the account is unavailable, and it does not offer
+                a contact address that could be used to probe for one.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — server error (500)
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-500-h">
+        <p class="state__label" id="s-500-h">State — server error (500)</p>
+
+        <div class="card">
+            <h2>Sign in</h2>
+
+            <div role="status" aria-live="polite">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">Something went wrong on our side. Please try again.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-user-6">Username or email</label>
+                <span class="field__hint" id="login-user-6-hint">Either your username or your email address.</span>
+                <input class="input" id="login-user-6" name="username" type="text"
+                       autocomplete="username" aria-describedby="login-user-6-hint">
+            </div>
+
+            <div class="field">
+                <label class="field__label" for="login-pass-6">Password</label>
+                <input class="input" id="login-pass-6" name="password" type="password"
+                       autocomplete="current-password">
+            </div>
+
+            <button type="button" class="btn btn--primary btn--block">Sign in</button>
+
+            <div class="auth__links">
+                <a href="04-forgot-password.html">Forgot password?</a>
+                <a href="02-register.html">Create an account</a>
+            </div>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Security rule</span>
+            <p>
+                Never a stack trace, never a raw error, never a PHP message.
+                The LiteSpeed error log holds the detail; the page holds a
+                generic sentence.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STATE — submit button disabled / loading
+         ============================================================== -->
+    <section class="state" aria-labelledby="s-btn-h">
+        <p class="state__label" id="s-btn-h">State — submit disabled, then loading</p>
+
+        <div class="card">
+            <div class="field">
+                <label class="field__label" for="login-user-7">Username or email</label>
+                <input class="input" id="login-user-7" name="username" type="text"
+                       autocomplete="username" value="">
+            </div>
+            <div class="field">
+                <label class="field__label" for="login-pass-7">Password</label>
+                <input class="input" id="login-pass-7" name="password" type="password"
+                       autocomplete="current-password" value="">
+            </div>
+
+            <div class="btn-group">
+                <button type="button" class="btn btn--primary" disabled>Sign in</button>
+                <button type="button" class="btn btn--primary btn--loading">Signing in…</button>
+            </div>
+
+            <p class="field__hint">
+                The button is disabled while a required field is empty, and
+                shows the loading state once the request is in flight.
+            </p>
+        </div>
+    </section>
+
+    <footer class="auth__footer">
+        <p>Personal finance tracker · your data stays on your server.</p>
+    </footer>
+
+</main>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install Financial Tracker</title>
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/components.css">
+</head>
+<body>
+
+<main class="auth">
+
+    <header class="auth__brand">
+        <h1 class="auth__brand-name">Install Financial Tracker</h1>
+        <p class="auth__brand-note">Three short steps. You will need the database and mail details from whoever runs your server.</p>
+    </header>
+
+    <!-- ==============================================================
+         STEP 1 — Database
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-1-h">
+        <p class="state__label" id="iw-1-h">Step 1 — Database</p>
+
+        <ol class="stepper">
+            <li class="stepper__item" aria-current="step">
+                <span class="stepper__num">1</span>
+                <span>Database</span>
+            </li>
+            <li class="stepper__item">
+                <span class="stepper__num">2</span>
+                <span>Mail (optional)</span>
+            </li>
+            <li class="stepper__item">
+                <span class="stepper__num">3</span>
+                <span>Access and summary</span>
+            </li>
+        </ol>
+
+        <div class="card">
+            <h2>Database connection</h2>
+
+            <form aria-label="Database connection">
+                <div class="field">
+                    <label class="field__label" for="iw-db-host">Database host</label>
+                    <input class="input" id="iw-db-host" name="db_host" type="text"
+                           value="localhost" spellcheck="false" autocapitalize="off">
+                    <span class="field__hint">Hostname or IP address. Use <code>db</code> in the Docker stack.</span>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-name">Database name</label>
+                    <input class="input" id="iw-db-name" name="db_name" type="text" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-db-user">Database user</label>
+                    <input class="input" id="iw-db-user" name="db_user" type="text" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-db-pass">Database password</label>
+                    <input class="input" id="iw-db-pass" name="db_pass" type="password"
+                           autocomplete="new-password" value="">
+                </div>
+
+                <button type="button" class="btn btn--primary btn--block">Test and continue</button>
+            </form>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The <strong>database host</strong> is collected, because
+                <code>config.template.php</code> declares
+                <code>DB_HOST</code> and the wizard writes every constant the
+                template declares. It is pre-filled with
+                <code>localhost</code> — the correct value for a normal
+                installation. The Docker stack overrides it with the service
+                name <code>db</code>.
+            </p>
+            <p>
+                The stepper is a <strong>status list</strong>, not a
+                navigation menu. Its items are not links and cannot be
+                clicked — a visitor cannot reach step 3 without passing
+                through step 2.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 1 — connection refused
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-refused-h">
+        <p class="state__label" id="iw-refused-h">Step 1 — connection refused</p>
+
+        <div class="card">
+            <h2>Database connection</h2>
+
+            <div role="alert">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">The database server refused the connection.</p>
+                        <p>Check that the database server is running and that the host and port are correct.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form aria-label="Database connection">
+                <div class="field">
+                    <label class="field__label" for="iw-db-host-2">Database host</label>
+                    <input class="input" id="iw-db-host-2" name="db_host" type="text"
+                           value="localhost" spellcheck="false" autocapitalize="off">
+                    <span class="field__hint">Hostname or IP address. Use <code>db</code> in the Docker stack.</span>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-name-2">Database name</label>
+                    <input class="input" id="iw-db-name-2" name="db_name" type="text" value="financial_tracker">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-user-2">Database user</label>
+                    <input class="input" id="iw-db-user-2" name="db_user" type="text" value="tracker">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-pass-2">Database password</label>
+                    <input class="input" id="iw-db-pass-2" name="db_pass" type="password" value="">
+                </div>
+                <button type="button" class="btn btn--primary btn--block">Test and continue</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 1 — unknown database
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-unknown-h">
+        <p class="state__label" id="iw-unknown-h">Step 1 — unknown database</p>
+
+        <div class="card">
+            <h2>Database connection</h2>
+
+            <div role="alert">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">There is no database with that name.</p>
+                        <p>Create the database first, or correct the name.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form aria-label="Database connection">
+                <div class="field">
+                    <label class="field__label" for="iw-db-host-3">Database host</label>
+                    <input class="input" id="iw-db-host-3" name="db_host" type="text"
+                           value="localhost" spellcheck="false" autocapitalize="off">
+                    <span class="field__hint">Hostname or IP address. Use <code>db</code> in the Docker stack.</span>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-name-3">Database name</label>
+                    <input class="input" id="iw-db-name-3" name="db_name" type="text" value="financial_tracker">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-user-3">Database user</label>
+                    <input class="input" id="iw-db-user-3" name="db_user" type="text" value="tracker">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-pass-3">Database password</label>
+                    <input class="input" id="iw-db-pass-3" name="db_pass" type="password" value="">
+                </div>
+                <button type="button" class="btn btn--primary btn--block">Test and continue</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 1 — permission denied
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-perm-h">
+        <p class="state__label" id="iw-perm-h">Step 1 — permission denied</p>
+
+        <div class="card">
+            <h2>Database connection</h2>
+
+            <div role="alert">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">The database user was denied access.</p>
+                        <p>Check the user's permissions, and that it may use this database.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form aria-label="Database connection">
+                <div class="field">
+                    <label class="field__label" for="iw-db-host-4">Database host</label>
+                    <input class="input" id="iw-db-host-4" name="db_host" type="text"
+                           value="localhost" spellcheck="false" autocapitalize="off">
+                    <span class="field__hint">Hostname or IP address. Use <code>db</code> in the Docker stack.</span>
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-name-4">Database name</label>
+                    <input class="input" id="iw-db-name-4" name="db_name" type="text" value="financial_tracker">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-user-4">Database user</label>
+                    <input class="input" id="iw-db-user-4" name="db_user" type="text" value="tracker">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-db-pass-4">Database password</label>
+                    <input class="input" id="iw-db-pass-4" name="db_pass" type="password" value="">
+                </div>
+                <button type="button" class="btn btn--primary btn--block">Test and continue</button>
+            </form>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Security rule</span>
+            <p>
+                The three connection failures are described in <strong>plain
+                language</strong>. The raw driver error — with its SQL state,
+                its errno and its message — is never shown on the page. It
+                goes to the server log.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 2 — Mail (optional)
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-2-h">
+        <p class="state__label" id="iw-2-h">Step 2 — Mail (optional)</p>
+
+        <ol class="stepper">
+            <li class="stepper__item">
+                <span class="stepper__num">1</span>
+                <span>Database</span>
+            </li>
+            <li class="stepper__item" aria-current="step">
+                <span class="stepper__num">2</span>
+                <span>Mail (optional)</span>
+            </li>
+            <li class="stepper__item">
+                <span class="stepper__num">3</span>
+                <span>Access and summary</span>
+            </li>
+        </ol>
+
+        <div class="card">
+            <h2>Mail server</h2>
+            <p class="field__hint">
+                Mail is only needed for account verification and password reset
+                links. You can skip this step and add it later.
+            </p>
+
+            <form aria-label="Mail server">
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-host">SMTP host</label>
+                    <input class="input" id="iw-smtp-host" name="smtp_host" type="text" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-port">SMTP port</label>
+                    <input class="input" id="iw-smtp-port" name="smtp_port" type="number"
+                           min="1" max="65535" step="1" value="587">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-user">SMTP user</label>
+                    <input class="input" id="iw-smtp-user" name="smtp_user" type="text" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-pass">SMTP password</label>
+                    <input class="input" id="iw-smtp-pass" name="smtp_pass" type="password"
+                           autocomplete="new-password" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from">From: address</label>
+                    <input class="input" id="iw-mail-from" name="mail_from" type="email" value="">
+                    <span class="field__hint">The address the message is sent from. Pre-filled from the SMTP user and required once an SMTP host is set.</span>
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-name">From: name</label>
+                    <input class="input" id="iw-mail-from-name" name="mail_from_name" type="text"
+                           value="Financial Tracker">
+                    <span class="field__hint">Shown to the recipient next to the address. Optional.</span>
+                </div>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Test and continue</button>
+                    <button type="button" class="btn btn--secondary">Skip mail setup and continue</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                <strong>Both</strong> actions are offered: test the connection
+                and continue, or skip and continue. Skipping is a legitimate
+                choice, not a failure — the password reset page tells the
+                visitor that mail is not configured.
+            </p>
+            <p>
+                The From: address is pre-filled from the SMTP user and stays
+                editable — an SMTP account may authenticate as one address and
+                send on behalf of another.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 2 — partial configuration
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-2-partial-h">
+        <p class="state__label" id="iw-2-partial-h">Step 2 — the mail details are half filled in</p>
+
+        <div class="card">
+            <h2>Mail server</h2>
+
+            <form aria-label="Mail server">
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-host-2">SMTP host</label>
+                    <input class="input" id="iw-smtp-host-2" name="smtp_host" type="text"
+                           value="smtp.example.com" aria-invalid="true"
+                           aria-describedby="iw-partial-msg">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-port-2">SMTP port</label>
+                    <input class="input" id="iw-smtp-port-2" name="smtp_port" type="number"
+                           min="1" max="65535" step="1" value="587">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-user-2">SMTP user</label>
+                    <input class="input" id="iw-smtp-user-2" name="smtp_user" type="text" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-pass-2">SMTP password</label>
+                    <input class="input" id="iw-smtp-pass-2" name="smtp_pass" type="password" value="">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-2">From: address</label>
+                    <input class="input" id="iw-mail-from-2" name="mail_from" type="email" value=""
+                           aria-invalid="true" aria-describedby="iw-partial-msg">
+                </div>
+
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-name-2">From: name</label>
+                    <input class="input" id="iw-mail-from-name-2" name="mail_from_name" type="text" value="">
+                </div>
+
+                <div role="alert">
+                    <div class="alert alert--danger">
+                        <div class="alert__body">
+                            <p class="alert__title">If you set an SMTP host, the user, the password and the From: address are required too.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <span class="sr-only" id="iw-partial-msg">If you set an SMTP host, the user, the password and the From: address are required too.</span>
+
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Test and continue</button>
+                    <button type="button" class="btn btn--secondary">Skip mail setup and continue</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Rule</span>
+            <p>
+                The mail step is all-or-nothing: a host without a user and a
+                password is a half-configuration, and the server says so
+                rather than silently writing a broken config.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 2 — connection failed
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-2-fail-h">
+        <p class="state__label" id="iw-2-fail-h">Step 2 — the mail server could not be reached</p>
+
+        <div class="card">
+            <h2>Mail server</h2>
+
+            <div role="alert">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">The mail server could not be reached.</p>
+                        <p>Check the host and port, or skip this step and add mail later.</p>
+                    </div>
+                </div>
+            </div>
+
+            <form aria-label="Mail server">
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-host-3">SMTP host</label>
+                    <input class="input" id="iw-smtp-host-3" name="smtp_host" type="text" value="smtp.example.com">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-port-3">SMTP port</label>
+                    <input class="input" id="iw-smtp-port-3" name="smtp_port" type="number"
+                           min="1" max="65535" step="1" value="587">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-user-3">SMTP user</label>
+                    <input class="input" id="iw-smtp-user-3" name="smtp_user" type="text" value="tracker@example.com">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-smtp-pass-3">SMTP password</label>
+                    <input class="input" id="iw-smtp-pass-3" name="smtp_pass" type="password" value="">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-3">From: address</label>
+                    <input class="input" id="iw-mail-from-3" name="mail_from" type="email" value="tracker@example.com">
+                </div>
+                <div class="field">
+                    <label class="field__label" for="iw-mail-from-name-3">From: name</label>
+                    <input class="input" id="iw-mail-from-name-3" name="mail_from_name" type="text"
+                           value="Financial Tracker">
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn btn--primary">Test and continue</button>
+                    <button type="button" class="btn btn--secondary">Skip mail setup and continue</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 3 — Access and summary
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-3-h">
+        <p class="state__label" id="iw-3-h">Step 3 — Access and summary</p>
+
+        <ol class="stepper">
+            <li class="stepper__item">
+                <span class="stepper__num">1</span>
+                <span>Database</span>
+            </li>
+            <li class="stepper__item">
+                <span class="stepper__num">2</span>
+                <span>Mail (optional)</span>
+            </li>
+            <li class="stepper__item" aria-current="step">
+                <span class="stepper__num">3</span>
+                <span>Access and summary</span>
+            </li>
+        </ol>
+
+        <div class="card">
+            <h2>Access</h2>
+
+            <div class="field">
+                <span class="field__label" id="iw-reg-label">Allow registration</span>
+                <label class="switch" for="iw-reg">
+                    <input type="checkbox" id="iw-reg" checked>
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span>Allow registration</span>
+                </label>
+                <span class="field__hint" id="iw-reg-hint">
+                    When this is off, the register page returns 403 and no new
+                    accounts can be created. Existing accounts keep working.
+                </span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Summary</h2>
+            <p class="field__hint">
+                These are the values that will be written to the configuration
+                file.
+            </p>
+
+            <dl class="readonly-list">
+                <div class="readonly-list__row">
+                    <dt>Database host</dt>
+                    <dd>localhost</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Database name</dt>
+                    <dd>financial_tracker</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Database user</dt>
+                    <dd>tracker</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Database password</dt>
+                    <dd class="masked">••••••••</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP host</dt>
+                    <dd>smtp.example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP port</dt>
+                    <dd>587</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP user</dt>
+                    <dd>tracker@example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP password</dt>
+                    <dd class="masked">••••••••</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: address</dt>
+                    <dd>tracker@example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: name</dt>
+                    <dd>Financial Tracker</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Registration allowed</dt>
+                    <dd>Yes</dd>
+                </div>
+            </dl>
+
+            <button type="button" class="btn btn--primary btn--block">Install</button>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The summary is rendered by the server from the values it
+                collected. The passwords are shown as a <strong>mask</strong>
+                — the real value is never echoed into the page.
+            </p>
+            <p>
+                The switch writes <code>ALLOW_REGISTRATION</code> as a real
+                boolean — <code>true</code> or <code>false</code>, never the
+                strings <code>"true"</code> or <code>"false"</code>. A string
+                <code>"false"</code> would compare unequal to
+                <code>false</code> and leave registration <strong>open</strong>.
+            </p>
+            <p>
+                <code>MAIL_FROM</code> and <code>MAIL_FROM_NAME</code> are the
+                <strong>sender identity</strong>, not the SMTP credentials. The
+                SMTP user may authenticate as one address and send on behalf of
+                another, so the two are separate fields.
+            </p>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 3 — registration off
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-3-off-h">
+        <p class="state__label" id="iw-3-off-h">Step 3 — registration switched off</p>
+
+        <div class="card">
+            <h2>Access</h2>
+
+            <div class="field">
+                <span class="field__label" id="iw-reg2-label">Allow registration</span>
+                <label class="switch" for="iw-reg-2">
+                    <input type="checkbox" id="iw-reg-2">
+                    <span class="switch__track" aria-hidden="true"></span>
+                    <span>Allow registration</span>
+                </label>
+                <span class="field__hint" id="iw-reg2-hint">
+                    When this is off, the register page returns 403 and no new
+                    accounts can be created. Existing accounts keep working.
+                </span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Summary</h2>
+            <dl class="readonly-list">
+                <div class="readonly-list__row">
+                    <dt>Database host</dt>
+                    <dd>localhost</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Database name</dt>
+                    <dd>financial_tracker</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Database user</dt>
+                    <dd>tracker</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Database password</dt>
+                    <dd class="masked">••••••••</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP host</dt>
+                    <dd>smtp.example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP port</dt>
+                    <dd>587</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP user</dt>
+                    <dd>tracker@example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>SMTP password</dt>
+                    <dd class="masked">••••••••</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: address</dt>
+                    <dd>tracker@example.com</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>From: name</dt>
+                    <dd>Financial Tracker</dd>
+                </div>
+                <div class="readonly-list__row">
+                    <dt>Registration allowed</dt>
+                    <dd>No</dd>
+                </div>
+            </dl>
+
+            <button type="button" class="btn btn--primary btn--block">Install</button>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         STEP 3 — the config file could not be written
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-write-h">
+        <p class="state__label" id="iw-write-h">Step 3 — the configuration file could not be written</p>
+
+        <div class="card">
+            <h2>Installation failed</h2>
+
+            <div role="alert">
+                <div class="alert alert--danger">
+                    <div class="alert__body">
+                        <p class="alert__title">The configuration file could not be written. Check that the project directory is writable.</p>
+                    </div>
+                </div>
+            </div>
+
+            <p>
+                Nothing was installed. Fix the directory permissions and run the
+                installer again — the values you entered were not saved, so
+                you will need to enter them again.
+            </p>
+
+            <button type="button" class="btn btn--secondary">Start over</button>
+        </div>
+    </section>
+
+    <!-- ==============================================================
+         SUCCESS — install complete
+         ============================================================== -->
+    <section class="state" aria-labelledby="iw-ok-h">
+        <p class="state__label" id="iw-ok-h">Success — install complete</p>
+
+        <div class="card">
+            <h2>Install complete</h2>
+
+            <div role="status" aria-live="polite">
+                <div class="alert alert--success">
+                    <div class="alert__body">
+                        <p class="alert__title">Financial Tracker is installed.</p>
+                        <p>The database was created and the configuration file was written.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert--danger">
+                <div class="alert__body">
+                    <p class="alert__title">Delete install.php now.</p>
+                    <p>
+                        The installer can reconfigure your database and mail
+                        settings. Remove the file from the project directory
+                        before you use the application.
+                    </p>
+                </div>
+            </div>
+
+            <a class="btn btn--primary btn--block" href="05-dashboard.html">Go to the dashboard</a>
+        </div>
+
+        <div class="spec-note">
+            <span class="spec-note__label">Implementation note</span>
+            <p>
+                The "Delete <code>install.php</code> now." block is the most
+                prominent thing on the page — it is the last security step of
+                the installation, and a live installer is a
+                re-configuration hole.
+            </p>
+            <p>
+                The page has <strong>no application navigation</strong> and
+                <strong>no footer link farm</strong>. The installer is not
+                part of the product; it is a setup tool.
+            </p>
+        </div>
+    </section>
+
+</main>
+<script src="assets/mockup.js"></script>
+</body>
+</html>

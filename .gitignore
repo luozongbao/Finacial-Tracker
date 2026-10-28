@@ -1,0 +1,18 @@
+# Written by install.php — never committed.
+config.php
+
+# Local environment for the Docker Compose dev stack.
+.env
+
+# Vendored dependencies — a build artefact, recreated by `composer install`.
+# The manifest (composer.json) and the lock file (composer.lock) ARE tracked.
+vendor/
+
+# The Composer binary is downloaded per machine, never committed.
+composer.phar
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
