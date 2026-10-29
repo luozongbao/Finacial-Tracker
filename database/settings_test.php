@@ -726,9 +726,15 @@ ok(
 );
 
 ok(
-    'the password update clears the lock',
-    str_contains($viewCode, 'failed_attempts = 0')
-    && str_contains($viewCode, 'locked_until = NULL')
+    'the password update no longer promises an unlock it cannot perform',
+    !str_contains($viewCode, 'failed_attempts = 0')
+    && !str_contains($viewCode, 'locked_until = NULL'),
+    'the settings screen still writes columns the account does not have'
+);
+
+ok(
+    'the password change clears the failures against the account',
+    str_contains($viewCode, 'clearLoginIdentifierFailures(')
 );
 
 ok(

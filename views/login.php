@@ -9,9 +9,12 @@
  *      the same message: "That username and password do not match."
  *   2. The account's status is checked AFTER the password, so a disabled
  *      account is not an oracle. It says "This account is not available."
- *   3. The attempt limit is enforced on the server: five failures, a
- *      fifteen-minute wait, counted against the IDENTIFIER so that a name
- *      which matches no account is throttled too.
+ *   3. The attempt limit is enforced on the server: five failures start a
+ *      wait, and the wait grows with every failure beyond that. It is
+ *      counted against the IDENTIFIER so that a name which matches no
+ *      account is throttled too, and it DECAYS — a failure older than the
+ *      quiet window stops counting, so the owner of an account is not shut
+ *      out by an attacker (issue-021 §8).
  *   4. The CSRF token is validated BEFORE any input is read.
  *   5. The username field keeps its value after a failure; the password
  *      field is cleared.
@@ -71,9 +74,18 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
 
             if ($throttle['locked']) {
                 $locked = true;
+
+                // The wait is not a constant. The backoff doubles with the
+                // number of failures, so the message states the time that
+                // is actually left — a fixed "15 minutes" would be a lie
+                // (issue-021 §8.6).
+                $minutes = max(1, (int) $throttle['wait_minutes']);
+
                 $alert = [
                     'kind'  => 'warning',
-                    'title' => 'Too many attempts. Try again in 15 minutes.',
+                    'title' => $minutes === 1
+                        ? 'Too many attempts. Try again in 1 minute.'
+                        : 'Too many attempts. Try again in ' . $minutes . ' minutes.',
                 ];
             } else {
                 $user = null;
@@ -104,7 +116,7 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
                     if (!$passwordOk) {
                         // ONE branch for both halves. The counter is raised
                         // against the identifier, with or without an account.
-                        recordLoginFailure($identifier, $user !== null ? (int) $user['id'] : null);
+                        recordLoginFailure($identifier);
 
                         $alert = [
                             'kind'  => 'danger',
@@ -134,8 +146,8 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
                             );
                         }
 
-                        // A successful sign-in clears the counter.
-                        clearLoginFailures($identifier, $userId);
+                        // A successful sign-in clears the counters.
+                        clearLoginFailures($identifier);
 
                         // The privilege change: a new session id, a new CSRF
                         // token, and the version of the credentials.

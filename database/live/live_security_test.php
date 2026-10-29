@@ -8,7 +8,8 @@
  * whitelisted, the active nav link uses aria-current and not a class, a GET
  * form carries no CSRF token while every POST form carries one, user data
  * is escaped on the way out, the session cookie is HttpOnly and SameSite,
- * and the session id never reaches the page.
+ * the session id never reaches the page, and the sign-in throttle counts,
+ * locks, states the wait that is really left and decays.
  *
  * It needs the same thing live_app_test.php needs: the app container
  * running, config.php in place, and the application reachable at
@@ -61,6 +62,32 @@ function live_cleanup(): void
 
     try {
         $pdo = Database::getInstance()->getConnection();
+
+        // The throttle rows. They carry no foreign key to the account, so
+        // the cascade does not take them: the identifier row of the test
+        // account and the source bucket the test emptied both go.
+        $username = (string) ($GLOBALS['live_test_username'] ?? '');
+
+        if ($username !== '') {
+            $stmt = $pdo->prepare(
+                'DELETE FROM `login_attempts` WHERE `scope` = ? AND `key_hash` = ?'
+            );
+            $stmt->execute(['identifier', hash('sha256', strtolower($username))]);
+        }
+
+        // The identifier of the second probe of section H — the one that
+        // carries no header.
+        $probe = (string) ($GLOBALS['live_test_probe_username'] ?? '');
+
+        if ($probe !== '') {
+            $stmt = $pdo->prepare(
+                'DELETE FROM `login_attempts` WHERE `scope` = ? AND `key_hash` = ?'
+            );
+            $stmt->execute(['identifier', hash('sha256', strtolower($probe))]);
+        }
+
+        $pdo->exec("DELETE FROM `login_attempts` WHERE `scope` = 'source'");
+
         $stmt = $pdo->prepare('DELETE FROM `users` WHERE `username` LIKE ?');
         $stmt->execute(['live\\_test\\_%' . $marker . '%']);
     } catch (Throwable $e) {
@@ -127,6 +154,7 @@ function csrf(string $html): string
 $marker = bin2hex(random_bytes(4));
 $GLOBALS['live_test_marker'] = $marker;
 $user = 'live_test_s_' . $marker;
+$GLOBALS['live_test_username'] = $user;
 $pass = 'Str0ngPass!A1';
 $email = 'live_test_s_' . $marker . '@example.test';
 $jar = [];
@@ -241,6 +269,143 @@ $r = req('GET', BASE . '/dashboard', [], $jar);
 $jarSid = $jar['PHPSESSID'] ?? '';
 ok('the session id is not printed in the page', $jarSid === '' || !str_contains($r['body'], $jarSid),
     'the session id was printed');
+
+echo "\n== H. The sign-in throttle, over real HTTP ==\n";
+
+// A FRESH jar: the signed-in session of the earlier sections is not the
+// one under test, and a guest is the only visitor the sign-in screen
+// serves.
+$throttleJar = [];
+$pdo         = Database::getInstance()->getConnection();
+
+// The source bucket is shared by every request that comes from this
+// address, so the test empties it first: a leftover from an earlier run
+// must not change the outcome. The identifier row of the test account is
+// emptied for the same reason.
+$identifierKey = hash('sha256', strtolower($user));
+
+$stmt = $pdo->prepare('DELETE FROM `login_attempts` WHERE `scope` = ? AND `key_hash` = ?');
+$stmt->execute(['identifier', $identifierKey]);
+$pdo->exec("DELETE FROM `login_attempts` WHERE `scope` = 'source'");
+
+// FIVE wrong passwords. Every one of them carries a spoofed
+// X-Forwarded-For: the header is client-controlled and must not move the
+// bucket (issue-021 §8.2).
+$wrongMessage = '';
+
+for ($i = 1; $i <= 5; $i++) {
+    $r = req('GET', BASE . '/login', [], $throttleJar);
+    $token = csrf($r['body']);
+
+    $r = req('POST', BASE . '/login', [
+        'csrf_token' => $token, 'username' => $user, 'password' => 'wrong-password-' . $i,
+    ], $throttleJar, ['X-Forwarded-For: 203.0.113.9']);
+
+    if ($i === 1) {
+        $wrongMessage = 'That username and password do not match.';
+        ok('a wrong password still says only that the credentials do not match',
+            str_contains($r['body'], $wrongMessage),
+            'status=' . $r['status']);
+    }
+}
+
+// The counter holds EXACTLY five: no failure lost under the upsert, and
+// none counted twice.
+$stmt = $pdo->prepare('SELECT `failed_attempts` FROM `login_attempts` WHERE `scope` = ? AND `key_hash` = ?');
+$stmt->execute(['identifier', $identifierKey]);
+$counter = $stmt->fetchColumn();
+ok('the counter holds exactly five failures', (int) $counter === 5,
+    'the row says ' . var_export($counter, true));
+
+// The spoofed header did not create a bucket of its own: the only source
+// row is the one keyed on the address that opened the connection.
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM `login_attempts` WHERE `scope` = ?');
+$stmt->execute(['source']);
+$sourceRows = (int) $stmt->fetchColumn();
+ok('the spoofed X-Forwarded-For did not create a bucket of its own', $sourceRows === 1,
+    'the source rows: ' . $sourceRows);
+
+// The row is NOT keyed on the address the header named. LiteSpeed rewrites
+// REMOTE_ADDR from X-Forwarded-For for a trusted peer, so a key built from
+// REMOTE_ADDR alone would be a dial the visitor can turn.
+$stmt = $pdo->prepare('SELECT `key_hash` FROM `login_attempts` WHERE `scope` = ?');
+$stmt->execute(['source']);
+$sourceKey = (string) $stmt->fetchColumn();
+
+ok('the source bucket is not keyed on the spoofed address',
+    $sourceKey !== '' && $sourceKey !== hash('sha256', '203.0.113.9'),
+    'the bucket is keyed on the header');
+
+// A wrong password for ANOTHER identifier, sent WITHOUT the header, lands
+// in the SAME bucket. If the header chose the bucket, this failure would
+// have been counted somewhere else — and the visitor would be able to
+// spend the bucket of somebody else.
+$probeUser = 'live_throttle_probe_' . $GLOBALS['live_test_marker'];
+$GLOBALS['live_test_probe_username'] = $probeUser;
+
+$r = req('GET', BASE . '/login', [], $throttleJar);
+$token = csrf($r['body']);
+$r = req('POST', BASE . '/login', [
+    'csrf_token' => $token, 'username' => $probeUser, 'password' => 'wrong-password-probe',
+], $throttleJar);
+
+$stmt = $pdo->prepare(
+    'SELECT COUNT(*), MAX(`failed_attempts`), MAX(`key_hash`) FROM `login_attempts` WHERE `scope` = ?'
+);
+$stmt->execute(['source']);
+$sourceState = $stmt->fetch(PDO::FETCH_NUM);
+
+ok('a failure sent without the header lands in the same bucket',
+    (int) $sourceState[0] === 1 && (int) $sourceState[1] === 6 && (string) $sourceState[2] === $sourceKey,
+    'the source rows: ' . var_export($sourceState, true));
+
+// The correct password is refused while the wait is in force.
+$r = req('GET', BASE . '/login', [], $throttleJar);
+$token = csrf($r['body']);
+$r = req('POST', BASE . '/login', [
+    'csrf_token' => $token, 'username' => $user, 'password' => $pass,
+], $throttleJar);
+
+ok('the correct password is refused while the wait is in force',
+    str_contains($r['body'], 'Too many attempts.'),
+    'status=' . $r['status']);
+ok('the message states the time that is actually left',
+    (bool) preg_match('/Too many attempts\. Try again in \d+ minutes?\./', $r['body']),
+    'the message does not state the remaining wait');
+ok('the refusal does not fall back to the credentials message',
+    !str_contains($r['body'], $wrongMessage));
+
+// The failures age past the quiet window: the row is reset and the
+// correct password works again. This is the part that stops an attacker
+// from locking a person out of their own account forever.
+$stmt = $pdo->prepare(
+    'UPDATE `login_attempts`
+        SET `last_failure_at` = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 20 MINUTE),
+            `locked_until`      = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
+      WHERE `scope` = ? AND `key_hash` = ?'
+);
+$stmt->execute(['identifier', $identifierKey]);
+
+$r = req('GET', BASE . '/login', [], $throttleJar);
+$token = csrf($r['body']);
+$r = req('POST', BASE . '/login', [
+    'csrf_token' => $token, 'username' => $user, 'password' => $pass,
+], $throttleJar);
+
+ok('the correct password is accepted once the failures have decayed',
+    $r['status'] === 302,
+    'status=' . $r['status'] . ' the body says: ' . substr(trim(strip_tags($r['body'])), 0, 160));
+
+// A successful sign-in clears BOTH counters.
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM `login_attempts` WHERE `scope` = ? AND `key_hash` = ?');
+$stmt->execute(['identifier', $identifierKey]);
+$left = (int) $stmt->fetchColumn();
+ok('a successful sign-in clears the identifier counter', $left === 0, 'the rows left: ' . $left);
+
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM `login_attempts` WHERE `scope` = ?');
+$stmt->execute(['source']);
+$left = (int) $stmt->fetchColumn();
+ok('a successful sign-in clears the source counter', $left === 0, 'the rows left: ' . $left);
 
 echo "\nFailed: " . count($fails) . "\n";
 

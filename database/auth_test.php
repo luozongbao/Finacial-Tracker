@@ -15,9 +15,12 @@
  *   2. THE GATE. ALLOW_REGISTRATION === false is a two-sided gate: the GET
  *      answers 403 with no form, and the POST answers 403 on its own,
  *      before any input is read.
- *   3. THE LIMITS. Five attempts in fifteen minutes, counted against the
- *      IDENTIFIER — so a name that matches no account is throttled too. The
- *      lock expires; it is not a permanent denial of service.
+ *   3. THE LIMITS. The failures are counted against the IDENTIFIER — so a
+ *      name that matches no account is throttled too — and against the
+ *      SOURCE, so an attacker who rotates the identifier is bounded too.
+ *      The wait GROWS with the number of failures and the failures DECAY,
+ *      so a lock is never a permanent denial of service for the owner of
+ *      the account (issue-021 §8).
  *   4. THE SECRETS. The password is stored hashed, the reset and the
  *      confirmation token are stored as a SHA-256 hash, and only the raw
  *      token ever travels. The SMTP host, the port and the raw transport
@@ -230,6 +233,35 @@ function pos_of(string $haystack, string $needle): int
     $pos = strpos($haystack, $needle);
 
     return $pos === false ? -1 : $pos;
+}
+
+/**
+ * The source of a file with every comment removed.
+ *
+ * A rule about the CODE ("X-Forwarded-For is never read") must not be
+ * satisfied by a comment that mentions the header while explaining why it
+ * is not trusted. The comments are stripped with the tokenizer, so only
+ * the code that actually runs is left.
+ */
+function code_without_comments(string $src): string
+{
+    $out = '';
+
+    foreach (token_get_all($src) as $token) {
+        if (is_array($token)) {
+            if ($token[0] === T_COMMENT || $token[0] === T_DOC_COMMENT) {
+                continue;
+            }
+
+            $out .= $token[1];
+
+            continue;
+        }
+
+        $out .= $token;
+    }
+
+    return $out;
 }
 
 /**
@@ -763,9 +795,24 @@ function make_sandbox(string $root, array $db, bool $allowRegistration): string
     // SERVER_NAME is FORCED. The reset link is built from it and never from
     // the Host: header, so the test can prove the link points at the
     // server's own host even when the client sends a different one.
+    //
+    // The address rewriting is FORCED TOO. LiteSpeed — like every server
+    // with a "use the client IP from the header" option — rewrites
+    // REMOTE_ADDR with the first element of X-Forwarded-For when the
+    // request arrives from a trusted peer, and the loopback interface is
+    // trusted by default; the address that really connected is kept in
+    // PROXY_REMOTE_ADDR. The sandbox emulates that, so the application is
+    // exercised against the server it really runs on.
     file_put_contents($dir . '/router.php', <<<'ROUTER'
 <?php
 $_SERVER['SERVER_NAME'] = 'auth.test';
+
+if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+    $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+    $_SERVER['PROXY_REMOTE_ADDR'] = (string) ($_SERVER['REMOTE_ADDR'] ?? '');
+    $_SERVER['REMOTE_ADDR'] = trim($forwarded[0]);
+    file_put_contents(__DIR__ . '/remote_addr.log', $_SERVER['REMOTE_ADDR'] . "\n", FILE_APPEND);
+}
 
 $path = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
 $file = __DIR__ . '/' . ltrim($path, '/');
@@ -1093,6 +1140,152 @@ if (preg_match_all('/#[0-9a-fA-F]{3,8}\b/', $authCss, $m) === 1 || !empty($m[0])
 ok('the page stylesheet carries no literal colour', $hexCodes === [], implode(', ', $hexCodes));
 ok('the page stylesheet uses the spacing tokens', str_contains($authCss, 'var(--sp-'));
 
+// --- A10: the throttle is a decaying, two-counter backoff ------------------
+
+echo "\n## A10. The throttle is a decaying, two-counter backoff\n";
+
+$schemaSql   = (string) file_get_contents($root . '/database/schema.sql');
+$settingsSrc = (string) file_get_contents($root . '/views/settings.php');
+$migrationPath = $root . '/database/migrations/20261029_throttle_scope_and_backoff.sql';
+
+$raiseBody = function_body($authSource, 'loginRaiseCounter');
+$raiseCode = code_without_comments($raiseBody);
+$sourceKeyBody = function_body($authSource, 'loginSourceKey');
+$authCode = code_without_comments($authSource);
+
+// The counter is raised BY THE DATABASE. The old code read the count, added
+// one in PHP and wrote the total back, which loses a count when two
+// failures land together.
+ok(
+    'the counter is raised in SQL — "failed_attempts = failed_attempts + 1"',
+    str_contains($raiseCode, 'failed_attempts = failed_attempts + 1'),
+    'the increment is not in the statement'
+);
+ok(
+    'the counter is never written back from PHP',
+    !str_contains($raiseCode, 'failed_attempts = VALUES(failed_attempts)'),
+    'the old read-then-write is still there'
+);
+ok(
+    'the comment in the code says what the code does',
+    str_contains($authSource, 'raised IN SQL'),
+    'the comment does not mention the increment'
+);
+ok(
+    'the old claim that a read-then-write cannot lose a count is gone',
+    !str_contains($authSource, 'two simultaneous failures cannot lose a count'),
+    'the comment still describes the old mechanism'
+);
+
+// The source key is the address that OPENED the connection. It is not
+// simply REMOTE_ADDR: LiteSpeed rewrites REMOTE_ADDR with the first
+// element of X-Forwarded-For (and with X-Real-IP) for a trusted peer,
+// so REMOTE_ADDR alone is a value the visitor chooses.
+ok(
+    'the source key is a SHA-256 hash',
+    str_contains($sourceKeyBody, "hash('sha256'")
+);
+ok(
+    'the source key reads the address that opened the connection',
+    str_contains($sourceKeyBody, "['PROXY_REMOTE_ADDR']")
+    && str_contains($sourceKeyBody, "['REMOTE_ADDR']"),
+    'the key reads neither the peer nor the rewritten address'
+);
+ok(
+    'the source key prefers the peer over the rewritten address',
+    strpos($sourceKeyBody, "['PROXY_REMOTE_ADDR']") !== false
+    && strpos($sourceKeyBody, "['PROXY_REMOTE_ADDR']") < strpos($sourceKeyBody, "['REMOTE_ADDR']"),
+    'the rewritten address is read first, so the visitor picks the bucket'
+);
+ok(
+    'no forwarded header is ever read',
+    !str_contains($authCode, 'X-Forwarded-For')
+    && !str_contains($authCode, 'HTTP_X_FORWARDED_FOR')
+    && !str_contains($authCode, 'X-Real-IP')
+    && !str_contains($authCode, 'HTTP_X_REAL_IP')
+    && !str_contains($authCode, 'HTTP_CLIENT_IP'),
+    'a client-controlled header would hand the visitor their own bucket'
+);
+
+// The two counters are independent, and the penalty is the stricter of the
+// two — the sum of the waits is never taken.
+$throttleBody = function_body($authSource, 'loginThrottleState');
+ok(
+    'the throttle reads TWO counters',
+    str_contains($throttleBody, "'identifier'") && str_contains($throttleBody, "'source'")
+);
+ok(
+    'the effective penalty is the stricter of the two',
+    str_contains($throttleBody, 'loginTimestamp($candidate) > loginTimestamp($until)')
+);
+
+// The account columns are gone: the migration drops them and the schema
+// does not create them.
+ok('the migration exists', is_file($migrationPath), $migrationPath);
+
+$migrationSrc = is_file($migrationPath) ? (string) file_get_contents($migrationPath) : '';
+
+ok(
+    'the migration drops users.failed_attempts',
+    str_contains($migrationSrc, 'DROP COLUMN `failed_attempts`')
+);
+ok(
+    'the migration drops users.locked_until',
+    str_contains($migrationSrc, 'DROP COLUMN `locked_until`')
+);
+
+$usersBlock = '';
+
+if (preg_match('/CREATE TABLE IF NOT EXISTS `users` \((.*?)\n\) ENGINE/s', $schemaSql, $m) === 1) {
+    $usersBlock = $m[1];
+}
+
+ok('the schema has a users table', $usersBlock !== '');
+ok(
+    'the schema no longer creates users.failed_attempts',
+    !str_contains($usersBlock, 'failed_attempts'),
+    'the column is still in the schema'
+);
+ok(
+    'the schema no longer creates users.locked_until',
+    !str_contains($usersBlock, 'locked_until'),
+    'the column is still in the schema'
+);
+
+$attemptsBlock = '';
+
+if (preg_match('/CREATE TABLE IF NOT EXISTS `login_attempts` \((.*?)\n\) ENGINE/s', $schemaSql, $m) === 1) {
+    $attemptsBlock = $m[1];
+}
+
+ok(
+    'the schema gives the throttle table a scope',
+    str_contains($attemptsBlock, "`scope`")
+);
+ok(
+    'the schema renames the key column',
+    str_contains($attemptsBlock, "`key_hash`") && !str_contains($attemptsBlock, 'identifier_hash')
+);
+ok(
+    'the schema records the last failure, so the quiet window can be measured',
+    str_contains($attemptsBlock, '`last_failure_at`')
+);
+ok(
+    'the unique key covers the scope and the key together',
+    str_contains($attemptsBlock, 'uq_login_attempts_scope_key')
+);
+
+// The password change no longer promises an unlock it cannot perform.
+ok(
+    'the password change no longer clears a column that is not there',
+    !str_contains($settingsSrc, 'failed_attempts = 0') && !str_contains($settingsSrc, 'locked_until = NULL'),
+    'the settings screen still writes the dropped columns'
+);
+ok(
+    'the password change clears the failures against the account',
+    str_contains($settingsSrc, 'clearLoginIdentifierFailures(')
+);
+
 // ---------------------------------------------------------------------------
 // B. The behaviour, in a sandbox.
 // ---------------------------------------------------------------------------
@@ -1113,6 +1306,9 @@ if ($db === null) {
 // another through the shared throttle counter.
 $demoId     = seed_user($db['pdo'], 'demo', 'demo@example.test', AT_PASSWORD);
 $sleeperId  = seed_user($db['pdo'], 'sleeper', 'sleeper@example.test', AT_PASSWORD);
+// The account whose owner is locked out by the attacker and let back in
+// once the failures have decayed (issue-021 §9).
+$decayerId  = seed_user($db['pdo'], 'decayer', 'decayer@example.test', AT_PASSWORD);
 $forgetterId = seed_user($db['pdo'], 'forgetter', 'forgetter@example.test', AT_PASSWORD);
 // The account is NOT called "disabled": the screen echoes the typed name
 // back, and the test looks for the word in the answer.
@@ -1248,6 +1444,68 @@ ok(
 
 echo "\n## B3. The attempt limit\n";
 
+/**
+ * The minutes of the wait a counter row is serving.
+ */
+$waitMinutes = static function ($lockedUntil): int {
+    if (!is_string($lockedUntil) || $lockedUntil === '') {
+        return 0;
+    }
+
+    $seconds = strtotime($lockedUntil . ' UTC') - time();
+
+    return $seconds > 0 ? (int) ceil($seconds / 60) : 0;
+};
+
+/**
+ * The counter row of ONE scope and key.
+ */
+$counterRow = static function (string $scope, string $key) use ($db): array {
+    $stmt = $db['pdo']->prepare(
+        'SELECT failed_attempts, locked_until, last_failure_at
+           FROM login_attempts
+          WHERE scope = ? AND key_hash = ?'
+    );
+    $stmt->execute([$scope, $key]);
+
+    $row = $stmt->fetch();
+
+    return is_array($row) ? $row : [];
+};
+
+/**
+ * Forget every counter. The SOURCE bucket is shared by every request the
+ * test makes, so each scenario starts from a clean one.
+ */
+$clearCounters = static function () use ($db): void {
+    $db['pdo']->exec('DELETE FROM login_attempts');
+};
+
+/**
+ * A fresh visitor, with a CSRF token.
+ *
+ * A successful sign-in leaves the session signed in, and a signed-in
+ * visitor is redirected away from the sign-in screen — so every scenario
+ * that follows a success needs a new session.
+ */
+$freshToken = static function () use ($base): string {
+    reset_cookies();
+
+    return csrf_of((string) http_request('GET', $base . '/login')['body']);
+};
+
+/**
+ * The address of the connection, as the server sees it. Every request of
+ * the sandbox comes from the loopback interface.
+ */
+const AT_SOURCE = '127.0.0.1';
+
+// --- B3.1: the counter against the identifier ------------------------------
+
+echo "\n## B3.1 The counter against the identifier\n";
+
+$clearCounters();
+
 for ($attempt = 0; $attempt < 5; $attempt++) {
     http_request('POST', $base . '/login', [
         'csrf_token' => $token,
@@ -1263,32 +1521,52 @@ $locked = http_request('POST', $base . '/login', [
 ]);
 
 ok(
-    'the lock message is "Too many attempts. Try again in 15 minutes."',
+    'the lock message states the ACTUAL wait — "Too many attempts. Try again in 15 minutes."',
     str_contains($locked['body'], 'Too many attempts. Try again in 15 minutes.'),
     'status=' . (string) $locked['status']
 );
 ok('the submit button is disabled while the wait is in force', str_contains($locked['body'], 'disabled'));
 
-$row = $db['pdo']->query(
-    "SELECT failed_attempts FROM login_attempts
-      WHERE identifier_hash = '" . hash('sha256', 'sleeper') . "'"
-)->fetch();
+$row = $counterRow('identifier', hash('sha256', 'sleeper'));
 
 ok(
     'the counter against the identifier holds the failures',
-    is_array($row) && (int) $row['failed_attempts'] === 5,
+    (int) ($row['failed_attempts'] ?? 0) === 5,
     'row=' . json_encode($row)
 );
+ok(
+    'the wait is fifteen minutes long',
+    $waitMinutes($row['locked_until'] ?? null) === 15,
+    'locked_until=' . (string) ($row['locked_until'] ?? 'null')
+);
+ok(
+    'the quiet window is measured from the last failure',
+    ($row['last_failure_at'] ?? null) !== null,
+    'last_failure_at is empty'
+);
 
-$user = $db['pdo']->query('SELECT failed_attempts, locked_until FROM users WHERE id = ' . $sleeperId)->fetch();
+$sourceRow = $counterRow('source', hash('sha256', AT_SOURCE));
 
 ok(
-    'the account carries the same count',
-    is_array($user) && (int) $user['failed_attempts'] === 5
+    'a failure raises the counter against the source too',
+    (int) ($sourceRow['failed_attempts'] ?? 0) === 5,
+    'row=' . json_encode($sourceRow)
 );
-ok('the account carries the end of the wait', is_array($user) && $user['locked_until'] !== null);
 
-// The same limit for an identifier that matches NO account.
+$userColumns = $db['pdo']->query('SHOW COLUMNS FROM users')->fetchAll(PDO::FETCH_COLUMN, 0);
+
+ok(
+    'the account carries no throttle columns any more',
+    !in_array('failed_attempts', $userColumns, true) && !in_array('locked_until', $userColumns, true),
+    implode(', ', $userColumns)
+);
+
+// --- B3.2: the identifier that matches no account --------------------------
+
+echo "\n## B3.2 The identifier that matches no account\n";
+
+$clearCounters();
+
 for ($attempt = 0; $attempt < 5; $attempt++) {
     http_request('POST', $base . '/login', [
         'csrf_token' => $token,
@@ -1308,28 +1586,262 @@ ok(
     str_contains($lockedGhost['body'], 'Too many attempts.'),
     'status=' . (string) $lockedGhost['status']
 );
-
-// The lock expires.
-$db['pdo']->exec(
-    "UPDATE login_attempts
-        SET locked_until = DATE_SUB(NOW(), INTERVAL 1 MINUTE)
-      WHERE identifier_hash = '" . hash('sha256', 'sleeper') . "'"
+ok(
+    'the counter is raised against that identifier too',
+    (int) ($counterRow('identifier', hash('sha256', 'nobody-at-all'))['failed_attempts'] ?? 0) === 5
 );
 
-$expired = http_request('POST', $base . '/login', [
+// --- B3.3: the decay — the owner is let back in ----------------------------
+
+echo "\n## B3.3 The decay — the owner is let back in\n";
+
+$clearCounters();
+
+for ($attempt = 0; $attempt < 5; $attempt++) {
+    http_request('POST', $base . '/login', [
+        'csrf_token' => $token,
+        'username'   => 'decayer',
+        'password'   => 'wrong-again',
+    ]);
+}
+
+$refused = http_request('POST', $base . '/login', [
     'csrf_token' => $token,
-    'username'   => 'sleeper',
+    'username'   => 'decayer',
+    'password'   => AT_PASSWORD,
+]);
+
+ok(
+    'the owner is refused while the wait is in force',
+    str_contains($refused['body'], 'Too many attempts.'),
+    'status=' . (string) $refused['status']
+);
+
+// The quiet window elapses: the failures are older than the window, so they
+// stop counting.
+$db['pdo']->exec(
+    "UPDATE login_attempts
+        SET last_failure_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 20 MINUTE),
+            locked_until    = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
+      WHERE scope = 'identifier'
+        AND key_hash = '" . hash('sha256', 'decayer') . "'"
+);
+
+$accepted = http_request('POST', $base . '/login', [
+    'csrf_token' => $token,
+    'username'   => 'decayer',
+    'password'   => AT_PASSWORD,
+]);
+
+ok(
+    'the owner is let back in once the quiet window has elapsed',
+    $accepted['status'] === 302 && ($accepted['headers']['location'] ?? '') === '/dashboard',
+    'status=' . (string) $accepted['status'] . ' location=' . (string) ($accepted['headers']['location'] ?? '')
+);
+ok(
+    'the failures decayed — the counter is back below the limit',
+    (int) ($counterRow('identifier', hash('sha256', 'decayer'))['failed_attempts'] ?? 0) === 0,
+    'the counter did not decay'
+);
+
+// --- B3.4: the exponential backoff, and the cap ----------------------------
+
+echo "\n## B3.4 The exponential backoff, and the cap\n";
+
+$clearCounters();
+$token = $freshToken();
+
+$backoffKey = hash('sha256', 'backoff-probe');
+
+/**
+ * Age the wait of the counter, so the next failure is counted. The counter
+ * itself stays: the failures are recent.
+ */
+$ageWait = static function (string $keyHash) use ($db): void {
+    $db['pdo']->exec(
+        "UPDATE login_attempts
+            SET locked_until = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE)
+          WHERE scope = 'identifier'
+            AND key_hash = '" . $keyHash . "'"
+    );
+};
+
+for ($attempt = 0; $attempt < 5; $attempt++) {
+    http_request('POST', $base . '/login', [
+        'csrf_token' => $token,
+        'username'   => 'backoff-probe',
+        'password'   => 'wrong-again',
+    ]);
+}
+
+ok(
+    'the fifth failure waits fifteen minutes',
+    $waitMinutes($counterRow('identifier', $backoffKey)['locked_until'] ?? null) === 15,
+    'wait=' . (string) ($counterRow('identifier', $backoffKey)['locked_until'] ?? 'null')
+);
+
+$ageWait($backoffKey);
+http_request('POST', $base . '/login', ['csrf_token' => $token, 'username' => 'backoff-probe', 'password' => 'wrong-again']);
+
+ok(
+    'the sixth failure waits thirty minutes',
+    $waitMinutes($counterRow('identifier', $backoffKey)['locked_until'] ?? null) === 30,
+    'wait=' . (string) ($counterRow('identifier', $backoffKey)['locked_until'] ?? 'null')
+);
+ok(
+    'the counter is six',
+    (int) ($counterRow('identifier', $backoffKey)['failed_attempts'] ?? 0) === 6
+);
+
+$ageWait($backoffKey);
+http_request('POST', $base . '/login', ['csrf_token' => $token, 'username' => 'backoff-probe', 'password' => 'wrong-again']);
+
+ok(
+    'the seventh failure waits sixty minutes',
+    $waitMinutes($counterRow('identifier', $backoffKey)['locked_until'] ?? null) === 60,
+    'wait=' . (string) ($counterRow('identifier', $backoffKey)['locked_until'] ?? 'null')
+);
+
+$ageWait($backoffKey);
+http_request('POST', $base . '/login', ['csrf_token' => $token, 'username' => 'backoff-probe', 'password' => 'wrong-again']);
+
+ok(
+    'the wait is capped at sixty minutes',
+    $waitMinutes($counterRow('identifier', $backoffKey)['locked_until'] ?? null) === 60,
+    'wait=' . (string) ($counterRow('identifier', $backoffKey)['locked_until'] ?? 'null')
+);
+ok(
+    'the counter is eight',
+    (int) ($counterRow('identifier', $backoffKey)['failed_attempts'] ?? 0) === 8
+);
+
+// --- B3.5: two counters, and the stricter of the two ----------------------
+
+echo "\n## B3.5 Two counters, and the stricter of the two\n";
+
+$clearCounters();
+$token = $freshToken();
+
+$sourceKey = hash('sha256', AT_SOURCE);
+
+// The identifier waits fifteen minutes, the source waits thirty.
+$db['pdo']->exec(
+    "INSERT INTO login_attempts (scope, key_hash, failed_attempts, locked_until, last_failure_at)
+     VALUES ('identifier', '" . hash('sha256', 'sum-probe') . "', 5, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE), UTC_TIMESTAMP()),
+            ('source', '" . $sourceKey . "', 21, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE), UTC_TIMESTAMP())"
+);
+
+$summed = http_request('POST', $base . '/login', [
+    'csrf_token' => $token,
+    'username'   => 'sum-probe',
     'password'   => 'wrong-again',
 ]);
 
 ok(
-    'the lock expires — it is not a permanent denial of service',
-    !str_contains($expired['body'], 'Too many attempts.'),
-    'the account is still locked'
+    'the effective penalty is the STRICTER of the two — thirty minutes, not forty-five',
+    str_contains($summed['body'], 'Too many attempts. Try again in 30 minutes.'),
+    'the body said: ' . (preg_match('/Too many attempts[^<]*/', $summed['body'], $m) === 1 ? $m[0] : 'nothing')
 );
 ok(
-    'the counter starts again after the wait',
-    str_contains($expired['body'], 'That username and password do not match.')
+    'the two waits are never added together',
+    !str_contains($summed['body'], '45 minutes'),
+    'the body said: ' . (preg_match('/Too many attempts[^<]*/', $summed['body'], $m) === 1 ? $m[0] : 'nothing')
+);
+
+// The other way round: the identifier is the stricter one now.
+$db['pdo']->exec(
+    "UPDATE login_attempts
+        SET locked_until = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)
+      WHERE scope = 'source'
+        AND key_hash = '" . $sourceKey . "'"
+);
+
+$stricter = http_request('POST', $base . '/login', [
+    'csrf_token' => $token,
+    'username'   => 'sum-probe',
+    'password'   => 'wrong-again',
+]);
+
+ok(
+    'the effective penalty is the identifier fifteen minutes when IT is the stricter',
+    str_contains($stricter['body'], 'Too many attempts. Try again in 15 minutes.'),
+    'the body said: ' . (preg_match('/Too many attempts[^<]*/', $stricter['body'], $m) === 1 ? $m[0] : 'nothing')
+);
+
+// --- B3.6: the source key is the peer, not the rewritten address ------------
+
+echo "\n## B3.6 The source key is the peer, not the rewritten address\n";
+
+$clearCounters();
+$token = $freshToken();
+
+@unlink($sandbox . '/remote_addr.log');
+
+http_request('POST', $base . '/login', [
+    'csrf_token' => $token,
+    'username'   => 'xff-probe',
+    'password'   => 'wrong-again',
+], ['X-Forwarded-For: 203.0.113.9']);
+
+// The guard has to be PROVEN to be able to fire: the server has to have
+// rewritten the address, otherwise the bucket would be right for the wrong
+// reason and the test would pass even with the defect.
+$rewritten = @file_get_contents($sandbox . '/remote_addr.log');
+
+ok(
+    'the server rewrote the address — the guard could have fired',
+    is_string($rewritten) && str_contains($rewritten, '203.0.113.9'),
+    'the sandbox did not rewrite the address: ' . var_export($rewritten, true)
+);
+ok(
+    'the source bucket is the address of the connection, not the header',
+    (int) ($counterRow('source', hash('sha256', AT_SOURCE))['failed_attempts'] ?? 0) === 1,
+    'the header moved the bucket'
+);
+ok(
+    'the header value does not become a bucket of its own',
+    $counterRow('source', hash('sha256', '203.0.113.9')) === []
+);
+
+$rawAddresses = $db['pdo']->query(
+    "SELECT COUNT(*) FROM login_attempts
+      WHERE key_hash IN ('" . AT_SOURCE . "', '203.0.113.9')"
+)->fetchColumn();
+
+ok('the table never stores a raw address', (int) $rawAddresses === 0, 'the address is in the table');
+
+// --- B3.7: the housekeeping ------------------------------------------------
+
+echo "\n## B3.7 The housekeeping\n";
+
+$clearCounters();
+$token = $freshToken();
+
+// A row that is expired and idle: it can never lock anything again.
+$db['pdo']->exec(
+    "INSERT INTO login_attempts (scope, key_hash, failed_attempts, locked_until, last_failure_at)
+     VALUES ('identifier', '" . hash('sha256', 'stale-probe') . "', 1, NULL, DATE_SUB(UTC_TIMESTAMP(), INTERVAL 120 MINUTE))"
+);
+
+ok(
+    'the stale row is there to begin with',
+    $counterRow('identifier', hash('sha256', 'stale-probe')) !== []
+);
+
+http_request('POST', $base . '/login', [
+    'csrf_token' => $token,
+    'username'   => 'prune-probe',
+    'password'   => 'wrong-again',
+]);
+
+ok(
+    'the housekeeping removes the rows that can no longer produce a wait',
+    $counterRow('identifier', hash('sha256', 'stale-probe')) === [],
+    'the stale row survived'
+);
+ok(
+    'the row of the failure that just happened is kept',
+    $counterRow('identifier', hash('sha256', 'prune-probe')) !== []
 );
 
 // --- B4: the successful sign-in -------------------------------------------
@@ -1341,6 +1853,19 @@ reset_cookies();
 $res     = http_request('GET', $base . '/login');
 $token   = csrf_of($res['body']);
 $sessionBefore = $GLOBALS['at_cookies']['PHPSESSID'] ?? '';
+
+// The counters are there before the sign-in.
+$db['pdo']->exec(
+    "DELETE FROM login_attempts
+      WHERE (scope = 'identifier' AND key_hash = '" . hash('sha256', 'demo') . "')
+         OR (scope = 'source' AND key_hash = '" . hash('sha256', AT_SOURCE) . "')"
+);
+
+$db['pdo']->exec(
+    "INSERT INTO login_attempts (scope, key_hash, failed_attempts, locked_until, last_failure_at)
+     VALUES ('identifier', '" . hash('sha256', 'demo') . "', 3, NULL, UTC_TIMESTAMP()),
+            ('source', '" . hash('sha256', AT_SOURCE) . "', 3, NULL, UTC_TIMESTAMP())"
+);
 
 $success = http_request('POST', $base . '/login', [
     'csrf_token' => $token,
@@ -1372,11 +1897,15 @@ ok(
     'status=' . (string) $afterLogin['status']
 );
 
-$counter = $db['pdo']->query('SELECT failed_attempts FROM users WHERE id = ' . $demoId)->fetch();
-
 ok(
-    'a successful sign-in resets the counter of the account',
-    is_array($counter) && (int) $counter['failed_attempts'] === 0
+    'a successful sign-in clears the counter against the identifier',
+    $counterRow('identifier', hash('sha256', 'demo')) === [],
+    'the row survived the sign-in'
+);
+ok(
+    'a successful sign-in clears the counter against the source',
+    $counterRow('source', hash('sha256', AT_SOURCE)) === [],
+    'the row survived the sign-in'
 );
 
 // --- B5: the sign-out ------------------------------------------------------

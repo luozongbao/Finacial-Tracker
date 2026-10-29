@@ -1,13 +1,26 @@
 # Issue-021 — Security: the sign-in throttle is a denial of service
 
-> **Status:** **open** — the audit of 2026-10-28 found the throttle working as
-> specified, and found that the way it works is an unauthenticated denial of
-> service against any account whose username is known.
-> **Target:** `includes/auth.php`, `views/login.php`, `database/schema.sql`,
-> `database/migrations/`, `database/auth_test.php`,
+> **Status:** **implemented and verified** — the hard lock is now a **decaying,
+> exponential backoff** with **two** counters (per identifier and per source);
+> the effective penalty is the **stricter** of the two, never the sum; the
+> counter is incremented **in SQL**; the account's own lock columns are
+> **dropped**; the table is **pruned**; and the locked screen states the wait
+> that is really left. The mechanism is guarded by `database/auth_test.php`
+> (the sources, and a sandbox that runs the real screens) and the end-to-end
+> cycle by `database/live/live_security_test.php` (over real HTTP, with real
+> cookies).
+> **One thing the implementation found that the audit did not:** LiteSpeed
+> **rewrites `REMOTE_ADDR` from `X-Forwarded-For`** for a trusted peer, so
+> `REMOTE_ADDR` is *not* the address of the connection on this server. The
+> source key is therefore built from the address that really connected
+> (`PROXY_REMOTE_ADDR`), which is the only value the visitor cannot choose.
+> See §8.2 and the implementation notes.
+> **Target:** `includes/auth.php`, `views/login.php`, `views/settings.php`,
+> `database/schema.sql`, `database/migrations/`, `database/auth_test.php`,
+> `database/schema_test.php`, `database/settings_test.php`,
 > `database/live/live_security_test.php`
 > **Severity:** **Medium** — no data is disclosed and no data is destroyed, but
-> any anonymous visitor can lock the owner of a known account out of their own
+> any anonymous visitor could lock the owner of a known account out of their own
 > installation, for as long as they care to.
 > **Requested by the user:** "Now the implementation is complete. before release
 > v.1.0, let's focus on security for a bit. 1. help check sql injection, or any
@@ -339,6 +352,24 @@ proxy case:
   The value of the proxy's address as the source key is a **shared** bucket,
   which is why the per-identifier counter must remain the primary one.
 
+> **Corrected by the implementation.** The bullet above is right about the
+> header and wrong about `REMOTE_ADDR`: **LiteSpeed rewrites `REMOTE_ADDR`
+> with the first element of `X-Forwarded-For` (and with `X-Real-IP`) whenever
+> the request arrives from a trusted peer, and the loopback interface is
+> trusted by default.** On this stack a visitor can therefore choose the
+> value `REMOTE_ADDR` carries — so a source key built from `REMOTE_ADDR`
+> alone would be a dial the visitor can turn: a fresh bucket for every
+> attempt, or a bucket that belongs to somebody else.
+>
+> The key is therefore built from **the address that opened the connection**:
+> `$_SERVER['PROXY_REMOTE_ADDR']` when LiteSpeed has rewritten the address
+> (it keeps the real peer there), and `$_SERVER['REMOTE_ADDR']` otherwise.
+> Behind a reverse proxy that peer is the proxy's address — the shared
+> bucket §8.2 asks for — and the header is never read at all. The LIVE tier
+> proves it against the running server: five failures carrying
+> `X-Forwarded-For: 203.0.113.9` land in the **peer's** bucket, and a sixth
+> failure sent without the header lands in the **same** bucket.
+
 ### 8.3 The increment
 
 Let the database increment (§5). The `locked_until` is then derived from the
@@ -382,41 +413,71 @@ backoff the wait is no longer a constant, so the message must state the
 
 ## 9. Acceptance criteria
 
-- [ ] A failed sign-in for a known username no longer prevents the **owner**
+- [x] A failed sign-in for a known username no longer prevents the **owner**
       from signing in with the correct password once the quiet window has
       elapsed. A regression test asserts the whole cycle: fail ×5 → the correct
       password is refused → the quiet window elapses (or the counter decays) →
       the correct password is accepted.
-- [ ] The penalty **decays**: a failure that is older than the quiet window
+      *(SOURCE §B3.3 "the owner is let back in once the quiet window has
+      elapsed"; LIVE §H "the correct password is accepted once the failures
+      have decayed" → 302.)*
+- [x] The penalty **decays**: a failure that is older than the quiet window
       does not count towards the limit. A test ages a failure past the window
       and asserts the counter is back below the limit.
-- [ ] The wait is **exponential** and **capped**, and the counter is bounded
+      *(SOURCE §B3.3 "the failures decayed — the counter is back below the
+      limit"; the counter is **0** again.)*
+- [x] The wait is **exponential** and **capped**, and the counter is bounded
       by the cap.
-- [ ] There are **two** counters — per identifier and per source — and the
+      *(SOURCE §B3.4 — 5 → 15 minutes, 6 → 30, 7 → 60, 8 → 60.)*
+- [x] There are **two** counters — per identifier and per source — and the
       effective penalty is the **stricter** of the two, never the sum. A test
       asserts that a small number of identifier failures combined with a small
       number of source failures does **not** produce a combined penalty.
-- [ ] The source key is a **hash**, and the table never stores a raw address.
-- [ ] `X-Forwarded-For` is **not** trusted. A request that sends the header
+      *(SOURCE §B3.5 — "thirty minutes, not forty-five", and the message never
+      says "45 minutes".)*
+- [x] The source key is a **hash**, and the table never stores a raw address.
+      *(SOURCE §B3.6 "the table never stores a raw address".)*
+- [x] `X-Forwarded-For` is **not** trusted. A request that sends the header
       does not change its source bucket.
-- [ ] The counter increment happens **in SQL**. Two concurrent failures raise
+      *(SOURCE §B3.6 — the sandbox rewrites the address exactly as LiteSpeed
+      does and the bucket still follows the peer; LIVE §H — five failures
+      carrying `X-Forwarded-For: 203.0.113.9` and a sixth failure sent
+      without the header land in the **same** bucket, which is not the
+      spoofed one.)*
+- [x] The counter increment happens **in SQL**. Two concurrent failures raise
       the counter by **two**, not by one. The test asserts the post-increment
       value and the comment in `includes/auth.php` matches the code.
-- [ ] Either `users.failed_attempts` / `users.locked_until` are read, or they
+      *(SOURCE §A10 — `failed_attempts = failed_attempts + 1` in the statement,
+      and no write-back of the total.)*
+- [x] Either `users.failed_attempts` / `users.locked_until` are read, or they
       are **dropped** by a migration and removed from `database/schema.sql`. A
       test asserts the two files agree, and that a password change in
       `/settings` no longer implies an unlock it cannot perform.
-- [ ] `login_attempts` does not grow without bound: a row that is expired and
+      *(They are **dropped** — `database/migrations/20261029_throttle_scope_and_backoff.sql`;
+      `database/schema_test.php` asserts the shape against `information_schema`;
+      `database/settings_test.php` asserts the settings screen no longer writes
+      columns the account does not have.)*
+- [x] `login_attempts` does not grow without bound: a row that is expired and
       idle is removed, and a test asserts the cleanup runs.
-- [ ] The locked screen states the **actual** remaining wait.
-- [ ] The identifier-keyed behaviour is **unchanged**: a name that matches no
+      *(SOURCE §B3.7 "the housekeeping removes the rows that can no longer
+      produce a wait"; the prune is a bounded `DELETE … LIMIT 100` on the
+      sign-in path.)*
+- [x] The locked screen states the **actual** remaining wait.
+      *(SOURCE §B3.1 and §B3.5; LIVE §H "the message states the time that is
+      actually left".)*
+- [x] The identifier-keyed behaviour is **unchanged**: a name that matches no
       account is still throttled, and the decoy hash still equalises the cost
       of a missing account.
-- [ ] The message for a wrong password is **unchanged**:
+      *(SOURCE §B3.2.)*
+- [x] The message for a wrong password is **unchanged**:
       *"That username and password do not match."* for both halves.
-- [ ] `database/auth_test.php` and `database/live/live_security_test.php` both
+      *(LIVE §H — "a wrong password still says only that the credentials do
+      not match", and the refusal never falls back to it.)*
+- [x] `database/auth_test.php` and `database/live/live_security_test.php` both
       cover the new behaviour — the SOURCE tier for the mechanism, the LIVE
       tier for the end-to-end cycle.
+      *(SOURCE: 22 assertions in §A10 and 28 in §B3.1–§B3.7, out of 221 in the
+      file; LIVE: section H, eleven assertions over real HTTP.)*
 
 ---
 
@@ -535,3 +596,153 @@ recorded here so that the next reader does not repeat the work.
 | **The account's status check** | Correct. It runs **after** the password, so a disabled account is not an oracle. |
 | **The password hash algorithm** | Correct. `password_hash()` with `PASSWORD_DEFAULT`, verified with `password_verify()`, and re-hashed on sign-in when the default algorithm improves. |
 | **The credential version** | Correct. A password change ends every other session of the account, and the check happens on every request in the front controller. |
+
+---
+
+## Implementation notes — 2026-10-29
+
+### What was built
+
+| File | Role |
+|---|---|
+| `includes/auth.php` | The limiter: the two counter keys, the counter row, the decay, the backoff, the SQL increment, the throttle state and the housekeeping. |
+| `views/login.php` | The lock is checked **before** the password, the message states the wait that is really left, and a failure raises **both** counters. |
+| `views/settings.php` | The password change no longer writes columns the account does not have; it clears the identifier counter instead. |
+| `database/schema.sql` | `login_attempts` gains `scope` and `last_failure_at` and loses `identifier_hash`; `users` loses `failed_attempts` and `locked_until`. |
+| `database/migrations/20261029_throttle_scope_and_backoff.sql` | The seven guarded steps that take an existing installation to the new shape. Idempotent: every step checks for its own effect first. |
+| `database/auth_test.php` | The guard — §A10 (the sources) and §B3.1–§B3.7 (a sandbox that runs the real screens against a scratch database). |
+| `database/schema_test.php` | The shape of the two tables — against the file, and against `information_schema` on the running database. |
+| `database/settings_test.php` | The settings screen no longer promises an unlock it cannot perform. |
+| `database/live/live_security_test.php` | §H — the whole cycle over real HTTP, with real cookies and real headers. |
+
+The limiter's constants, all in `includes/auth.php`:
+
+````php
+define('LOGIN_ATTEMPT_LIMIT', 5);         // the fifth failure starts a wait
+define('LOGIN_LOCK_MINUTES', 15);          // the first wait, and the identifier's quiet window
+define('LOGIN_BACKOFF_MAX_MINUTES', 60);   // the cap
+define('LOGIN_SOURCE_ATTEMPT_LIMIT', 20);  // the source: a shared bucket needs a higher bar
+define('LOGIN_SOURCE_WINDOW_MINUTES', 60); // the source's quiet window
+````
+
+### The decisions the specification left open
+
+1. **One table, a `scope` column.** `login_attempts` holds both counters:
+   `scope` is `identifier` or `source`, and the unique key is
+   `(scope, key_hash)`. The old `identifier_hash` column became `key_hash`
+   — the name says what it holds now that the table carries two kinds of
+   key. One table means one place to prune and one place to reason about.
+2. **The decay is a quiet-window reset, and a row that is *serving* a wait
+   is never reset.** `loginCounterState()` compares `last_failure_at` with
+   the window: a counter whose last failure is older than the window is
+   back to zero, and a counter whose `locked_until` is still in the future
+   keeps serving it — otherwise the wait would expire while the attacker
+   was still failing.
+3. **The backoff is 15 → 30 → 60, capped at 60.** The fifth failure costs
+   15 minutes, the sixth 30, the seventh 60, and every failure after that
+   60. The **first** failure costs nothing, and neither do the second,
+   third and fourth — the limit is a limit.
+4. **The two counters decay on different schedules.** The identifier's
+   quiet window is the lock window (15 minutes); the source's is an hour.
+   That is what §12's mitigation asks for — the source counter does not
+   decay on the same schedule as the one that guards a single account.
+5. **The source limit is 20, not 5.** A source bucket is shared by
+   everybody behind one NAT, so the bar is deliberately higher; and the
+   effective penalty is the **stricter** of the two counters, never the
+   sum — an identifier wait of 15 minutes and a source wait of 30 minutes
+   serve 30 minutes, not 45.
+6. **The housekeeping runs on the sign-in path**, which already writes to
+   the table. `pruneLoginAttempts()` deletes the rows that are expired and
+   idle — a bounded `DELETE … LIMIT 100`, behind a `SELECT COUNT(*)` probe
+   so the probe only runs when there is something to delete.
+7. **A successful sign-in clears both counters; a password change clears
+   only the identifier one.** The password change cannot clear the source
+   counter — it does not know which source bucket the failures came from,
+   and the account's own failures are not the source's failures.
+
+### The defect the implementation found — LiteSpeed rewrites `REMOTE_ADDR`
+
+The audit assumed `REMOTE_ADDR` is the address of the connection. On this
+stack it is not.
+
+LiteSpeed — like every other server with a "use the client IP from the
+header" option — **overwrites `REMOTE_ADDR` with the first element of
+`X-Forwarded-For`** (and with `X-Real-IP`) whenever the request arrives from
+a **trusted peer**, and the loopback interface is trusted by default. The
+measured proof: a request carrying `X-Forwarded-For: 203.0.113.9` against
+the running container arrived with `$_SERVER['REMOTE_ADDR'] === '203.0.113.9'`
+— a value the visitor typed.
+
+The application never reads the header. The **server** substitutes it, which
+is worse: a source key built from `REMOTE_ADDR` was a dial the visitor could
+turn. They could take a fresh bucket for every attempt, and — because the
+counter is shared by the address — they could spend **somebody else's**
+bucket and lock them out.
+
+LiteSpeed keeps the address that really connected in
+`$_SERVER['PROXY_REMOTE_ADDR']`, and leaves it unset when it folded
+nothing. The source key is therefore:
+
+````php
+$peer = trim((string) ($_SERVER['PROXY_REMOTE_ADDR'] ?? ''));
+
+if ($peer === '') {
+    $peer = trim((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+}
+
+return hash('sha256', $peer);
+````
+
+The peer is the one value the visitor cannot choose, and behind a reverse
+proxy it is the proxy's address — the shared bucket §8.2 asks for. The
+header is never read, and `X-Real-IP` and `HTTP_CLIENT_IP` are never read
+either.
+
+**The LIVE tier is what found this.** The SOURCE tier asserted that the
+header was not read and passed; the LIVE tier, which runs against the real
+LiteSpeed, failed. The SOURCE tier now emulates the rewrite — the sandbox
+router rewrites `REMOTE_ADDR` exactly as LiteSpeed does and records what
+it did, so the guard is **proven to be able to fire** — and the LIVE tier
+proves it against the running server.
+
+### The mockup
+
+`docs/mockup/01-login.html` reads *"Too many attempts. Try again in 15
+minutes."* — which is exactly the wait the backoff serves for the fifth
+failure. **The mockup does not change.** The screen is unchanged too: the
+only difference is that the number in the message is now the number that is
+really left, instead of a constant that would be a lie.
+
+### How it was verified
+
+````bash
+# The lint, on every file that was touched.
+docker compose exec -T app php -l /var/www/html/includes/auth.php
+docker compose exec -T app php -l /var/www/html/views/login.php
+docker compose exec -T app php -l /var/www/html/views/settings.php
+
+# The auth regression tier (the SOURCE tier; the sandbox runs the real screens).
+docker compose exec -T app php /var/www/html/database/auth_test.php
+
+# The LIVE tier — the sign-in cycle over real HTTP, with real cookies.
+bash database/live/run-live-tests.sh
+
+# The whole suite.
+.github/skills/dev-stack-ops/scripts/run-tests.sh
+````
+
+| Run | Result |
+|---|---|
+| `php -l` on the four changed PHP files | no syntax errors |
+| `database/auth_test.php` | **221 assertions**, `Failed: 0` — §A10 and §B3.1–§B3.7 are the throttle |
+| `database/schema_test.php` | `Failed: 0` — the shape of `login_attempts` and `users` |
+| `database/settings_test.php` | `Failed: 0` — the settings screen writes no column it does not have |
+| `database/live/live_security_test.php` | **§H: 11 assertions**, `Failed: 0` |
+| `run-tests.sh` (the whole SOURCE tier) | **14 PASS / 0 FAIL** |
+| `run-live-tests.sh` (the whole LIVE tier) | **2 PASS / 0 FAIL** |
+
+The **fresh-install path** was proven separately: `database/schema.sql` was
+loaded into a scratch database and the resulting `login_attempts` and
+`users` were compared with `information_schema` — identical to the shape
+the migration produces. A fresh install and a migrated installation are the
+same database.

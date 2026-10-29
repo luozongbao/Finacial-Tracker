@@ -147,15 +147,15 @@ function expected_schema(): array
             'password_hash'     => ['varchar(255)', false],
             'email_verified_at' => ['datetime', true],
             'status'            => ["enum('active','disabled')", false],
-            'failed_attempts'   => ['int unsigned', false],
-            'locked_until'      => ['datetime', true],
         ] + $audit,
 
         'login_attempts' => [
             'id'              => ['int unsigned', false],
-            'identifier_hash' => ['char(64)', false],
+            'scope'           => ["enum('identifier','source')", false],
+            'key_hash'        => ['char(64)', false],
             'failed_attempts' => ['int unsigned', false],
             'locked_until'    => ['datetime', true],
+            'last_failure_at' => ['datetime', true],
         ] + $audit,
 
         'categories' => [
@@ -678,11 +678,14 @@ if ($pdo === null) {
         $status === null ? 'no column' : 'found ' . var_export($status['COLUMN_DEFAULT'], true)
     );
 
-    $failed = $columns['users']['failed_attempts'] ?? null;
+    // The throttle lives in login_attempts, in ONE place. The copy of the
+    // counter that used to sit on the account was never read, and a
+    // password change "cleared" it — promising an unlock it could not
+    // perform (issue-021 §6 and §8.4).
     ok(
-        'users.failed_attempts defaults to 0',
-        $failed !== null && trim((string) $failed['COLUMN_DEFAULT'], "'") === '0',
-        $failed === null ? 'no column' : 'found ' . var_export($failed['COLUMN_DEFAULT'], true)
+        'users has no throttle column any more',
+        !isset($columns['users']['failed_attempts']) && !isset($columns['users']['locked_until']),
+        'the columns are still on the account'
     );
 
     $updated = $columns['users']['updated_at'] ?? null;
@@ -718,7 +721,7 @@ if ($pdo === null) {
         'categories'          => ['uq_categories_user_name' => ['user_id', 'name']],
         'password_resets'     => ['uq_reset_token' => ['token_hash']],
         'email_verifications' => ['uq_verification_token' => ['token_hash']],
-        'login_attempts'      => ['uq_login_attempts_identifier' => ['identifier_hash']],
+        'login_attempts'      => ['uq_login_attempts_scope_key' => ['scope', 'key_hash']],
     ];
 
     foreach ($uniqueExpectations as $table => $wanted) {
@@ -749,14 +752,26 @@ if ($pdo === null) {
         'a global UNIQUE(name) would break a multi-user install'
     );
 
-    // The identifier of the throttle is stored as a hash too: the table must
-    // never keep the address that was typed at the sign-in form.
-    $identifierHash = $columns['login_attempts']['identifier_hash'] ?? null;
+    // The key of the throttle is stored as a hash too: the table must never
+    // keep the address that was typed at the sign-in form, nor the address
+    // of the connection.
+    $keyHash = $columns['login_attempts']['key_hash'] ?? null;
     ok(
-        'login_attempts.identifier_hash is CHAR(64) — the SHA-256 hash, never the identifier',
-        $identifierHash !== null
-            && strtolower((string) $identifierHash['DATA_TYPE']) === 'char'
-            && (int) $identifierHash['CHARACTER_MAXIMUM_LENGTH'] === 64
+        'login_attempts.key_hash is CHAR(64) — the SHA-256 hash, never the identifier or the address',
+        $keyHash !== null
+            && strtolower((string) $keyHash['DATA_TYPE']) === 'char'
+            && (int) $keyHash['CHARACTER_MAXIMUM_LENGTH'] === 64
+    );
+
+    // The scope says what the key is: the identifier that was typed, or the
+    // address of the connection (issue-021 §8.1).
+    $scope = $columns['login_attempts']['scope'] ?? null;
+    ok(
+        "login_attempts.scope is ENUM('identifier','source')",
+        $scope !== null
+            && strtolower((string) $scope['DATA_TYPE']) === 'enum'
+            && strtolower((string) $scope['COLUMN_TYPE']) === "enum('identifier','source')",
+        $scope === null ? 'no column' : 'found ' . (string) $scope['COLUMN_TYPE']
     );
 
     // The reset tokens are stored as a hash and a hash is unique.

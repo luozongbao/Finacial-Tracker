@@ -26,6 +26,11 @@
  *      one. The credential version in the session is the digest of the
  *      stored hash, so the session has to be told about the new hash
  *      before the next request compares them.
+ *   7. A password change does NOT touch the sign-in throttle. The old
+ *      code cleared a pair of columns on the account that nothing ever
+ *      read, so it promised an unlock it could not perform; the throttle
+ *      lives in login_attempts, and this screen clears the failures
+ *      against the account's own identifiers (issue-021 §8.4).
  */
 
 declare(strict_types=1);
@@ -184,9 +189,7 @@ if ($method === 'POST' && $path === '/settings/password') {
         Database::getInstance()->execute(
             'UPDATE users
                 SET password_hash = :hash,
-                    updated_at = CURRENT_TIMESTAMP,
-                    failed_attempts = 0,
-                    locked_until = NULL
+                    updated_at = CURRENT_TIMESTAMP
               WHERE id = :uid',
             [
                 ':hash' => $hash,
@@ -198,6 +201,13 @@ if ($method === 'POST' && $path === '/settings/password') {
 
         throw new HttpException(500, 'Your password could not be changed. Please try again.');
     }
+
+    // The visitor has just proved they know the current password, so the
+    // failures against THIS account's identifiers are forgiven. The source
+    // counter is not theirs to clear — it is shared with everybody behind
+    // the same address (issue-021 §8.4).
+    clearLoginIdentifierFailures($username);
+    clearLoginIdentifierFailures($email);
 
     // The credential version is the digest of the stored hash, and the hash
     // has just changed. The CURRENT session has to be told about it — or
