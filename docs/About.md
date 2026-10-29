@@ -31,4 +31,4 @@ the unauthenticated screens are limited. the reset screen allows 3 requests per 
 
 the reset screen answers the same way for every address, so it cannot be used to find out which addresses have an account. the answers are byte-identical and the timing is the same. the logs carry the context of a failure and never the address that was submitted.
 
-## 
+the web root is the repository root, so the deny block in .htaccess is load-bearing. it refuses .env, .git, database/, includes/, views/, docker/, vendor/, composer.json, composer.lock and docs/issues/ - and, since issue-023, docker-compose.yml, config.template.php, AGENTS.md and everything under docs/ except the mockup deliverable. the development stack's default credentials are therefore not published by the web server. the liteSpeed webadmin is bound to 127.0.0.1 only, and the phpMyAdmin and nginx images are pinned by digest.

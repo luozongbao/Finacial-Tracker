@@ -254,7 +254,7 @@ does not exist.
 - [x] No document in the repository states that "PHP 8.3+ syntax is unavailable".
 - [x] `docker compose exec -T app sh -c 'readlink -f /var/www/html'` resolves to `/var/www/vhosts/localhost/html`.
 - [x] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/` returns **404** — not 500 — proving LiteSpeed serves the docroot.
-- [x] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/config.template.php` returns **200** with an empty body — PHP executed, the source was not served.
+- [x] `curl -sS -o /dev/null -w '%{http_code}' http://localhost:${APP_PORT}/config.template.php` returned **200** with an empty body — PHP executed, the source was not served. — **superseded by [issue-023](issue-023.md)**: the path is now refused with **403** outright, which is a stronger outcome. The check below is now a **403** check.
 - [x] `/.env` → **403**, `/.git/config` → **403**, `/config.php` → **403**, `/database/config_test.php` → **403**.
 - [x] `/docs/mockup/index.html` → **200**.
 - [x] `.github/skills/dev-stack-ops/scripts/run-tests.sh` reports **3 PASS / 0 FAIL** and exits **0**. — it was 2 before [issue-010.md](issue-010.md) added `database/mailer_test.php`.
@@ -294,7 +294,7 @@ docker compose exec -T app sh -c 'readlink -f /var/www/html'
 curl -sS -o /dev/null -w 'root=%{http_code}\n' http://localhost:8088/
 #   root=404   (no index.php yet — 404, not 500)
 curl -sS -o /dev/null -w 'php=%{http_code}\n' http://localhost:8088/config.template.php
-#   php=200
+#   php=403    (issue-023 denied the path; it was 200 when this issue landed)
 
 # 6. The web-root hardening still holds on the new image
 for p in /.env /.git/config /config.php /database/config_test.php; do

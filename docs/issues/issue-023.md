@@ -1,7 +1,9 @@
 # Issue-023 — Security: the web root still serves the deployment topology and the internal documentation
 
-> **Status:** **open** — found by the audit of 2026-10-28, measured against the
-> running application.
+> **Status:** **implemented & verified** — Stage 1 landed on 2026-10-29, with
+> the deny rules, the compose-file hardening and the rewritten regression test
+> in **one** change. Stage 2 (the default-deny inversion) was **deliberately
+> deferred** — see §13.
 > **Target:** `.htaccess`, `database/webroot_hardening_test.php`,
 > `docker-compose.yml`, `AGENTS.md`
 > **Severity:** **Medium** — nothing secret is disclosed, but the *default
@@ -33,6 +35,7 @@
 10. [Rollback](#10-rollback)
 11. [Risks](#11-risks)
 12. [Out of scope](#12-out-of-scope)
+13. [The implementation, as built](#13-the-implementation-as-built)
 
 ---
 
@@ -108,6 +111,10 @@ A sweep of the running application:
 | **`/AGENTS.md`** | **200** | **The finding.** |
 | **`/docs/About.md`** | **200** | **The finding.** |
 | `/docs/` | 404 | No directory index — acceptable, but the directory should still be denied so a future index cannot appear. |
+
+> **The table above is the audit measurement of 2026-10-28, before the fix.**
+> The state after the fix is in §13.4: the four findings are **403**, `/docs/`
+> is **403**, and the mockup is still **200**.
 
 ---
 
@@ -262,16 +269,33 @@ front-controller rewrite:
     # password, the application credentials, the image tags and the internal
     # hostnames. It is a development artefact and it has no business being
     # on a public web root.
-    RewriteRule "^/?docker-compose\.ya?ml$" - [F,L]
+    RewriteRule "^/?docker-compose.*\.ya?ml$" - [F,L]
 
     # The tracked twin of config.php. It holds no secret, but it is the
     # complete constant set of the configuration.
     RewriteRule "^/?config\.template\.php$" - [F,L]
 
-    # The agent guide and the product brief. Internal documentation.
+    # The agent guide. Internal documentation.
     RewriteRule "^/?AGENTS\.md$" - [F,L]
-    RewriteRule "^/?docs/About\.md$" - [F,L]
+
+    # Everything under the documentation directory except the mockup
+    # deliverable. The rule is a single negative lookahead so that a file
+    # added under docs/ later is refused without touching this file.
+    RewriteRule "^/?docs/(?!mockup(/|$))" - [F,L]
 ```
+
+> **The `docs/` rule is one rule, not a list.** The mockup is the **UX
+> deliverable** and it has to stay public, so a plain `^/?docs/` would break
+> it — but a list of exceptions (`^/?docs/About\.md$`, `^/?docs/issues/`, …)
+> would publish every file added to `docs/` afterwards, which is the very
+> defect this issue is about. The negative lookahead exempts `mockup` as a
+> **whole path segment** and refuses everything else, including a file that
+> does not exist yet. `^/?docs/(?!mockup(/|$))` is the safe form; a
+> `^/?docs/(?!mockup/)` would let `/docs/mockupevil.md` through.
+>
+> **This was not in the original specification** — the specification listed
+> four separate paths. The implementation collapsed them into one rule
+> because the four-path list would have kept the *class* of defect alive.
 
 > **The `.htaccess` file is cached by LiteSpeed.** A rule that was just added
 > to the file is **not enforced** until the server re-reads it. After editing
@@ -352,31 +376,34 @@ ok('GET /install.php does not serve PHP source',
 
 ## 8. Acceptance criteria
 
-- [ ] `GET /docker-compose.yml` → **403**.
-- [ ] `GET /config.template.php` → **403**.
-- [ ] `GET /AGENTS.md` → **403**.
-- [ ] `GET /docs/About.md` → **403**.
-- [ ] `GET /docs/mockup/` → **200** — the deliverable stays public.
-- [ ] `GET /docs/mockup/index.html` → **200**.
-- [ ] `GET /docs/mockup/assets/tokens.css` → **200**.
-- [ ] `GET /assets/css/tokens.css` → **200**.
-- [ ] `GET /login`, `GET /dashboard` (redirected), `GET /transactions` → the
+All measured against the **running** application on 2026-10-29, after
+`docker compose restart app`. The evidence is in §13.4.
+
+- [x] `GET /docker-compose.yml` → **403**.
+- [x] `GET /config.template.php` → **403**.
+- [x] `GET /AGENTS.md` → **403**.
+- [x] `GET /docs/About.md` → **403**.
+- [x] `GET /docs/` → **403**.
+- [x] `GET /docs/mockup/` → **200** — the deliverable stays public.
+- [x] `GET /docs/mockup/index.html` → **200**.
+- [x] `GET /docs/mockup/assets/tokens.css` → **200**.
+- [x] `GET /assets/css/tokens.css` → **200**.
+- [x] `GET /login`, `GET /dashboard` (redirected), `GET /transactions` → the
       normal application responses.
-- [ ] `GET /` → **302** to `/dashboard` (or the install gate).
-- [ ] `GET /index.php` → **404**, and the body does **not** contain `<?php`.
-- [ ] `GET /install.php` → **403**, and the body does **not** contain `<?php`.
-- [ ] **No PHP source is served by any path.** The test asserts this for every
+- [x] `GET /` → **302** to `/dashboard` (or the install gate).
+- [x] `GET /index.php` → **404**, and the body does **not** contain `<?php`.
+- [x] `GET /install.php` → **403**, and the body does **not** contain `<?php`.
+- [x] **No PHP source is served by any path.** The test asserts this for every
       entry in the denied list and for both PHP entry points.
-- [ ] `database/webroot_hardening_test.php` no longer asserts that
+- [x] `database/webroot_hardening_test.php` no longer asserts that
       `/AGENTS.md` or `/docs/About.md` are reachable, and its liveness probe
       uses a path that stays public.
-- [ ] The WebAdmin is bound to **127.0.0.1** in `docker-compose.yml`, and the
+- [x] The WebAdmin is bound to **127.0.0.1** in `docker-compose.yml`, and the
       ports table in `AGENTS.md` matches the file.
-- [ ] The `phpmyadmin` image tag is **pinned**, or the reason it floats is
-      written down.
-- [ ] The rules are written in the **deny block**, and the front-controller
+- [x] The `phpmyadmin` and `nginx` image tags are **pinned by digest**.
+- [x] The rules are written in the **deny block**, and the front-controller
       rewrite still comes after it.
-- [ ] `docker compose restart app` has been run, and the **live** status codes
+- [x] `docker compose restart app` has been run, and the **live** status codes
       — not the file contents — are what the test asserts.
 
 ---
@@ -454,3 +481,127 @@ it.
   chose.
 - **The production deployment's own web-root configuration** — a separate
   document from `AGENTS.md`.
+
+---
+
+## 13. The implementation, as built
+
+Implemented on 2026-10-29, in one change: the deny rules, the compose-file
+hardening and the rewritten regression test land together, because the test
+was asserting the leak and the fix and the test could not be separated.
+
+### 13.1 What changed
+
+| File | Change |
+|---|---|
+| `.htaccess` | Four deny rules inside the existing block, before the front-controller rewrite. |
+| `docker-compose.yml` | The WebAdmin is bound to `127.0.0.1`; `phpmyadmin` and `nginx` are pinned by digest. |
+| `database/webroot_hardening_test.php` | The lists, the probe, section D and a **new** section F were rewritten together. |
+| `AGENTS.md` | The ports table now says what the compose file does; the web-root rule and the image-pinning rule are recorded. |
+| `docs/issues/issue-003.md`, `docs/issues/issue-009.md` | The measurements they recorded are corrected — they described the pre-fix state as the expected state. |
+
+### 13.2 The deny block, as written
+
+```apache
+    # ---- The deployment topology and the internal documentation ----------
+    RewriteRule "^/?docker-compose.*\.ya?ml$" - [F,L]
+    RewriteRule "^/?config\.template\.php$" - [F,L]
+    RewriteRule "^/?AGENTS\.md$" - [F,L]
+    RewriteRule "^/?docs/(?!mockup(/|$))" - [F,L]
+```
+
+Two things differ from the specification in §7.1, and both are deliberate:
+
+1. **`docker-compose.*\.ya?ml$`** instead of `docker-compose\.ya?ml$` — the
+   wildcard covers `docker-compose.yaml` and any `docker-compose.<profile>.yml`
+   variant. A deny rule that only names one spelling is a deny rule that the
+   next spelling walks past.
+2. **`docs/(?!mockup(/|$))`** instead of a rule per documentation file — see the
+   note in §7.1. **This is the one thing the implementation found that the
+   specification did not say:** the deny block is a list of **exceptions**, so
+   a list of four documentation paths would have left the *class* of the
+   finding open — the next file committed under `docs/` would be published
+   with no warning and no failing test. One rule with a negative lookahead
+   refuses it.
+
+### 13.3 The regression test, as rewritten
+
+`database/webroot_hardening_test.php` used to **assert the leak**: `/AGENTS.md`
+and `/docs/About.md` were in the `$public` list, `/config.template.php` was
+asserted to be **200**, and the liveness probe used `/AGENTS.md` as its
+marker. All three are gone.
+
+| Section | Before | After |
+|---|---|---|
+| `app_answers()` (the liveness probe) | `GET /AGENTS.md` → 200 | `GET /docs/mockup/index.html` → 200, marker `Financial Tracker` |
+| `$public` | `/AGENTS.md`, `/docs/About.md`, the mockup paths | the mockup paths and `/assets/css/tokens.css` |
+| `$denied` | the directories and the dot-files | the above **plus** `/config.template.php`, `/docker-compose.yml`, `/AGENTS.md`, `/docs/`, `/docs/About.md` |
+| Section D | "the allowed PHP is executed, not leaked" | **"No PHP source is served by any path"** — `strpos($body, '<?php') === false` for both entry points and for every denied path |
+| Section E | the deny-rule fragments | the four new fragments, so the rules themselves are asserted |
+| **Section F** | — | **new** — "The compose file does not publish the topology": the WebAdmin binding is loopback-only, and every `image:` reference is pinned by digest or by a version tag |
+
+Two details in the rewrite are worth recording:
+
+- **A probe on a denied path reports a running application as down.** The probe
+  used the leak as its marker, so the first thing the fix had to do was move
+  it. `/docs/mockup/index.html` stays public and carries the marker.
+- **Section F finds the WebAdmin binding by the variable name**, not by a
+  regular expression over the whole file. A regex that has to match the exact
+  line is a regex that breaks the day somebody reformats the file; finding
+  the line that mentions `OLS_ADMIN_PORT` and asserting that it carries
+  `127.0.0.1:` is position-independent and says what it means.
+
+### 13.4 The measured result
+
+`docker compose restart app` first — LiteSpeed caches the parsed `.htaccess`,
+so a rule that was just written is not enforced until the server re-reads it.
+Then, against the running application:
+
+| Path | Status |
+|---|---|
+| `/docker-compose.yml` | **403** |
+| `/config.template.php` | **403** |
+| `/AGENTS.md` | **403** |
+| `/docs/About.md` | **403** |
+| `/docs/` | **403** |
+| `/docs/mockup/` | **200** |
+| `/docs/mockup/index.html` | **200** |
+| `/docs/mockup/assets/tokens.css` | **200** |
+| `/assets/css/tokens.css` | **200** |
+| `/` | **302** |
+| `/login` | **200** |
+| `/index.php` | **404** |
+| `/install.php` | **403** |
+
+No response body contains `<?php`.
+
+`docker compose ps` confirms the WebAdmin binding:
+
+```
+ft-app    0.0.0.0:8088->80/tcp, 127.0.0.1:7080->7080/tcp
+```
+
+### 13.5 Stage 2 was deferred, deliberately
+
+Stage 2 — the default-deny inversion — was **not** implemented. Three
+reasons:
+
+1. **The issue itself says it is not a v1.0 blocker.** Stage 1 closes the
+   measured disclosure; Stage 2 closes the *class* of it.
+2. **It contradicts a standing repository rule.** `AGENTS.md` says: *"Extend
+   the deny block — never replace the file wholesale."* Stage 2 replaces it.
+3. **It needs its own regression, not a drive-by edit.** An inverted rule set
+   changes the meaning of every path in the tree at once, and the existing
+   test only covers the paths it knows about.
+
+Stage 2 remains open as a **separate** piece of work with its own issue
+number when it is picked up.
+
+### 13.6 The one thing the audit did not say
+
+The audit found the four leaked paths. It did not say that **the deny block is
+a list of exceptions rather than a default** — which is why the four paths
+leaked in the first place, and why a fifth would leak the same way. The fix
+therefore had to be written so that the *next* file is refused without
+touching `.htaccess` again, and that is what the negative-lookahead rule does
+for `docs/`.

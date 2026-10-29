@@ -86,11 +86,22 @@ GET /.gitignore            -> 403
 GET /.htaccess             -> 403
 GET /config.php            -> 403
 GET /database/config_test.php -> 403
-GET /AGENTS.md             -> 200
-GET /docs/About.md         -> 200
 GET /docs/mockup/          -> 200
 GET /docs/mockup/index.html -> 200
 ````
+
+> **Extended by [issue-023](issue-023.md).** The deny block was still a list of
+> exceptions, so four files that were committed *after* it was written were
+> still served — `AGENTS.md`, `docs/About.md`, `docker-compose.yml` and
+> `config.template.php`. Issue 023 closed them:
+>
+> ````text
+> GET /AGENTS.md             -> 403
+> GET /docs/About.md         -> 403
+> GET /docker-compose.yml    -> 403
+> GET /config.template.php   -> 403
+> GET /docs/                  -> 403
+> ````
 
 ---
 
@@ -246,7 +257,9 @@ The helper was verified end to end against this stack:
 - [ ] `curl ... /database/config_test.php` returns **403**.
 - [ ] `curl ... /docs/issues/issue-001.md` returns **403**.
 - [ ] `curl ... /docs/mockup/index.html` returns **200**.
-- [ ] `curl ... /AGENTS.md` returns **200**.
+- [ ] `curl ... /AGENTS.md` returns **403** — extended by
+      [issue-023](issue-023.md), which also closed `/docs/About.md`,
+      `/docker-compose.yml` and `/config.template.php`.
 - [ ] `docker compose exec -T app sh -c 'readlink -f /var/www/html'` resolves to `/var/www/vhosts/localhost/html`.
 - [ ] `docker compose exec -T app sh -c 'touch /var/www/vhosts/localhost/html/.wtest && rm /var/www/vhosts/localhost/html/.wtest'` succeeds — the docroot is writable by the worker.
 - [ ] `.github/skills/dev-stack-ops/scripts/run-tests.sh` reports `=== N PASS / 0 FAIL ===` and exits 0.
@@ -284,7 +297,7 @@ for f in .env .env.example .git/config .gitignore .htaccess config.php database/
 done
 
 echo "--- must be 200 ---"
-for f in AGENTS.md docs/About.md docs/mockup/ docs/mockup/index.html docs/mockup/assets/tokens.css; do
+for f in docs/mockup/ docs/mockup/index.html docs/mockup/assets/tokens.css; do
   printf "%-28s " "$f"
   curl -sS -o /dev/null -w "%{http_code}\n" "http://localhost:${APP_PORT:-8088}/$f"
 done
@@ -322,7 +335,7 @@ docker compose restart app
 | The application implementer replaces `.htaccess` wholesale and drops the deny block | The file header says explicitly: *keep the deny block intact, append the front-controller rules below it*. A regression test asserts `/.env` → 403. |
 | A deny rule is too broad and breaks a legitimate route | The deny list is explicit and short. `docs/mockup/` is deliberately **not** denied. The patterns were verified against real requests, not assumed. |
 | `restrained 1` silently drops a directive | Verified empirically: `<FilesMatch>` + `Require all denied` had **no effect**, `RewriteRule … [F]` worked. The rule set uses only the directives that were proven to work. |
-| `AGENTS.md` and `docs/About.md` remain public | Acceptable for a local development stack — they contain no secrets. A production deployment should deny the whole tree that is not a public route; that is a deployment concern, not a development one. |
+| `AGENTS.md` and `docs/About.md` remain public | **Closed** by [issue-023](issue-023.md) — both are refused with **403** now, along with `docker-compose.yml` and `config.template.php`. The deny block is still a list of exceptions, so a **new** file added to the web root is published until a rule names it; the rule must land in the same change as the file. |
 | The rules are only in the dev stack | They live in `.htaccess` in the repository, so a production checkout inherits them. The production web server must honour `.htaccess` — LiteSpeed does. |
 
 ---

@@ -14,9 +14,13 @@
 #     /.git/config       -> the repository's git metadata
 #     /database/*        -> schema and regression-test sources
 #     /docs/issues/*     -> internal issue write-ups
+#     /docs/*            -> the product brief and any other internal doc
 #     /vendor/*          -> third-party library source
 #     /composer.json     -> the dependency manifest
 #     /composer.lock     -> the exact deployed dependency versions
+#     /docker-compose.yml-> the default credential set of the dev stack
+#     /config.template.php-> the complete constant set of the configuration
+#     /AGENTS.md         -> the internal operations guide
 #
 #   Every rule below was verified against
 #   litespeedtech/openlitespeed:1.9.4-lsphp85
@@ -68,6 +72,36 @@
     # docs/mockup/ stays public: it is the UX deliverable, and it is also
     # served by the standalone mockup container.
     RewriteRule "^/?docs/issues/" - [F,L]
+
+    # ---- The deployment topology and the internal documentation -----------
+    # docker-compose.yml publishes the default credential set of the whole
+    # development stack — the WebAdmin user and password, the MariaDB root
+    # password, the application credentials, the image tags and the internal
+    # hostnames. It is a development artefact and it has no business being
+    # on a public web root.
+    #
+    # The pattern covers every compose variant: docker-compose.yml,
+    # docker-compose.yaml and docker-compose.override.yml.
+    RewriteRule "^/?docker-compose.*\.ya?ml$" - [F,L]
+
+    # The tracked twin of config.php. It holds no secret, but it is the
+    # complete constant set of the configuration.
+    RewriteRule "^/?config\.template\.php$" - [F,L]
+
+    # The agent guide and the product brief. Internal documentation.
+    RewriteRule "^/?AGENTS\.md$" - [F,L]
+
+    # Everything under docs/ EXCEPT the mockup deliverable. The single rule
+    # covers docs/About.md, the docs/issues/ tree and anything that is added
+    # to docs/ later — a directory that is not denied today can publish a
+    # file tomorrow.
+    #
+    # The negative lookahead exempts the mockup as a whole path SEGMENT, so
+    # /docs/mockup, /docs/mockup/ and /docs/mockup/assets/tokens.css all
+    # stay reachable, while /docs/, /docs/About.md and /docs/anything-else
+    # are refused. docs/issues/ has its own rule above; it is harmless that
+    # this rule would catch it too.
+    RewriteRule "^/?docs/(?!mockup(/|$))" - [F,L]
 
     # ---- Front controller -------------------------------------------------
     # Everything that is not a real file and not a real directory is handed

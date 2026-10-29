@@ -52,8 +52,17 @@ services:
       # Host port 8088 by default: it must not collide with a sibling stack, and
       # binding :80 on a workstation needs privileges on some hosts.
       - "${APP_PORT:-8088}:80"
-      # WebAdmin console. Bound to loopback only: it is an admin surface.
-      - ${OLS_ADMIN_PORT:-7080}:7080
+      # WebAdmin console. Bound to LOOPBACK ONLY: it is an admin surface, it
+      # can read the vhost configuration and the logs, and it can restart the
+      # server. The default credentials are published in this very file, so a
+      # console reachable from the network is an admin console for anyone who
+      # reads the repository.
+      #
+      # Without the 127.0.0.1 prefix the port binds to EVERY interface. The
+      # specification in docs/issues/issue-001.md §4 and the ports table in
+      # AGENTS.md both say loopback — this file is what was wrong (issue-023
+      # §5). Remote access goes through an SSH tunnel, not a bound port.
+      - "127.0.0.1:${OLS_ADMIN_PORT:-7080}:7080"
     volumes:
       # The project itself, served at "/".
       - ./:/var/www/vhosts/localhost/html
@@ -118,7 +127,17 @@ services:
   # phpmyadmin — optional database admin UI.
   # ---------------------------------------------------------------------
   phpmyadmin:
-    image: phpmyadmin:latest
+    # PINNED BY DIGEST, not by a floating tag (issue-023 §7.4). `latest` is
+    # not a version: it moves under the repository, and an unpinned tag is a
+    # supply-chain risk in its own right — the tag that resolves today is not
+    # the tag that resolves tomorrow, and the difference is never reviewed.
+    #
+    # The digest is the immutable identity of one exact image. To update it:
+    #   docker pull phpmyadmin:latest
+    #   docker image inspect phpmyadmin:latest --format '{{index .RepoDigests 0}}'
+    # and paste the result here. The image is also the one the stack is
+    # already running, so the digest does not force a fresh download.
+    image: phpmyadmin@sha256:7ebeef41095cbe071a00e3c85c8b44309f110eee546c7b3a6d1fcfe259d58e59
     container_name: ft-phpmyadmin
     restart: unless-stopped
     ports:
@@ -146,7 +165,9 @@ services:
   # See docs/issues/issue-002.md.
   # ---------------------------------------------------------------------
   mockup:
-    image: nginx:alpine
+    # PINNED BY DIGEST for the same reason as phpMyAdmin above: `alpine` is a
+    # moving tag. The digest names one exact image.
+    image: nginx@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
     container_name: ft-mockup
     restart: unless-stopped
     profiles:

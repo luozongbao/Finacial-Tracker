@@ -13,6 +13,16 @@
  * the file, so a wholesale replacement of .htaccess is caught even if the
  * running server still has the old rules cached.
  *
+ * Issue-023 extended the deny block: the deployment topology
+ * (docker-compose.yml), the tracked twin of the configuration
+ * (config.template.php) and the internal documentation (AGENTS.md and
+ * everything under docs/ except the mockup deliverable) are denied now. The
+ * test used to ASSERT that those paths were reachable — it pinned the leak in
+ * place — so the lists and the liveness probe changed with the rules.
+ *
+ * Section F covers the other half of the issue: the compose file itself must
+ * bind the admin console to loopback and must not float an image tag.
+ *
  * It is a structural + live-HTTP test: no database is needed.
  *
  * Run:  docker compose exec -T app php database/webroot_hardening_test.php
@@ -66,6 +76,29 @@ function http_get(string $url, int $timeout = 10): array
 }
 
 /**
+ * Strip the comments out of a YAML source.
+ *
+ * The compose file explains itself in comments, and the comments legitimately
+ * mention "latest" and the port variables. A scan that read the raw file
+ * would find those and report a floating tag that is only mentioned in a
+ * comment — so the comments come off before anything is asserted.
+ *
+ * A '#' starts a comment when it is at the start of the line or preceded by
+ * whitespace. That is the YAML rule.
+ */
+function strip_yaml_comments(string $yaml): string
+{
+    $lines = preg_split('/\R/', $yaml) ?: [];
+    $kept  = [];
+
+    foreach ($lines as $line) {
+        $kept[] = preg_replace('/(^|\s)#.*$/', '$1', $line);
+    }
+
+    return implode("\n", $kept);
+}
+
+/**
  * The base URL of the application under test.
  *
  * Inside the app container the vhost answers on 127.0.0.1:80. On the host the
@@ -108,10 +141,15 @@ function resolve_base_url(): string
  *
  * The marker matters: another stack may already own the port, and a 200 from
  * the wrong application is worse than no answer at all.
+ *
+ * The probe path is /docs/mockup/index.html — a path that MUST stay public,
+ * because it is the UX deliverable. It used to be /AGENTS.md, which is now
+ * denied (issue-023): a probe on a denied path reports a running application
+ * as down, and the operator is told to start a stack that is already up.
  */
 function app_answers(string $baseUrl): bool
 {
-    $res = http_get($baseUrl . '/AGENTS.md');
+    $res = http_get($baseUrl . '/docs/mockup/index.html');
     return $res['status'] === 200
         && is_string($res['body'])
         && strpos($res['body'], 'Financial Tracker') !== false;
@@ -190,8 +228,13 @@ $denied = [
     '/.gitignore',
     '/.htaccess',
     '/config.php',
+    '/config.template.php',
+    '/docker-compose.yml',
+    '/AGENTS.md',
     '/database/',
     '/database/config_test.php',
+    '/docs/',
+    '/docs/About.md',
     '/docs/issues/',
     '/docs/issues/issue-001.md',
     '/docker/',
@@ -232,12 +275,16 @@ if (count($notDenied) > 0) {
 echo "\n## C. The deliverables stay reachable (200)\n";
 
 // The deny list must not be so broad that it breaks the project.
+//
+// /AGENTS.md and /docs/About.md were on this list until issue-023: they are
+// internal documentation and they are now denied, so they moved to the
+// denied list above. The mockup deliverable and the application's own
+// assets stay public — they are what the site IS.
 $public = [
-    '/AGENTS.md',
-    '/docs/About.md',
     '/docs/mockup/',
     '/docs/mockup/index.html',
     '/docs/mockup/assets/tokens.css',
+    '/assets/css/tokens.css',
 ];
 
 foreach ($public as $path) {
@@ -249,23 +296,52 @@ foreach ($public as $path) {
     );
 }
 
-echo "\n## D. Allowed PHP is still executed, not leaked\n";
-
-// config.template.php is public and contains no secrets, but it must be run by
-// PHP — a 200 that returned the source would mean .htaccess stopped protecting
-// the PHP handler.
-$res = http_get($baseUrl . '/config.template.php');
-ok('GET /config.template.php -> 200', $res['status'] === 200, 'got ' . (string) $res['status']);
+// The application itself must still answer: the bare root redirects to the
+// dashboard, and the sign-in screen is public.
+$res = http_get($baseUrl . '/');
 ok(
-    'the PHP source of config.template.php is not served',
+    'GET / -> 302',
+    $res['status'] === 302,
+    'got ' . ($res['status'] === null ? 'no response' : (string) $res['status'])
+);
+
+$res = http_get($baseUrl . '/login');
+ok(
+    'GET /login -> 200',
+    $res['status'] === 200,
+    'got ' . ($res['status'] === null ? 'no response' : (string) $res['status'])
+);
+
+echo "\n## D. No PHP source is served by any path\n";
+
+// A PHP file that is denied must be refused, and a PHP file that is an entry
+// point must be EXECUTED — never handed out as source. Before issue-023 the
+// subject of this section was /config.template.php, which was public and
+// therefore had to be proven to be executed rather than leaked. It is denied
+// now, so the entry points carry the assertion instead.
+$res = http_get($baseUrl . '/index.php');
+ok(
+    'GET /index.php does not serve PHP source',
     is_string($res['body']) && strpos($res['body'], '<?php') === false,
     'the response body contains the raw source'
 );
+
+$res = http_get($baseUrl . '/install.php');
 ok(
-    'config.template.php produced no output (it only declares constants)',
-    is_string($res['body']) && $res['body'] === '',
-    'body=' . var_export(is_string($res['body']) ? $res['body'] : null, true)
+    'GET /install.php does not serve PHP source',
+    is_string($res['body']) && strpos($res['body'], '<?php') === false,
+    'the response body contains the raw source'
 );
+
+// Every denied path must be refused with a body that is not source either.
+foreach (['/config.template.php', '/docker-compose.yml', '/AGENTS.md', '/docs/About.md'] as $path) {
+    $res = http_get($baseUrl . $path);
+    ok(
+        "GET {$path} does not serve PHP source",
+        is_string($res['body']) && strpos($res['body'], '<?php') === false,
+        'the response body contains the raw source'
+    );
+}
 
 echo "\n## E. The deny rules are still written down\n";
 
@@ -313,12 +389,16 @@ if (is_file($htaccess)) {
     $expected = [
         '(?!well-known)' => 'dotfiles are denied',
         'config\.php'    => 'config.php is denied',
+        'config\.template\.php' => 'config.template.php is denied',
         'database/'      => 'database/ is denied',
         'includes/'      => 'includes/ is denied',
         'views/'         => 'views/ is denied',
         'docker/'        => 'docker/ is denied',
         'vendor/'        => 'vendor/ is denied',
         'docs/issues/'   => 'docs/issues/ is denied',
+        'docs/(?!mockup' => 'the internal documentation is denied, except the mockup',
+        'docker-compose' => 'the compose file is denied',
+        'AGENTS\.md'     => 'the agent guide is denied',
         'composer\.(json|lock)' => 'the dependency manifest and lock file are denied',
     ];
 
@@ -363,6 +443,71 @@ if (is_file($htaccess)) {
         $dotRule !== '' && strpos($dotRule, '(?!well-known)') !== false,
         'pattern=' . $dotRule
     );
+}
+
+echo "\n## F. The compose file does not publish the topology\n";
+
+// The web root is only one of the two places the deployment topology is
+// disclosed. The other is the compose file itself, which publishes the
+// default credential set of the whole stack. The deny block hides the file
+// from HTTP; these assertions cover the two properties the file must have on
+// its own — the admin console is bound to loopback, and no image tag floats.
+$compose = $root . '/docker-compose.yml';
+ok('docker-compose.yml exists in the document root', is_file($compose), $compose);
+
+if (is_file($compose)) {
+    $yaml = strip_yaml_comments((string) file_get_contents($compose));
+
+    // The WebAdmin is an admin surface: it can read the vhost configuration
+    // and the logs, and it can restart the server. It must not answer on the
+    // network — and the default credentials for it are published in this very
+    // file.
+    //
+    // The binding is found by the variable, not by its position, so the check
+    // survives a reordering of the ports block.
+    $adminBindings = [];
+    foreach (preg_split('/\R/', $yaml) as $line) {
+        if (strpos($line, 'OLS_ADMIN_PORT') !== false && preg_match('/^\s*-\s/', $line) === 1) {
+            $adminBindings[] = trim($line);
+        }
+    }
+
+    ok(
+        'the compose file binds the WebAdmin console exactly once',
+        count($adminBindings) === 1,
+        'bindings: ' . implode(' | ', $adminBindings)
+    );
+
+    foreach ($adminBindings as $binding) {
+        ok(
+            "the WebAdmin binding is loopback-only ({$binding})",
+            strpos($binding, '127.0.0.1:') !== false,
+            'a port binding without a host address answers on every interface'
+        );
+    }
+
+    // A floating tag is a supply-chain risk: "latest" and "alpine" both move
+    // under the repository, and the difference is never reviewed.
+    $images = [];
+    foreach (preg_split('/\R/', $yaml) as $line) {
+        if (preg_match('/^\s*image:\s*(\S+)\s*$/', $line, $m)) {
+            $images[] = $m[1];
+        }
+    }
+
+    ok('the compose file declares its images', count($images) > 0, (string) count($images));
+
+    foreach ($images as $image) {
+        $isDigest = preg_match('/@sha256:[0-9a-f]{64}$/', $image) === 1;
+        // A version tag carries a number. "latest" and "alpine" do not.
+        $isVersioned = preg_match('/:[^:\s]*\d[^:\s]*$/', $image) === 1;
+
+        ok(
+            "the image {$image} is pinned",
+            $isDigest || $isVersioned,
+            'a floating tag can move under the repository'
+        );
+    }
 }
 
 echo "\n";

@@ -12,12 +12,12 @@ This file holds only what an agent cannot infer from the tree.
 twenty of the twenty original issues are in and verified. A pre-release
 security audit (2026-10-28) and a requirement check against
 [docs/About.md](docs/About.md) produced **six further issues (021–026)**: the
-first **two** are **in and verified**, and **four (023–026) are open**. Nothing
-in the application is a placeholder.**
+first **three** are **in and verified**, and **three (024–026) are open**.
+Nothing in the application is a placeholder.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | the four **open** issues 023–026 — the web-root disclosure, the thin response headers, the installer secrets in the session store, and the **missing average** |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | **three (024–026)** — the thin response headers, the installer secrets in the session store, and the **missing average** |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -100,7 +100,7 @@ helpers (`resolveMonthRange()`, `reportGrain()`, `reportSpanDays()`,
 sandbox that runs the real screen against a scratch database. **All twenty
 of the original issues are in.**
 
-**Four further issues (023–026) are open** — they are the output of a
+**Three further issues (024–026) are open** — they are the output of a
 pre-release security audit and a requirement check carried out on 2026-10-28,
 and they are **not** implemented. Read
 [docs/issues/README.md](docs/issues/README.md) for the index.
@@ -133,7 +133,17 @@ and they are **not** implemented. Read
   were turned away.
 - **023 — the web root still serves `docker-compose.yml`**, which holds the
   default database credentials, and `database/webroot_hardening_test.php`
-  **asserts that it does** — the test pins the leak in place.
+  **asserts that it does** — the test pins the leak in place. **Implemented
+  and verified.** The deny block now refuses `docker-compose.yml`,
+  `config.template.php`, `AGENTS.md` and everything under `docs/` except the
+  mockup deliverable; the hardening test no longer asserts that those paths
+  are reachable; the WebAdmin is bound to **127.0.0.1** (it was bound to every
+  interface, and the ports table said otherwise); and the floating image tags
+  are **pinned by digest**. **The implementation found one thing the audit did
+  not**: the deny list is a list of **exceptions**, so the safe form for the
+  documentation directory is a **single** rule with a **negative lookahead**
+  (`^/?docs/(?!mockup(/|$))`) — it exempts the mockup as a whole path segment
+  and refuses everything else under `docs/`, including a file added later.
 - **024 — the response headers are thin** (no CSP, no HSTS, no
   `Permissions-Policy`), and `install.php` sends **no headers at all**.
 - **025 — the installer writes the database and the SMTP password into the
@@ -150,8 +160,8 @@ The audit itself was **not** a clean bill of health on those six points and
 redirect, session and path-traversal audits all came back clean, and the
 findings are written up with their measurements in
 [docs/issues/issue-021.md](docs/issues/issue-021.md) –
-[docs/issues/issue-026.md](docs/issues/issue-026.md). **021 and 022 are done;
-023–026 are open.**
+[docs/issues/issue-026.md](docs/issues/issue-026.md). **021, 022 and 023 are
+done; 024–026 are open.**
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -240,7 +250,21 @@ The app service mounts the repository at
 in the tree is web-reachable unless `.htaccess` denies it.** The deny block in
 `.htaccess` is load-bearing — read it before adding a directory, and never
 replace the file wholesale. The rules are specified and measured in
-[docs/issues/issue-003.md](docs/issues/issue-003.md).
+[docs/issues/issue-003.md](docs/issues/issue-003.md) and
+[docs/issues/issue-023.md](docs/issues/issue-023.md).
+
+> **The deny block is a list of exceptions, not a default.** Every path that
+> is **not** on the list is served, so a file added to the repository *after*
+> the list was written is published with no warning and no failing test. When
+> you add a file to the web root, add the rule **in the same change** — and
+> add the path to `database/webroot_hardening_test.php` at the same time. The
+> test is the specification: it used to assert that `AGENTS.md` was
+> reachable, which is how a leak survived an audit.
+>
+> The one place a **single rule with a negative lookahead** is used is the
+> documentation directory: `^/?docs/(?!mockup(/|$))` exempts the mockup as a
+> whole path segment and refuses everything else under `docs/` — including a
+> file that is added later.
 
 > **LiteSpeed caches the parsed `.htaccess` in memory.** A rule you just added to
 > the file is **not** enforced until the server re-reads it. After editing
@@ -404,9 +428,24 @@ defaults are chosen so they do not collide with the sibling projects:
 | phpMyAdmin | `PHPMYADMIN_PORT` = **8090** | 80 | all interfaces |
 | LiteSpeed WebAdmin | `OLS_ADMIN_PORT` = **7080** | 7080 | **127.0.0.1 only** |
 
+> **The Bind column is what the compose file does, not what it should do.**
+> The WebAdmin binding used to be `- ${OLS_ADMIN_PORT:-7080}:7080` — no host
+> address, so it answered on **every** interface while this table claimed
+> loopback (issue-023). It is now `- "127.0.0.1:${OLS_ADMIN_PORT:-7080}:7080"`.
+> The WebAdmin is an admin surface: it reads the vhost configuration and the
+> logs and it restarts the server. **Remote access goes through an SSH
+> tunnel, not a bound port.**
+
 `docker compose` services are `db`, `app`, `phpmyadmin` (default profile) and
 `mockup` (profile `mockup`). A bare `docker compose up -d` must **not** start
 the mockup viewer.
+
+> **Every image in the compose file is pinned.** The app image is pinned to a
+> version tag (`1.9.4-lsphp85`) because the PHP floor is a security floor;
+> `phpmyadmin` and `nginx` are pinned **by digest**, because `latest` and
+> `alpine` both move under the registry and the difference is never reviewed.
+> To move a digest: `docker pull <image>:<tag>` and paste the digest from
+> `docker image inspect <image>:<tag> --format '{{index .RepoDigests 0}}'`.
 
 ### Two document-root paths
 
@@ -769,7 +808,7 @@ from `REMOTE_ADDR` is a dial the visitor can turn.
 | [docs/issues/issue-009.md](docs/issues/issue-009.md) | The PHP 8.5.12 runtime floor: PHP2Shell, the pinned image tag, the paths that move. |
 | [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
 | [docs/issues/issue-011.md](docs/issues/issue-011.md) – [issue-020.md](docs/issues/issue-020.md) | The application specification: the schema, the runtime, the tokens, the front controller, the installer, the authentication and the five screens. |
-| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021 and 022 are implemented & verified; 023–025 are open.** |
+| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021, 022 and 023 are implemented & verified; 024–025 are open.** |
 | [docs/issues/issue-026.md](docs/issues/issue-026.md) | The requirement gap against [docs/About.md](docs/About.md): the missing **average**. **Open.** |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
