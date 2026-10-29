@@ -376,6 +376,7 @@ if (!is_file($indexFile) || !is_file($htaccess)) {
 }
 
 $indexSrc = (string) file_get_contents($indexFile);
+$functionsSrc = (string) file_get_contents($root . '/includes/functions.php');
 $viewSrc  = [];
 
 foreach (array_keys($errorViews) as $view) {
@@ -412,7 +413,7 @@ $gatePos = pos_of($indexSrc, "is_file(__DIR__ . '/config.php')");
 $configRequirePos = pos_of($indexSrc, "require_once __DIR__ . '/config.php';");
 $bootstrapPos     = pos_of($indexSrc, "includes/bootstrap.php");
 $sessionPos       = pos_of($indexSrc, 'startSession();');
-$headerPos        = pos_of($indexSrc, 'X-Content-Type-Options');
+$headerPos        = pos_of($indexSrc, 'sendSecurityHeaders();');
 $catchHttpPos     = pos_of($indexSrc, 'catch (HttpException');
 $catchAnyPos      = pos_of($indexSrc, 'catch (Throwable');
 $dispatchPos      = pos_of($indexSrc, '$router->dispatch();');
@@ -433,16 +434,23 @@ ok(
     'session=' . $sessionPos . ' headers=' . $headerPos
 );
 ok(
-    'the controller sends X-Content-Type-Options',
-    str_contains($indexSrc, "header('X-Content-Type-Options: nosniff')")
+    'the controller calls the shared header helper',
+    preg_match('/^\s*sendSecurityHeaders\(\);\s*$/m', $indexSrc) === 1
 );
 ok(
-    'the controller sends X-Frame-Options',
-    str_contains($indexSrc, "header('X-Frame-Options: SAMEORIGIN')")
+    'the controller no longer sends the headers inline',
+    ! str_contains($indexSrc, "header('X-Content-Type-Options")
+        && ! str_contains($indexSrc, "header('X-Frame-Options")
+        && ! str_contains($indexSrc, "header('Referrer-Policy")
 );
 ok(
-    'the controller sends Referrer-Policy',
-    str_contains($indexSrc, "header('Referrer-Policy: same-origin')")
+    'the header helper is defined exactly once, in includes/functions.php',
+    preg_match_all(
+        '/^\s*function\s+sendSecurityHeaders\s*\(/m',
+        $functionsSrc,
+        $m
+    ) === 1
+        && ! str_contains($indexSrc, 'function sendSecurityHeaders')
 );
 ok(
     'the HttpException catch comes before the generic Throwable catch',
@@ -794,7 +802,12 @@ if ($server['proc'] === null || $server['base'] === '') {
 echo "\n## G. The live stack\n";
 
 $liveBase = resolve_base_url();
-$live     = http_request('GET', $liveBase . '/AGENTS.md');
+
+// The probe path is /docs/mockup/index.html — a path that MUST stay public,
+// because it is the UX deliverable. It used to be /AGENTS.md, which issue-023
+// denied: a probe on a denied path reports a running application as down, and
+// the tier skips itself for ever.
+$live = http_request('GET', $liveBase . '/docs/mockup/index.html');
 
 if ($live['status'] !== 200) {
     skip('the live tier', 'the application is not answering at ' . $liveBase);
@@ -811,6 +824,8 @@ if ($live['status'] !== 200) {
         '/composer.json',
         '/composer.lock',
         '/docs/issues/README.md',
+        '/AGENTS.md',
+        '/docs/About.md',
     ] as $path) {
         $res = http_request('GET', $liveBase . $path);
         ok('the deny block still holds ' . $path, $res['status'] === 403, (string) $res['status']);

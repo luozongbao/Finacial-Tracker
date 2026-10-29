@@ -382,21 +382,354 @@ ok('GET /install.php -> 403 once installed', $r['status'] === 403, 'status=' . $
 echo "\n== 15. Security headers ==\n";
 $r = req('GET', BASE . '/login', [], $jarG);
 $names = [];
+$values = [];
 foreach ($r['headers'] as $h) {
     $p = strpos($h, ':');
-    if ($p !== false) { $names[] = strtolower(trim(substr($h, 0, $p))); }
+    if ($p !== false) {
+        $names[] = strtolower(trim(substr($h, 0, $p)));
+        $values[strtolower(trim(substr($h, 0, $p)))] = trim(substr($h, $p + 1));
+    }
 }
 ok('X-Content-Type-Options is sent', in_array('x-content-type-options', $names, true), implode(',', $names));
 ok('X-Frame-Options is sent', in_array('x-frame-options', $names, true), implode(',', $names));
 ok('Referrer-Policy is sent', in_array('referrer-policy', $names, true), implode(',', $names));
-// issue-014 lines 400-401 require X-Content-Type-Options, X-Frame-Options and
-// Referrer-Policy. A Content-Security-Policy is NOT required by the spec, so
-// its absence is not a defect -- assert the three that ARE required.
-ok('exactly the three headers issue-014 requires are sent',
-    in_array('x-content-type-options', $names, true)
-    && in_array('x-frame-options', $names, true)
-    && in_array('referrer-policy', $names, true),
-    implode(',', $names));
+
+// issue-024 replaced the three headers of issue-014 with a whole set. The
+// LIVE tier is where the set is proved over real HTTP: the SOURCE tier can
+// only read the source, and a header that is written but never sent is not
+// a header.
+$required = [
+    'x-content-type-options',
+    'x-frame-options',
+    'referrer-policy',
+    'content-security-policy',
+    'permissions-policy',
+    'cross-origin-opener-policy',
+    'cross-origin-resource-policy',
+    'x-permitted-cross-domain-policies',
+];
+
+$missing = array_values(array_filter($required, static fn (string $n): bool => ! in_array($n, $names, true)));
+
+ok(
+    'the whole header set of issue-024 is sent',
+    $missing === [],
+    'missing: ' . implode(',', $missing)
+);
+
+ok(
+    'the policy is strict -- no unsafe-inline, no unsafe-eval',
+    stripos((string) ($values['content-security-policy'] ?? ''), 'unsafe-inline') === false
+        && stripos((string) ($values['content-security-policy'] ?? ''), 'unsafe-eval') === false,
+    (string) ($values['content-security-policy'] ?? '')
+);
+
+ok(
+    'the policy denies framing and objects',
+    str_contains((string) ($values['content-security-policy'] ?? ''), "object-src 'none'")
+        && str_contains((string) ($values['content-security-policy'] ?? ''), "frame-ancestors 'self'"),
+    (string) ($values['content-security-policy'] ?? '')
+);
+
+ok(
+    'the COOP and CORP policies are same-origin',
+    strtolower((string) ($values['cross-origin-opener-policy'] ?? '')) === 'same-origin'
+        && strtolower((string) ($values['cross-origin-resource-policy'] ?? '')) === 'same-origin',
+    (string) ($values['cross-origin-opener-policy'] ?? '')
+    . ' / ' . (string) ($values['cross-origin-resource-policy'] ?? '')
+);
+
+// The deprecated header must NOT be sent: it is ignored by every current
+// browser and it once opened a reflection hole of its own.
+ok(
+    'no X-XSS-Protection is sent',
+    ! in_array('x-xss-protection', $names, true),
+    implode(',', $names)
+);
+
+// The stack speaks plain HTTP, so HSTS must not be sent here -- it would
+// commit the browser to HTTPS for a year against a dev host that has no
+// certificate.
+ok(
+    'no HSTS over plain HTTP',
+    ! in_array('strict-transport-security', $names, true),
+    implode(',', $names)
+);
+
+echo "\n== 16. The application still works under the policy ==\n";
+
+// Issue-024 §8 asks for more than "the header is present": a policy that
+// breaks the application is as bad as no policy at all. The stylesheets
+// must load, the theme must work, the dialogs must be wired and the
+// forms must submit.
+//
+// The "the CSS applied" part is a COMPUTED STYLE, not a byte count: the
+// stylesheets the server really serves are fetched over HTTP, the served
+// HTML is parsed, and the body's background is resolved through the
+// cascade. The stack has no browser and ext-dom here has no
+// DOMElement::matches(), so database/css_cascade.php does the resolution.
+// It is proved in database/security_headers_test.php §H -- a resolver that
+// computed the wrong answer would make every assertion below meaningless.
+
+require_once __DIR__ . '/../css_cascade.php';
+
+// The session of section 12 is dead, so a fresh one is needed.
+$jarTheme = [];
+$r = req('GET', BASE . '/login', [], $jarTheme);
+$r = req('POST', BASE . '/login', [
+    'csrf_token' => csrf($r['body']),
+    'username'   => $userA . '_x',
+    'password'   => 'N3wPassw0rd!Z',
+], $jarTheme);
+ok('the signed-in session is back for the theme check', $r['status'] === 302, 'status=' . $r['status']);
+
+// The environment is set to the OPPOSITE of the theme on purpose: the
+// explicit theme the server rendered must beat the system preference in
+// BOTH directions, which is the whole point of the token layer.
+$themeEnvLight = [
+    'prefers-color-scheme'  => 'light',
+    'prefers-reduced-motion' => 'no-preference',
+    'width'                 => 1280,
+    'height'                => 900,
+];
+$themeEnvDark = array_merge($themeEnvLight, ['prefers-color-scheme' => 'dark']);
+
+/**
+ * The computed background and text colour of the body of a served page.
+ *
+ * @return array{string|null,string|null}
+ */
+function theme_computed(string $html, string $css, array $env): array
+{
+    $rules = css_parse_stylesheet($css);
+    $doc   = css_parse_html($html);
+    $body  = css_find_element($doc, 'body');
+
+    if (! ($body instanceof DOMElement)) {
+        return [null, null];
+    }
+
+    return [
+        css_computed_value($rules, $body, 'background-color', $env),
+        css_computed_value($rules, $body, 'color', $env),
+    ];
+}
+
+// --- the dark theme -------------------------------------------------------
+
+$jarDark = $jarTheme;
+$jarDark['theme'] = 'dark';
+$r = req('GET', BASE . '/dashboard', [], $jarDark);
+ok('GET /dashboard with the dark theme cookie -> 200', $r['status'] === 200, 'status=' . $r['status']);
+ok('the server renders the dark theme onto the html element', str_contains($r['body'], 'data-theme="dark"'));
+ok('the dark page carries the theme toggle', str_contains($r['body'], 'data-theme-toggle'));
+
+// --- the stylesheets the page links ---------------------------------------
+
+$linked = [];
+
+if (preg_match_all('#<link[^>]+rel="stylesheet"[^>]*>#i', $r['body'], $m)) {
+    foreach ($m[0] as $tag) {
+        if (preg_match('#href="([^"]+)"#i', $tag, $h)) {
+            $linked[] = $h[1];
+        }
+    }
+}
+
+ok('the page links the stylesheets', count($linked) >= 3, (string) count($linked));
+
+$servedCss  = '';
+$allServed  = true;
+$cssTypeOk  = true;
+$cssDetail  = '';
+
+foreach ($linked as $href) {
+    $sheet = req('GET', BASE . $href, [], $jarDark);
+
+    if ($sheet['status'] !== 200) {
+        $allServed = false;
+        $cssDetail = $href . ' -> ' . $sheet['status'];
+        break;
+    }
+
+    // A stylesheet served as text/html is BLOCKED by the browser under a
+    // strict policy, whatever the policy says.
+    $ctype = '';
+
+    foreach ($sheet['headers'] as $h) {
+        if (stripos($h, 'Content-Type:') === 0) {
+            $ctype = strtolower(trim(substr($h, 13)));
+        }
+    }
+
+    if (! str_contains($ctype, 'text/css')) {
+        $cssTypeOk = false;
+        $cssDetail = $href . ' -> ' . $ctype;
+    }
+
+    $servedCss .= $sheet['body'] . "\n";
+}
+
+ok('every linked stylesheet is served', $allServed, $cssDetail);
+ok('every linked stylesheet is served as text/css', $cssTypeOk, $cssDetail);
+
+// --- the scripts the page links -------------------------------------------
+
+$scripts = [];
+
+if (preg_match_all('#<script[^>]+src="([^"]+)"#i', $r['body'], $m)) {
+    $scripts = $m[1];
+}
+
+$scriptServed = count($scripts) >= 1;
+
+foreach ($scripts as $src) {
+    if (req('GET', BASE . $src, [], $jarDark)['status'] !== 200) {
+        $scriptServed = false;
+    }
+}
+
+ok('every linked script is served', $scriptServed, implode(',', $scripts));
+
+// --- the computed style ---------------------------------------------------
+
+$darkBg    = null;
+$darkColor = null;
+$lightBg   = null;
+$lightColor = null;
+
+try {
+    [$darkBg, $darkColor] = theme_computed($r['body'], $servedCss, $themeEnvLight);
+} catch (Throwable $e) {
+    ok('the dark page resolves a computed style', false, $e->getMessage());
+}
+
+ok(
+    'the dark theme paints the dark background',
+    $darkBg === '#23272e',
+    (string) $darkBg
+);
+
+ok(
+    'the dark theme paints the dark text',
+    $darkColor === '#f2f4f7',
+    (string) $darkColor
+);
+
+// --- the light theme ------------------------------------------------------
+
+$jarLight = $jarTheme;
+$jarLight['theme'] = 'light';
+$rLight = req('GET', BASE . '/dashboard', [], $jarLight);
+ok('GET /dashboard with the light theme cookie -> 200', $rLight['status'] === 200, 'status=' . $rLight['status']);
+ok('the server renders the light theme onto the html element', str_contains($rLight['body'], 'data-theme="light"'));
+
+$lightCss = '';
+
+foreach ($linked as $href) {
+    $lightCss .= req('GET', BASE . $href, [], $jarLight)['body'] . "\n";
+}
+
+try {
+    [$lightBg, $lightColor] = theme_computed($rLight['body'], $lightCss, $themeEnvDark);
+} catch (Throwable $e) {
+    ok('the light page resolves a computed style', false, $e->getMessage());
+}
+
+ok(
+    'the light theme paints the light background',
+    $lightBg === '#eef0f4',
+    (string) $lightBg
+);
+
+ok(
+    'the light theme paints the light text',
+    $lightColor === '#1c1f24',
+    (string) $lightColor
+);
+
+ok(
+    'the two themes paint different backgrounds',
+    $darkBg !== null && $lightBg !== null && $darkBg !== $lightBg,
+    (string) $darkBg . ' / ' . (string) $lightBg
+);
+
+// --- the confirm dialogs --------------------------------------------------
+
+$r = req('GET', BASE . '/categories', [], $jarTheme);
+$triggers = [];
+
+if (preg_match_all('#data-modal-open="([^"]+)"#i', $r['body'], $m)) {
+    $triggers = $m[1];
+}
+
+ok('the categories screen carries a delete dialog', count($triggers) >= 1, (string) count($triggers));
+
+$wired = true;
+
+foreach ($triggers as $id) {
+    // The exact attribute, with its closing quote: the title carries the
+    // same name with a -title suffix and must not satisfy the assertion.
+    if (! str_contains($r['body'], 'id="' . $id . '"')) {
+        $wired = false;
+        break;
+    }
+}
+
+ok('every dialog trigger has a matching dialog', $wired);
+
+$closers = [];
+
+if (preg_match_all('#data-modal-close="([^"]+)"#i', $r['body'], $m)) {
+    $closers = $m[1];
+}
+
+ok('every dialog carries a closer', count($closers) >= 1, (string) count($closers));
+
+$closed = true;
+
+foreach ($closers as $id) {
+    if (! str_contains($r['body'], 'id="' . $id . '"')) {
+        $closed = false;
+        break;
+    }
+}
+
+ok('every closer points at a dialog that exists', $closed);
+
+// The dialog is switched by the hidden attribute, so a stylesheet that
+// declared a display for .modal would defeat it.
+$modalDisplay = null;
+
+try {
+    $modalRules = css_parse_stylesheet($servedCss);
+    $modalDoc   = css_parse_html($r['body']);
+    $modalEl    = css_find_element($modalDoc, '.modal');
+    $modalDisplay = $modalEl instanceof DOMElement
+        ? css_computed_value($modalRules, $modalEl, 'display', $themeEnvLight)
+        : null;
+} catch (Throwable $e) {
+    $modalDisplay = 'error: ' . $e->getMessage();
+}
+
+ok(
+    'the dialog is not styled with a display, so the hidden attribute rules',
+    $modalDisplay === null,
+    (string) $modalDisplay
+);
+
+// --- the forms ------------------------------------------------------------
+
+$r = req('GET', BASE . '/transactions/new', [], $jarTheme);
+$token = csrf($r['body']);
+$r = req('POST', BASE . '/transactions/save', [
+    'csrf_token' => $token, 'type' => 'expense', 'amount' => '12.34',
+    'date' => '2026-10-22', 'description' => 'CSP form probe ' . $marker,
+], $jarTheme);
+ok('a form still submits under the policy', $r['status'] === 303, 'status=' . $r['status'] . ' body=' . snippet($r['body']));
+
+$r = req('GET', BASE . '/transactions', [], $jarTheme);
+ok('the row the form created is there', str_contains($r['body'], 'CSP form probe ' . $marker));
 
 echo "\nFailed: " . count($fails) . "\n";
 

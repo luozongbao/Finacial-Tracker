@@ -54,6 +54,22 @@ require_once __DIR__ . '/includes/logging.php';
 // ---------------------------------------------------------------------------
 startSession();
 
+// ---------------------------------------------------------------------------
+// 1b. The security headers.
+//
+// The wizard is a SECOND entry point: it renders its own document and it
+// does not go through index.php, so it has to send the headers itself.
+//
+// It calls the SAME helper as the application (issue-024 §6): one list,
+// one function, and the two entry points cannot drift apart. The wizard
+// is the page that receives the database password and the SMTP password,
+// so it is the page that must not be framed, sniffed at or embedded.
+//
+// The call is before the first byte of output — the session above opened
+// ob_start(), and nothing has been emitted yet.
+// ---------------------------------------------------------------------------
+sendSecurityHeaders();
+
 // PHPMailer lives in vendor/, which is installed at vendor time and may
 // legitimately be absent on a machine that only wants the database. The
 // autoloader is loaded when it is there; step 2 reports its absence in

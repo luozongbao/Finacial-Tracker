@@ -124,9 +124,12 @@ require_once __DIR__ . '/includes/mailer.php';
 startSession();
 
 // The security headers. They go out before the first byte of the body.
-header('X-Content-Type-Options: nosniff');
-header('X-Frame-Options: SAMEORIGIN');
-header('Referrer-Policy: same-origin');
+//
+// The whole set lives in ONE function (issue-024 §7.1) and BOTH entry
+// points call it: index.php here, install.php in the wizard. Two copies
+// of the list would drift apart, and the wizard is exactly the page that
+// receives the database password and the SMTP password.
+sendSecurityHeaders();
 
 // ---------------------------------------------------------------------------
 // 3b. The credentials of the session.

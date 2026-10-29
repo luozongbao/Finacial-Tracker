@@ -233,6 +233,7 @@ $denied = [
     '/AGENTS.md',
     '/database/',
     '/database/config_test.php',
+    '/database/css_cascade.php',
     '/docs/',
     '/docs/About.md',
     '/docs/issues/',

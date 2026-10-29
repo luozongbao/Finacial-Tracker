@@ -23,6 +23,10 @@
  *      formatSignedMoney() — never inside number_format(), which renders a
  *      negative with an ASCII hyphen. The typographic minus (U+2212) is the
  *      glyph the design uses.
+ *   8. The security headers live in ONE function — sendSecurityHeaders() —
+ *      and BOTH entry points call it. The application is CSP-clean by
+ *      construction, so the policy is strict: no 'unsafe-inline', no
+ *      nonce (issue-024).
  *
  * Configuration comes from config.php and from nothing else — no getenv(),
  * no $_ENV, no $_SERVER-based configuration.
@@ -200,6 +204,94 @@ function absoluteUrl(string $path): string
     }
 
     return $scheme . '://' . $host . '/' . ltrim($path, '/');
+}
+
+// ---------------------------------------------------------------------------
+// Response headers
+// ---------------------------------------------------------------------------
+
+/**
+ * The security headers every document response carries.
+ *
+ * BOTH entry points call this: index.php for the application, install.php
+ * for the wizard. Two copies of the list would drift apart, and the wizard
+ * is exactly the page that receives the database password and the SMTP
+ * password (issue-024 §6).
+ *
+ * The caller must invoke this BEFORE the first byte of output:
+ * output_buffering is 0 in this stack, and a header() call after the body
+ * has started is a SILENT failure — a dropped security header looks
+ * exactly like a security header that was never added.
+ *
+ * The policy is strict on purpose. The application has no inline script,
+ * no inline style, no inline event handler and no third-party origin, so
+ * it needs neither 'unsafe-inline' nor a nonce — and a nonce would make
+ * the header dynamic on every request for no gain.
+ *
+ * HSTS and Upgrade-Insecure-Requests are HTTPS-only. A plain-HTTP
+ * installation (a box on the LAN) is a supported deployment, and a browser
+ * that has been told to expect HTTPS refuses to talk to a host that does
+ * not (issue-024 §4).
+ */
+function sendSecurityHeaders(): void
+{
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: same-origin');
+
+    // The Content-Security-Policy. Strict on purpose:
+    //
+    //   script-src 'self'  — the only script tag is /assets/js/app.js
+    //   style-src  'self'  — the four stylesheets are <link> tags, and
+    //                         there is not one style="" attribute
+    //   img-src    'self' data: — no raster asset exists yet
+    //   connect-src 'self' — app.js never opens a connection
+    //   object-src 'none' — no plugin, ever
+    //   base-uri  'none'   — a <base> tag would re-point every relative URL
+    //   form-action 'self' — every form posts to this origin
+    //   frame-ancestors 'self' — with X-Frame-Options, for the browsers
+    //                         that only understand the old header
+    //
+    // style-src 'self' blocks an inline style ATTRIBUTE as well as a
+    // <style> block. That is intended: the stylesheets carry every rule.
+    header(
+        "Content-Security-Policy: default-src 'self'; "
+        . "script-src 'self'; style-src 'self'; img-src 'self' data:; "
+        . "font-src 'self'; connect-src 'self'; object-src 'none'; "
+        . "base-uri 'none'; form-action 'self'; frame-ancestors 'self'"
+    );
+
+    // Only WELL-KNOWN feature names. The specification says an
+    // unrecognised name makes the header a parse error, and a header that
+    // fails to parse is ignored IN ITS ENTIRETY — one typo would silently
+    // disable every feature in the list.
+    //
+    // The application uses no browser capability that needs a permission,
+    // so a deny-by-default list is free.
+    header(
+        "Permissions-Policy: accelerometer=(), autoplay=(), camera=(), "
+        . "display-capture=(), encrypted-media=(), fullscreen=(), "
+        . "geolocation=(), gyroscope=(), magnetometer=(), microphone=(), "
+        . "midi=(), payment=(), picture-in-picture=(), "
+        . "publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), "
+        . "usb=(), xr-spatial-tracking=()"
+    );
+
+    header('Cross-Origin-Opener-Policy: same-origin');
+    header('Cross-Origin-Resource-Policy: same-origin');
+    header('X-Permitted-Cross-Domain-Policies: none');
+
+    // The HTTPS-only pair. A plain-HTTP installation is explicitly
+    // supported, and a browser that has been told to expect HTTPS will
+    // refuse every subsequent request to a host that does not speak it.
+    //
+    // includeSubDomains and preload are deliberately ABSENT: they commit
+    // every subdomain, and preload commits the domain to the browser
+    // vendors' list. Both belong to the operator who owns the domain.
+    if (requestIsHttps()) {
+        header('Strict-Transport-Security: max-age=31536000');
+        header('Upgrade-Insecure-Requests: 1');
+    }
 }
 
 // ---------------------------------------------------------------------------

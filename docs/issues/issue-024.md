@@ -1,7 +1,9 @@
 # Issue-024 — Security: the response-hardening headers
 
-> **Status:** **open** — found by the audit of 2026-10-28, measured against the
-> running application.
+> **Status:** **implemented and verified** — found by the audit of 2026-10-28,
+> measured against the running application; implemented on 2026-10-29.
+> See [§14](#14-the-implementation-as-built) for what was built and what was
+> measured.
 > **Target:** `index.php`, `install.php`, `.htaccess`, `includes/functions.php`
 > **Severity:** **Low to Medium** — the application is already CSP-clean by
 > construction, so the missing headers cost the deployment very little today
@@ -35,6 +37,7 @@
 11. [Risks](#11-risks)
 12. [Out of scope](#12-out-of-scope)
 13. [Headers that must NOT be added](#13-headers-that-must-not-be-added)
+14. [The implementation, as built](#14-the-implementation-as-built)
 
 ---
 
@@ -66,6 +69,9 @@ policy can be strict: **no `unsafe-inline`, no nonces, no `unsafe-eval`.**
 ---
 
 ## 2. What the application sends today
+
+> **This is the state BEFORE the fix.** The measured result after the fix is
+> in [§14.7](#147-the-measured-result).
 
 Measured against the running application:
 
@@ -306,8 +312,12 @@ static tree:
 > `<IfModule>` that does not exist is ignored **silently** — the same failure
 > mode as a missing security header. The implementer must confirm the header
 > appears on a live response and must not report it as done on the strength
-> of the file's contents.
-
+> of the file's contents.>
+> **Measured: it is not in the image.** Three mechanisms were tried against
+> `litespeedtech/openlitespeed:1.9.4-lsphp85` and none of them works — see
+> [§14.8](#148-the-73-finding--mod_headers-is-not-in-the-image). The block
+> was therefore **removed** rather than left as dead configuration, and the
+> header on the static tree is a **vhost** concern.
 > **`assets/` is an addition to `.htaccess`, not a replacement.** The deny
 > block stays exactly where it is.
 
@@ -326,32 +336,41 @@ static tree:
 
 ## 8. Acceptance criteria
 
-- [ ] Every **document** response carries
+- [x] Every **document** response carries
       `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`,
       `Referrer-Policy`, `Permissions-Policy`,
       `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy` and
       `X-Permitted-Cross-Domain-Policies`.
-- [ ] The CSP contains **no** `unsafe-inline`, **no** `unsafe-eval` and **no**
+      *Measured on the live stack (§14.7) and asserted on the 404 page, the
+      500 boundary and the installer.*
+- [x] The CSP contains **no** `unsafe-inline`, **no** `unsafe-eval` and **no**
       nonce — and a test asserts their absence.
-- [ ] The CSP contains `object-src 'none'`, `base-uri 'none'` and
+      *`database/security_headers_test.php` §B; the LIVE tier §15 of
+      `database/live/live_app_test.php`.*
+- [x] The CSP contains `object-src 'none'`, `base-uri 'none'` and
       `form-action 'self'`.
-- [ ] `Strict-Transport-Security` is sent **only** over HTTPS. A test
+- [x] `Strict-Transport-Security` is sent **only** over HTTPS. A test
       asserts its absence on a plain-HTTP response.
-- [ ] `Upgrade-Insecure-Requests` is sent **only** over HTTPS.
-- [ ] The **installer** carries the same header set as the application. A
+      *§E proves the HTTPS branch with a probe that sets `$_SERVER['HTTPS']`,
+      the same thing LiteSpeed does for a TLS request.*
+- [x] `Upgrade-Insecure-Requests` is sent **only** over HTTPS.
+- [x] The **installer** carries the same header set as the application. A
       test asserts it on `/install.php` — in a sandbox where `config.php`
       does **not** exist, so the wizard actually renders.
-- [ ] The header set is defined in **exactly one** function, and both entry
+- [x] The header set is defined in **exactly one** function, and both entry
       points call it. A source-level assertion checks that there is one
       definition and two call sites.
-- [ ] `X-XSS-Protection` is **not** sent. See §13.
-- [ ] The application still **works** under the policy: the stylesheets load,
+- [x] `X-XSS-Protection` is **not** sent. See §13.
+- [x] The application still **works** under the policy: the stylesheets load,
       the dark-mode toggle works, the theme cookie is honoured, the forms
       submit, and the confirm dialogs open. A LIVE assertion loads
       `/dashboard` and checks that the CSS applied (a computed style, not a
       byte count).
-- [ ] The `Permissions-Policy` feature names are all well-known — a
+      *§16 of `database/live/live_app_test.php` — the computed background of
+      the body, resolved from the stylesheets the server really serves.*
+- [x] The `Permissions-Policy` feature names are all well-known — a
       source-level assertion against a list of accepted names.
+      *§C: 34 names, each asserted against the accepted list.*
 
 ---
 
@@ -467,3 +486,232 @@ PHP's session already sends `cache-control: no-store, no-cache, must-revalidate`
 on every request, which is exactly right. Adding a second, hand-written
 `Cache-Control` header would **duplicate** it — and a duplicated header with
 conflicting values is resolved by the browser unpredictably. Leave it alone.
+
+---
+
+## 14. The implementation, as built
+
+Implemented on 2026-10-29, in one change: the helper, the two call sites, the
+new regression test, the cascade resolver and the documentation land
+together — because the criterion that forced the resolver cannot be checked
+without it.
+
+### 14.1 What changed
+
+| File | Change |
+|---|---|
+| `includes/functions.php` | The new `sendSecurityHeaders()` — the **only** definition of the header set. |
+| `index.php` | The three inline `header()` calls replaced by one `sendSecurityHeaders();`, after `startSession()`. |
+| `install.php` | The new call, after `startSession()` and before the conditional `vendor/autoload.php`. |
+| `database/security_headers_test.php` | **New** — the guard, in eight sections (§14.4). |
+| `database/css_cascade.php` | **New** — the cascade resolver (§14.5). |
+| `database/live/live_app_test.php` | §15 rewritten and **§16 added** — the live header set and the computed style. |
+| `database/front_controller_test.php` | The three stale literal assertions replaced by "the controller calls the shared helper" and "the helper is defined exactly once". |
+| `database/webroot_hardening_test.php` | `/database/css_cascade.php` pinned in the denied list. |
+| `AGENTS.md`, `docs/About.md`, `docs/issues/README.md` | The status, the operator notes and the index. |
+
+### 14.2 The header helper, as written
+
+The helper is in `includes/functions.php`, under a new **"Response headers"**
+section, and it is exactly the set §7.1 specifies — **plus**
+`X-Permitted-Cross-Domain-Policies: none`, which the acceptance criteria
+require and the specification's example omitted.
+
+Two properties were added to the file's own contract docblock:
+
+> 8. The security headers live in ONE function — `sendSecurityHeaders()` —
+>    and BOTH entry points call it. No `'unsafe-inline'`, no nonce.
+
+### 14.3 The two call sites
+
+```php
+// index.php
+startSession();
+sendSecurityHeaders();
+```
+
+```php
+// install.php
+startSession();
+sendSecurityHeaders();
+```
+
+Both are **after** `startSession()` — which opens the `ob_start()` that makes
+the `header()` calls legal before the first byte of output — and **before**
+anything is echoed. `install.php` calls it before the conditional
+`vendor/autoload.php`, so the wizard carries the headers even on a machine
+with no `vendor/` tree.
+
+### 14.4 The regression test, as written
+
+`database/security_headers_test.php` is **new**. It has eight sections, and
+the point of the eight is that a header is a property of the **response**,
+not of the source:
+
+| Section | What it proves |
+|---|---|
+| §A | One definition, two call sites, no inline `header('X-…')` left in the entry points, and the **order** of the calls. |
+| §B | The CSP carries its ten directives and **no** `unsafe-inline`, `unsafe-eval`, `unsafe-hashes`, `strict-dynamic` or nonce. |
+| §C | Every `Permissions-Policy` feature is `()` and every name is on the list of 34 accepted names. |
+| §D | The headers that must **not** be there — `X-XSS-Protection` among them. |
+| §E | The **runtime**: the real controller and the real installer, under the PHP built-in server, with the headers read off the responses. The HTTPS branch is proved with a probe that sets `$_SERVER['HTTPS']`. |
+| §F | The application is **CSP-clean**: no inline script, no inline style, no inline event handler, no third-party origin, no dangerous JavaScript API — and every subresource and every form action the policy must permit. |
+| §G | The **live** stack, over HTTP. Skipped cleanly when the stack is not answering. |
+| §H | The cascade resolver — proved (§14.5). |
+
+§E is the tier that matters most, and it exists for the reason the whole
+issue exists: **a `header()` call after the first byte of output is a silent
+failure**, and a silently dropped security header is indistinguishable from a
+security header that was never added. A source-level test cannot see that
+failure; a response-level test can.
+
+### 14.5 The cascade resolver — why it is in the repository
+
+The acceptance criteria say:
+
+> A LIVE assertion loads `/dashboard` and checks that the CSS applied (**a
+> computed style, not a byte count**).
+
+The stack has **no browser** and **no JavaScript engine**, and `ext-dom` in
+this image has **no `DOMElement::matches()`** — every `->matches()` call
+throws `Error: Call to undefined method DOMElement::matches()`. So the
+cascade had to be resolved by hand.
+
+`database/css_cascade.php` is that resolver: a stylesheet parser, a selector
+matcher and a cascade. It is **not** a browser, and it says so in its
+docblock. The rules it follows:
+
+- **It throws on anything it does not understand.** A silently skipped rule
+  would make an unstyled page look styled. An unsupported selector, an
+  unsupported at-rule and an unsupported media feature are all **refusals**,
+  and §H asserts each one.
+- **It supports the subset the application uses.** The vocabulary of
+  `assets/css/` was audited first: five `@media` blocks, one `@keyframes`,
+  and the pseudo-classes `:hover`, `:focus`, `:focus-visible`, `:root`,
+  `:last-child`, `:checked`, `:not()`, `:first-child`, `:last-child`,
+  `:only-child`, `:nth-child()`, `:first-of-type`, `:last-of-type`,
+  `:disabled`, `:enabled` and `:empty`. There is **no** `:has()`, no `:is()`,
+  no `:where()` and **no `!important`** anywhere in the tree.
+- **It resolves `var()`** against the effective custom-property map, and an
+  undefined custom property with no fallback makes the declaration invalid at
+  computed-value time — which is what a browser does.
+- **It inherits** the inherited properties from the ancestor chain, so the
+  colour of a `<p>` is the colour of the body.
+
+§H proves it against known inputs — the specificity order, the source order,
+`!important`, the media query, the fallback, the combinators, the pseudo-
+element that does not style the element itself, the live state that does not
+match the resting state, and the three refusals — and then resolves the
+**shipped** stylesheets to the colours the design says they are:
+
+| Theme | The body's background | The body's text |
+|---|---|---|
+| light | `#eef0f4` | `#1c1f24` |
+| dark | `#23272e` | `#f2f4f7` |
+
+### 14.6 The LIVE assertion
+
+§16 of `database/live/live_app_test.php` is the criterion, carried out
+against the running application:
+
+1. A fresh session is established (the one from §12 is dead — the test logs
+   out before it).
+2. `/dashboard` is fetched with the `theme` cookie set to `dark` and again
+   with it set to `light`.
+3. The server must render `data-theme="dark"` / `data-theme="light"` onto the
+   `<html>` element — the theme cookie is honoured **server-side**.
+4. Every `<link rel="stylesheet">` is fetched **over HTTP** and must answer
+   **200** with a **`text/css`** content type (a stylesheet served as
+   `text/html` is blocked by the browser whatever the policy says).
+5. The served HTML is parsed and the body's `background-color` and `color` are
+   resolved through the cascade.
+6. The two themes must paint **different** backgrounds.
+
+The environment is deliberately set to the **opposite** of the theme: the
+explicit theme the server rendered must beat the system preference in **both**
+directions, which is the whole point of the token layer.
+
+The rest of the criterion is carried out too: the theme toggle is on the
+page, every `data-modal-open` trigger has a matching `id`, every
+`data-modal-close` points at a dialog that exists, **the `.modal` rule
+declares no `display`** (so the `hidden` attribute the script sets is the only
+switch), and a form still POSTs and the row it creates is there.
+
+> **What "the dialog opens" means in a headless tier.** There is no browser,
+> so the test cannot click. What it asserts is the whole chain that the
+> click would exercise: the trigger, the dialog and the closer all agree on
+> the same id, and no stylesheet rule overrides the `hidden` attribute. A
+> break anywhere in that chain is caught; a break *inside* the browser is not,
+> and that limit is stated here rather than hidden.
+
+### 14.7 The measured result
+
+Against the running application:
+
+```
+HTTP/1.1 200 OK
+x-content-type-options: nosniff
+x-frame-options: SAMEORIGIN
+referrer-policy: same-origin
+content-security-policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'
+permissions-policy: accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), usb=(), xr-spatial-tracking=()
+cross-origin-opener-policy: same-origin
+cross-origin-resource-policy: same-origin
+x-permitted-cross-domain-policies: none
+content-type: text/html; charset=UTF-8
+```
+
+and the computed styles, from the stylesheets the server really serves:
+
+| Theme cookie | The server renders | The computed body background |
+|---|---|---|
+| `theme=dark` | `<html lang="en" data-theme="dark">` | **`#23272e`** |
+| `theme=light` | `<html lang="en" data-theme="light">` | **`#eef0f4`** |
+
+### 14.8 The §7.3 finding — `mod_headers` is not in the image
+
+§7.3 offered the static assets' headers as optional, on the condition that
+the image's `mod_headers` is available. **It is not.** Three mechanisms were
+measured against `litespeedtech/openlitespeed:1.9.4-lsphp85`:
+
+| Mechanism | Result |
+|---|---|
+| `<IfModule mod_headers.c>` + `FilesMatch` | **No effect** — the module is not in `/usr/local/lsws/modules` (the directory holds `mod_acme.so`, `mod_security.so`, `modcompress.def`, `moddecompress.def` and `modpagespeed.so`). |
+| A bare `Header set …` | **No effect** — without the module the directive is ignored, and it is ignored **silently**. |
+| `RewriteRule … [E=HTTP_X_CONTENT_TYPE_OPTIONS:nosniff]` | **No effect** — LiteSpeed does not turn an `E=` variable into a response header. |
+
+So the block was **removed** rather than left in `.htaccess` as dead
+configuration. The static assets are served by LiteSpeed, and the header on
+them is a **vhost / reverse-proxy** concern:
+
+```apache
+# The vhost, in the LiteSpeed configuration -- NOT in .htaccess.
+staticFile [*.css$ *.js$]
+    Header set X-Content-Type-Options "nosniff"
+```
+
+The assets are `text/css` and `text/javascript` today and are served
+same-origin only, so the risk is low — but the operator should be told that
+the header belongs to the server configuration, not to the application.
+
+### 14.9 The one thing the audit did not say
+
+The audit said the headers were thin and that the criterion would be a
+computed style. It did not say that **the stack cannot compute a style at
+all** — no browser, no JavaScript engine, and `ext-dom` without
+`DOMElement::matches()`. The criterion is therefore not merely harder to
+check than it looks: on this stack it is **not checkable with the tools that
+are there**, and the honest answer was to build the resolver rather than to
+weaken the criterion to something the tools could do.
+
+Two smaller findings are worth recording, because both would have shipped as
+silent gaps:
+
+- **`mod_headers` is not in the image**, so §7.3's optional block does
+  nothing (§14.8).
+- **The order of the two call sites matters.** `sendSecurityHeaders()` must
+  come **after** `startSession()` — the session's `ob_start()` is what makes
+  the `header()` calls legal — and **before** the first byte of output. The
+  test asserts the order of the calls in the source, because the wrong order
+  is a silent failure in production and a green test.
+

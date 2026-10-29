@@ -12,12 +12,12 @@ This file holds only what an agent cannot infer from the tree.
 twenty of the twenty original issues are in and verified. A pre-release
 security audit (2026-10-28) and a requirement check against
 [docs/About.md](docs/About.md) produced **six further issues (021–026)**: the
-first **three** are **in and verified**, and **three (024–026) are open**.
+first **four** are **in and verified**, and **two (025–026) are open**.
 Nothing in the application is a placeholder.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | **three (024–026)** — the thin response headers, the installer secrets in the session store, and the **missing average** |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/security_headers_test.php`, `database/css_cascade.php` (the cascade resolver the header test proves), `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | **two (025–026)** — the installer secrets in the session store, and the **missing average** |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -100,7 +100,7 @@ helpers (`resolveMonthRange()`, `reportGrain()`, `reportSpanDays()`,
 sandbox that runs the real screen against a scratch database. **All twenty
 of the original issues are in.**
 
-**Three further issues (024–026) are open** — they are the output of a
+**Two further issues (025–026) are open** — they are the output of a
 pre-release security audit and a requirement check carried out on 2026-10-28,
 and they are **not** implemented. Read
 [docs/issues/README.md](docs/issues/README.md) for the index.
@@ -146,6 +146,21 @@ and they are **not** implemented. Read
   and refuses everything else under `docs/`, including a file added later.
 - **024 — the response headers are thin** (no CSP, no HSTS, no
   `Permissions-Policy`), and `install.php` sends **no headers at all**.
+  **Implemented and verified.** The whole set — a strict
+  `Content-Security-Policy` with **no** `unsafe-inline` and **no** nonce, a
+  conditional `Strict-Transport-Security` and `Upgrade-Insecure-Requests`, a
+  19-feature `Permissions-Policy`, COOP, CORP and
+  `X-Permitted-Cross-Domain-Policies` — lives in **one** function,
+  `sendSecurityHeaders()`, that **both** entry points call, so the installer
+  carries the same set as the application. **The implementation found one
+  thing the audit did not**: the stack has **no browser and no JavaScript
+  engine**, and `ext-dom` here has **no `DOMElement::matches()`**, so the
+  criterion *"a computed style, not a byte count"* was **not checkable with
+  the tools that are there** — the cascade is now resolved by a hand-written
+  resolver (`database/css_cascade.php`) that **refuses** what it does not
+  understand rather than guessing. The optional `mod_headers` block of
+  issue-024 §7.3 was **removed**: the module is **not in the pinned image**,
+  measured three ways.
 - **025 — the installer writes the database and the SMTP password into the
   session store**: a **clear-text file in the shared `/tmp`**, under a **file
   name the client chooses**, and the session id is never rotated.
@@ -160,8 +175,8 @@ The audit itself was **not** a clean bill of health on those six points and
 redirect, session and path-traversal audits all came back clean, and the
 findings are written up with their measurements in
 [docs/issues/issue-021.md](docs/issues/issue-021.md) –
-[docs/issues/issue-026.md](docs/issues/issue-026.md). **021, 022 and 023 are
-done; 024–026 are open.**
+[docs/issues/issue-026.md](docs/issues/issue-026.md). **021, 022, 023 and 024 are
+done; 025–026 are open.**
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -651,6 +666,32 @@ paint**, and the application has **no inline script** while the server cannot re
   bottom-nav links, `true` on the period links. `components.css` knows no
   `is-active`.
 
+### The response headers live in ONE function
+
+`sendSecurityHeaders()` in `includes/functions.php` holds the **whole** set —
+`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, a strict
+`Content-Security-Policy`, a 19-feature `Permissions-Policy`, COOP, CORP,
+`X-Permitted-Cross-Domain-Policies`, and the conditional HSTS pair.
+
+- **Exactly two call sites**: `index.php` and `install.php`. A third entry
+  point that forgets the call ships a page with no headers — the installer
+  shipped exactly that defect.
+- **Call it after `startSession()` and before the first byte of output.** A
+  `header()` call after the body has started is a warning, not a header.
+- **No `unsafe-inline`, no `unsafe-eval`, no `nonce`.** The theme travels in a
+  cookie and the application has **no inline script**, so the policy is
+  `script-src 'self'` with nothing to except.
+- **HSTS and `Upgrade-Insecure-Requests` only over HTTPS.** Sending HSTS over
+  plain HTTP is meaningless at best and pinning a host to HTTPS at worst.
+- **Never send `X-XSS-Protection`.** The modern browsers ignore it and the old
+  ones it broke were the ones it was meant to protect.
+- **Never send a header inline.** A second `header('X-…')` call in a view or a
+  controller is a second copy of the policy, and the two copies drift.
+- **The static tree is a vhost concern.** `mod_headers` is **not in the pinned
+  image** — measured three ways — so `.htaccess` cannot set a header on a CSS
+  or JS file. Do not leave a `Header` directive in `.htaccess` as decoration:
+  it is ignored **silently**.
+
 ### PHP tokenizer traps
 
 - A literal `?>` inside a `//` comment **still closes PHP mode** — the rest of the file
@@ -808,7 +849,7 @@ from `REMOTE_ADDR` is a dial the visitor can turn.
 | [docs/issues/issue-009.md](docs/issues/issue-009.md) | The PHP 8.5.12 runtime floor: PHP2Shell, the pinned image tag, the paths that move. |
 | [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
 | [docs/issues/issue-011.md](docs/issues/issue-011.md) – [issue-020.md](docs/issues/issue-020.md) | The application specification: the schema, the runtime, the tokens, the front controller, the installer, the authentication and the five screens. |
-| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021, 022 and 023 are implemented & verified; 024–025 are open.** |
+| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021, 022, 023 and 024 are implemented & verified; 025 is open.** |
 | [docs/issues/issue-026.md](docs/issues/issue-026.md) | The requirement gap against [docs/About.md](docs/About.md): the missing **average**. **Open.** |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
