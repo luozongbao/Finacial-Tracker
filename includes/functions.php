@@ -1750,3 +1750,27 @@ function safeRedirectTarget(?string $uri): string
 
     return $uri;
 }
+
+// ---------------------------------------------------------------------------
+// Refusing
+// ---------------------------------------------------------------------------
+
+/**
+ * Refuse a request that has run out of quota.
+ *
+ * The status is 429 and the header is Retry-After: the number of seconds
+ * the caller has to wait before trying again (issue-022 §7.2).
+ *
+ * Both must happen BEFORE the first byte of the body — PHP drops a header
+ * that is sent after the output has started, and a 429 without the header
+ * is a 429 the client cannot schedule against.
+ *
+ * The BODY is the view's business, and it must be the same body for every
+ * address: the refusal must not tell a caller more than "you are early".
+ */
+function refuseRateLimited(int $retryAfterSeconds): void
+{
+    http_response_code(429);
+
+    header('Retry-After: ' . max(1, $retryAfterSeconds));
+}

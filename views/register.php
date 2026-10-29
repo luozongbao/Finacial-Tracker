@@ -18,6 +18,15 @@
  *      courtesy, not a condition of the account.
  *   5. The success state REPLACES the form and does not sign the new user
  *      in. The copy must not promise a session the server does not create.
+ *
+ * Issue-022 adds two things to this screen:
+ *
+ *   6. The screen is RATE LIMITED, per source address (§7.2). A refused
+ *      request is a 429 with a Retry-After header, and it creates no
+ *      account and sends no mail.
+ *   7. The confirmation mail is QUEUED, not sent (§7.1). The request writes
+ *      a row into the outbox and the CLI worker sends it, so the screen
+ *      never waits for the SMTP server.
  */
 
 declare(strict_types=1);
@@ -89,92 +98,116 @@ if ($isPost) {
             'title' => 'Your session could not be verified. Reload the page and submit the form again.',
         ];
     } else {
-        $values['username'] = trim((string) ($_POST['username'] ?? ''));
-        $values['email'] = trim((string) ($_POST['email'] ?? ''));
-        $values['email_confirmation'] = trim((string) ($_POST['email_confirmation'] ?? ''));
-        $values['password_confirmation'] = (string) ($_POST['password_confirmation'] ?? '');
+        // The limiter comes before the work. A refused request creates no
+        // account and sends no mail, and the counter is raised on the
+        // ATTEMPT — the attempt is what costs an account and a message.
+        //
+        // The limiter is keyed on the SOURCE, so nothing is read from the
+        // request before it is consulted.
+        $quota = takeRequestQuota(registerRequestLimiters());
 
-        $password = (string) ($_POST['password'] ?? '');
+        if ($quota['blocked']) {
+            refuseRateLimited((int) $quota['retry_after']);
 
-        $fieldErrors = validateRegistrationInput([
-            'username'              => $values['username'],
-            'email'                 => $values['email'],
-            'email_confirmation'     => $values['email_confirmation'],
-            'password'              => $password,
-            'password_confirmation' => $values['password_confirmation'],
-        ]);
-
-        if ($fieldErrors === []) {
-            // The uniqueness check. The SELECT is the friendly message; the
-            // UNIQUE constraint is the guard.
-            if (usernameTaken($values['username'])) {
-                $fieldErrors['username'] = 'That username is already taken.';
-            } elseif (emailTaken($values['email'])) {
-                $fieldErrors['email'] = 'That email address is already registered.';
-            }
-        }
-
-        if ($fieldErrors === []) {
-            try {
-                $result = createUser($values['username'], $values['email'], $password);
-            } catch (Throwable $ex) {
-                error_log('[auth] the registration failed: ' . $ex->getMessage());
-
-                $alert = [
-                    'kind'  => 'danger',
-                    'title' => 'Something went wrong on our side. Please try again.',
-                ];
-
-                $result = ['status' => 'error'];
-            }
-
-            if (($result['status'] ?? '') === 'duplicate') {
-                // The constraint fired. The same messages as the SELECT
-                // above, so a race reads like a check.
+            $alert = [
+                'kind'  => 'warning',
+                'title' => 'Too many requests. Please try again in a few minutes.',
+            ];
+        } else {
+            $values['username'] = trim((string) ($_POST['username'] ?? ''));
+            $values['email'] = trim((string) ($_POST['email'] ?? ''));
+            $values['email_confirmation'] = trim((string) ($_POST['email_confirmation'] ?? ''));
+            $values['password_confirmation'] = (string) ($_POST['password_confirmation'] ?? '');
+    
+            $password = (string) ($_POST['password'] ?? '');
+    
+            $fieldErrors = validateRegistrationInput([
+                'username'              => $values['username'],
+                'email'                 => $values['email'],
+                'email_confirmation'     => $values['email_confirmation'],
+                'password'              => $password,
+                'password_confirmation' => $values['password_confirmation'],
+            ]);
+    
+            if ($fieldErrors === []) {
+                // The uniqueness check. The SELECT is the friendly message; the
+                // UNIQUE constraint is the guard.
                 if (usernameTaken($values['username'])) {
                     $fieldErrors['username'] = 'That username is already taken.';
                 } elseif (emailTaken($values['email'])) {
                     $fieldErrors['email'] = 'That email address is already registered.';
-                } else {
+                }
+            }
+    
+            if ($fieldErrors === []) {
+                try {
+                    $result = createUser($values['username'], $values['email'], $password);
+                } catch (Throwable $ex) {
+                    logFailure('auth: the registration failed', $ex);
+    
                     $alert = [
                         'kind'  => 'danger',
                         'title' => 'Something went wrong on our side. Please try again.',
                     ];
+    
+                    $result = ['status' => 'error'];
                 }
-            } elseif (($result['status'] ?? '') === 'ok') {
-                $userId = (int) $result['user_id'];
-
-                $created = true;
-                $createdEmail = $values['email'];
-
-                // The confirmation mail is sent AFTER the row is committed.
-                $mailState = 'sent';
-
-                if (!mailIsConfigured()) {
-                    $mailState = 'not-configured';
-                } else {
-                    try {
-                        $token = createEmailVerification($userId);
-                        $link = absoluteUrl('/verify-email?token=' . urlencode($token));
-
-                        $body = "Welcome to Financial Tracker.\n\n"
-                            . "Confirm your address by opening this link:\n\n"
-                            . $link . "\n\n"
-                            . "The link is valid for 24 hours.\n\n"
-                            . "If you did not create this account, you can ignore this message.\n";
-
-                        if (!sendMail($values['email'], 'Confirm your account', $body)) {
+    
+                if (($result['status'] ?? '') === 'duplicate') {
+                    // The constraint fired. The same messages as the SELECT
+                    // above, so a race reads like a check.
+                    if (usernameTaken($values['username'])) {
+                        $fieldErrors['username'] = 'That username is already taken.';
+                    } elseif (emailTaken($values['email'])) {
+                        $fieldErrors['email'] = 'That email address is already registered.';
+                    } else {
+                        $alert = [
+                            'kind'  => 'danger',
+                            'title' => 'Something went wrong on our side. Please try again.',
+                        ];
+                    }
+                } elseif (($result['status'] ?? '') === 'ok') {
+                    $userId = (int) $result['user_id'];
+    
+                    $created = true;
+                    $createdEmail = $values['email'];
+    
+                    // The confirmation message is QUEUED AFTER the row is
+                    // committed. The request does not talk to the SMTP server
+                    // (issue-022 §7.1) — the worker does.
+                    $mailState = 'sent';
+    
+                    $queue = mailQueueState();
+    
+                    if ($queue === 'not-configured') {
+                        $mailState = 'not-configured';
+                    } elseif ($queue === 'unavailable') {
+                        $mailState = 'failed';
+                    } else {
+                        try {
+                            $token = createEmailVerification($userId);
+                            $link = absoluteUrl('/verify-email?token=' . urlencode($token));
+    
+                            $body = "Welcome to Financial Tracker.\n\n"
+                                . "Confirm your address by opening this link:\n\n"
+                                . $link . "\n\n"
+                                . "The link is valid for 24 hours.\n\n"
+                                . "If you did not create this account, you can ignore this message.\n";
+    
+                            enqueueMail($values['email'], 'Confirm your account', $body);
+                        } catch (Throwable $ex) {
+                            // The queue write failed. The log says so; the
+                            // visitor gets the "could not be sent" state, which
+                            // is the same for every account (issue-022 §7.4).
+                            logFailure('auth: the confirmation message could not be queued', $ex);
+    
                             $mailState = 'failed';
                         }
-                    } catch (Throwable $ex) {
-                        error_log('[auth] the confirmation mail failed: ' . $ex->getMessage());
-
-                        $mailState = 'failed';
-                    }
                 }
             }
         }
     }
+}
 }
 
 require __DIR__ . '/../includes/header.php';

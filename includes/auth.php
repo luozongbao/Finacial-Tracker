@@ -47,10 +47,27 @@
  *   * the rows that can no longer produce a wait are removed, so the
  *     table does not grow at the rate of the network.
  *
+ * Issue-022 (§7.2) adds a SECOND, generic limiter — the request throttle:
+ *
+ *   * one table, `request_throttles`, serves every endpoint that needs a
+ *     limiter the sign-in throttle does not fit;
+ *   * a counter per KEY (a hash of the submitted address) and a counter
+ *     per SOURCE (the peer that really connected), and the effective
+ *     penalty is the STRICTER of the two;
+ *   * the counters DECAY: a count whose window closed reads zero;
+ *   * a refused request does NOT raise the counter, so the window is not
+ *     extended by the requests that were turned away;
+ *   * REQUEST_THROTTLE_ENABLED in config.php is the kill switch.
+ *
  * Configuration comes from config.php and from nothing else.
  */
 
 declare(strict_types=1);
+
+// The sanitised error log. Two of the helpers below log a failure, and
+// the log must never carry an exception MESSAGE — a unique-key violation
+// carries the submitted address in it (issue-022 §7.4).
+require_once __DIR__ . '/logging.php';
 
 /*
  * The product's own rules. They are declared with a guard because this file
@@ -113,10 +130,11 @@ if (!defined('LOGIN_ATTEMPT_LIMIT')) {
      * The floor of the forgot-password response time, in milliseconds.
      *
      * The screen must answer a known address and an unknown address in the
-     * same time (issue-016 §9). The floor hides the difference between the
-     * two database paths; what is left is the SMTP round trip of a real
-     * send, which cannot be equalised without sending mail that has no
-     * recipient.
+     * same time (issue-016 §9). Since issue-022 §7.1 the request does not
+     * talk to the SMTP server at all — it writes a row into the outbox —
+     * so what is left to hide is the ONE extra INSERT the known branch
+     * pays. That is milliseconds, and the floor puts it inside 500 ms,
+     * where it cannot be told apart from the unknown branch.
      */
     define('AUTH_TIMING_FLOOR_MILLISECONDS', 500);
 }
@@ -926,6 +944,367 @@ function pruneLoginAttempts(): void
 }
 
 // ---------------------------------------------------------------------------
+// The generic request throttle (issue-022 §7.2)
+//
+// The sign-in throttle above is a SPECIALISED counter: it counts FAILURES
+// and it serves a wait that grows. The reset and the registration screens
+// need a simpler thing — "how many requests has this key made in the last
+// hour" — and they need it for keys that match NO account.
+//
+// That is the whole point: a limiter that only counts against an existing
+// record is bypassable by typing something that does not exist. The reset
+// screen therefore counts against the SUBMITTED ADDRESS (known or not) and
+// against the SOURCE, and the registration screen counts against the
+// source.
+// ---------------------------------------------------------------------------
+
+if (!defined('RESET_ADDRESS_LIMIT')) {
+    /**
+     * The reset requests ONE address may make in a window (issue-022 §7.2).
+     *
+     * Three an hour: enough for a person who forgot their password twice,
+     * and far too few for a mail cannon. The counter is raised for a
+     * KNOWN address and for an UNKNOWN one alike, so the limit itself
+     * never says whether the address exists.
+     */
+    define('RESET_ADDRESS_LIMIT', 3);
+
+    /** The window of the per-address reset counter, in minutes. */
+    define('RESET_ADDRESS_WINDOW_MINUTES', 60);
+
+    /**
+     * The reset requests ONE source may make in a window (issue-022 §5).
+     *
+     * Higher than the per-address limit on purpose: a visitor behind a
+     * NAT shares the bucket, and the per-address counter is the one that
+     * stops the cannon. The source counter stops the spray.
+     */
+    define('RESET_SOURCE_LIMIT', 20);
+
+    /** The window of the per-source reset counter, in minutes. */
+    define('RESET_SOURCE_WINDOW_MINUTES', 60);
+
+    /**
+     * The registrations ONE source may make in a window (issue-022 §4).
+     *
+     * Ten an hour. Every one of them creates an account and a
+     * confirmation message, so the cost per request is real.
+     */
+    define('REGISTER_SOURCE_LIMIT', 10);
+
+    /** The window of the per-source registration counter, in minutes. */
+    define('REGISTER_SOURCE_WINDOW_MINUTES', 60);
+
+    /**
+     * How long a throttle row is kept after its window closed, in
+     * minutes.
+     *
+     * It is LONGER than every limiter window on purpose: a row that is
+     * pruned while its window is still open would lose the count and
+     * weaken the limiter. A day is long enough to keep the table small
+     * and short enough that a dead row does not linger.
+     */
+    define('REQUEST_THROTTLE_RETENTION_MINUTES', 1440);
+}
+
+/**
+ * Is the generic request throttle switched on?
+ *
+ * The kill switch is a CONFIGURATION constant (REQUEST_THROTTLE_ENABLED in
+ * config.php), not a product rule: it is the way an operator turns the
+ * limiter off if it ever misfires (issue-022 §10). The default is ON, and
+ * only a REAL boolean false turns it off — the string 'false' leaves the
+ * limiter on, because a limiter that fails open is the wrong way to fail.
+ */
+function requestThrottleEnabled(): bool
+{
+    if (!defined('REQUEST_THROTTLE_ENABLED')) {
+        return true;
+    }
+
+    return constant('REQUEST_THROTTLE_ENABLED') !== false;
+}
+
+/**
+ * The key of a request throttle.
+ *
+ * The sha256 of what is being counted, lower-cased and trimmed first: the
+ * table never stores what the visitor typed, and the hash is
+ * case-insensitive by construction, so "A@Example.test" and
+ * "a@example.test" share one counter.
+ */
+function requestThrottleKey(string $value): string
+{
+    return hash('sha256', strtolower(trim($value)));
+}
+
+/**
+ * The key of a SOURCE request throttle.
+ *
+ * The same peer key the sign-in throttle uses — the address that really
+ * opened the connection, never the one the visitor typed into a header.
+ * A limiter whose key the visitor chooses is a dial the visitor turns
+ * (issue-021 §4, issue-022 §7.2).
+ */
+function requestSourceKey(): string
+{
+    return loginSourceKey();
+}
+
+/**
+ * The state of ONE request counter.
+ *
+ * The count DECAYS: a counter whose window closed reads zero, so an
+ * attempt that happened yesterday costs nothing today. The window is not
+ * shortened while it is open, so the retry-after is the real one.
+ *
+ * @return array{hits: int, blocked: bool, retry_after: int}
+ */
+function requestCounterState(string $bucket, string $key, int $limit, int $windowMinutes): array
+{
+    $row = Database::getInstance()->fetchOne(
+        'SELECT hits, window_started_at
+           FROM request_throttles
+          WHERE bucket = ? AND key_hash = ?',
+        [$bucket, $key]
+    );
+
+    if (!is_array($row)) {
+        return ['hits' => 0, 'blocked' => false, 'retry_after' => 0];
+    }
+
+    $started = strtotime((string) $row['window_started_at'] . ' UTC');
+
+    if ($started === false) {
+        $started = time();
+    }
+
+    // The window has closed: the count has decayed away.
+    if ($started <= time() - ($windowMinutes * 60)) {
+        return ['hits' => 0, 'blocked' => false, 'retry_after' => 0];
+    }
+
+    $hits = (int) $row['hits'];
+
+    if ($hits < $limit) {
+        return ['hits' => $hits, 'blocked' => false, 'retry_after' => 0];
+    }
+
+    return [
+        'hits'        => $hits,
+        'blocked'     => true,
+        'retry_after' => max(1, ($started + ($windowMinutes * 60)) - time()),
+    ];
+}
+
+/**
+ * The state of a SET of request limiters.
+ *
+ * The stricter of the counters wins: the wait that ends LAST is the one
+ * served, and a counter that is not blocked never shortens the wait of
+ * the one that is. Never the sum — the same rule the sign-in throttle
+ * follows (issue-021 §8.1).
+ *
+ * @param array<int, array{0: string, 1: string, 2: int, 3: int}> $limiters
+ *        bucket, key, limit, window minutes — one entry per counter.
+ *
+ * @return array{blocked: bool, retry_after: int, hits: int}
+ */
+function requestThrottleState(array $limiters): array
+{
+    $blocked    = false;
+    $retryAfter = 0;
+    $hits       = 0;
+
+    foreach ($limiters as $limiter) {
+        [$bucket, $key, $limit, $windowMinutes] = $limiter;
+
+        $state = requestCounterState($bucket, $key, $limit, $windowMinutes);
+
+        $hits += $state['hits'];
+
+        if ($state['blocked']) {
+            $blocked = true;
+
+            $retryAfter = max($retryAfter, $state['retry_after']);
+        }
+    }
+
+    return ['blocked' => $blocked, 'retry_after' => $retryAfter, 'hits' => $hits];
+}
+
+/**
+ * Raise ONE request counter by one hit.
+ *
+ * The count is raised IN SQL — `hits = hits + 1` — so two hits that land
+ * together raise the counter by two and not by one. The window is reset
+ * in the same statement: a hit that arrives after the window closed
+ * starts a new one and the count goes back to 1, which is the decay.
+ *
+ * The two assignments are ORDERED so that both read the OLD
+ * window_started_at: the first one never writes that column, so the
+ * second one still sees the value the row had. The order therefore does
+ * not matter, and the statement is one round trip — the whole limiter is
+ * one statement per counter (issue-022 §11).
+ */
+function raiseRequestCounter(string $bucket, string $key, int $windowMinutes): void
+{
+    $db = Database::getInstance();
+
+    $db->execute(
+        'INSERT INTO request_throttles
+            (bucket, key_hash, hits, window_started_at)
+              VALUES (?, ?, 1, UTC_TIMESTAMP())
+         ON DUPLICATE KEY UPDATE
+              hits = IF(window_started_at <= TIMESTAMPADD(MINUTE, ?, UTC_TIMESTAMP()), 1, hits + 1),
+              window_started_at = IF(window_started_at <= TIMESTAMPADD(MINUTE, ?, UTC_TIMESTAMP()), UTC_TIMESTAMP(), window_started_at)',
+        [$bucket, $key, -$windowMinutes, -$windowMinutes]
+    );
+}
+
+/**
+ * Take one unit of quota from a set of counters.
+ *
+ * The counters are CONSULTED first and RAISED afterwards, and a request
+ * that was refused does NOT raise ANY of them: the window is not extended
+ * by the requests that were turned away — not by the counter that turned
+ * them away, and not by the other counters of the set either. So exactly
+ * `limit` requests are served per window, and the surplus is refused with
+ * a 429 (issue-022 §7.2).
+ *
+ * This is why the callers pass the WHOLE set in one call. Two calls — one
+ * per counter — would raise the first counter for a request the second
+ * counter refused, and a visitor behind a shared address would then lock
+ * out everybody else along with them.
+ *
+ * The refusal happens HERE, on the request path, before anything is
+ * queued — the refusal is what stops the mail cannon, so it cannot be
+ * left to the worker.
+ *
+ * @param array<int, array{0: string, 1: string, 2: int, 3: int}> $limiters
+ *
+ * @return array{blocked: bool, retry_after: int, hits: int}
+ */
+function takeRequestQuota(array $limiters): array
+{
+    if (!requestThrottleEnabled()) {
+        return ['blocked' => false, 'retry_after' => 0, 'hits' => 0];
+    }
+
+    $state = requestThrottleState($limiters);
+
+    if ($state['blocked']) {
+        return $state;
+    }
+
+    foreach ($limiters as $limiter) {
+        [$bucket, $key, , $windowMinutes] = $limiter;
+
+        raiseRequestCounter($bucket, $key, $windowMinutes);
+    }
+
+    return $state;
+}
+
+/**
+ * The limiters of the reset screen: the source.
+ *
+ * The source limiter bounds the SPRAY — the attacker who walks through a
+ * list of addresses, one request each.
+ *
+ * @return array<int, array{0: string, 1: string, 2: int, 3: int}>
+ */
+function resetSourceLimiters(): array
+{
+    return [
+        [
+            'reset:source',
+            requestSourceKey(),
+            (int) RESET_SOURCE_LIMIT,
+            (int) RESET_SOURCE_WINDOW_MINUTES,
+        ],
+    ];
+}
+
+/**
+ * The limiters of the reset screen: the submitted address.
+ *
+ * The address limiter is keyed on the SUBMITTED address, so it counts a
+ * known address and an unknown one alike — the ATTEMPT is what costs a
+ * mail, and the attempt is what the attacker controls. It is read
+ * TOGETHER with the source limiter, in one `takeRequestQuota()` call, so
+ * that a refusal by either of them raises neither: the source can be
+ * refused without touching the address's counter, and the other way round.
+ *
+ * @return array<int, array{0: string, 1: string, 2: int, 3: int}>
+ */
+function resetAddressLimiters(string $email): array
+{
+    return [
+        [
+            'reset:address',
+            requestThrottleKey($email),
+            (int) RESET_ADDRESS_LIMIT,
+            (int) RESET_ADDRESS_WINDOW_MINUTES,
+        ],
+    ];
+}
+
+/**
+ * The limiters of the registration screen: the source.
+ *
+ * There is no per-address limiter here: a registration is refused anyway
+ * when the address is taken, and the per-source limiter is what bounds
+ * the accounts an attacker can create.
+ *
+ * @return array<int, array{0: string, 1: string, 2: int, 3: int}>
+ */
+function registerRequestLimiters(): array
+{
+    return [
+        [
+            'register:source',
+            requestSourceKey(),
+            (int) REGISTER_SOURCE_LIMIT,
+            (int) REGISTER_SOURCE_WINDOW_MINUTES,
+        ],
+    ];
+}
+
+/**
+ * Remove the rows whose window closed long ago.
+ *
+ * Without this the table grows at the rate of the network: one row per
+ * address anybody ever typed, kept forever. The delete is bounded, and
+ * the probe in front of it keeps the statement off the hot path.
+ *
+ * The retention window is LONGER than every limiter window, so a row is
+ * never pruned while its counter is still counting.
+ */
+function pruneRequestThrottles(): void
+{
+    $db = Database::getInstance();
+
+    $stale = $db->fetchOne(
+        'SELECT COUNT(*) AS stale
+           FROM request_throttles
+          WHERE window_started_at <= TIMESTAMPADD(MINUTE, ?, UTC_TIMESTAMP())',
+        [-(int) REQUEST_THROTTLE_RETENTION_MINUTES]
+    );
+
+    if (!is_array($stale) || (int) $stale['stale'] === 0) {
+        return;
+    }
+
+    $db->execute(
+        'DELETE FROM request_throttles
+          WHERE window_started_at <= TIMESTAMPADD(MINUTE, ?, UTC_TIMESTAMP())
+          LIMIT 100',
+        [-(int) REQUEST_THROTTLE_RETENTION_MINUTES]
+    );
+}
+
+// ---------------------------------------------------------------------------
 // The tokens (issue-016 §7, §9 and §10)
 // ---------------------------------------------------------------------------
 
@@ -1044,7 +1423,7 @@ function consumePasswordReset(string $token, string $newPassword): array
             $pdo->rollBack();
         }
 
-        error_log('[auth] the password reset failed: ' . $ex->getMessage());
+        logFailure('auth: the password reset failed', $ex);
 
         return ['status' => 'error'];
     }
@@ -1134,7 +1513,7 @@ function consumeEmailVerification(string $token): ?int
             $pdo->rollBack();
         }
 
-        error_log('[auth] the e-mail verification failed: ' . $ex->getMessage());
+        logFailure('auth: the e-mail verification failed', $ex);
 
         return null;
     }

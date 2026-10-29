@@ -94,9 +94,9 @@ if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET')) === 'POST') {
                 try {
                     $user = findUserByIdentifier($identifier);
                 } catch (Throwable $ex) {
-                    // The detail goes to the log. The page gets a generic
+                    // The context goes to the log. The page gets a generic
                     // sentence — never a SQL error.
-                    error_log('[auth] the sign-in lookup failed: ' . $ex->getMessage());
+                    logFailure('auth: the sign-in lookup failed', $ex);
 
                     $lookupFailed = true;
                 }

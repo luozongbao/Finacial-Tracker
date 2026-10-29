@@ -120,7 +120,7 @@ if ($id > 0) {
             redirect('/categories?rename=' . $id);
         }
 
-        error_log('[categories] the rename failed: ' . $ex->getMessage());
+        logFailure('categories: the rename failed', $ex);
 
         throw new HttpException(500, 'The category could not be renamed. Please try again.');
     }
@@ -181,7 +181,7 @@ try {
         redirect('/categories');
     }
 
-    error_log('[categories] the create failed: ' . $ex->getMessage());
+    logFailure('categories: the create failed', $ex);
 
     throw new HttpException(500, 'The category could not be added. Please try again.');
 }

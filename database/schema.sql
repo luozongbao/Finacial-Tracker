@@ -274,15 +274,108 @@ CREATE TABLE IF NOT EXISTS `email_verifications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- --------------------------------------------------------------------------
+-- request_throttles — the generic request throttle.
+--
+--   bucket           WHICH limiter the row belongs to: 'reset:address',
+--                    'reset:source', 'register:source'. The bucket is part
+--                    of the unique key, so the same key can hold one row
+--                    per limiter.
+--   key_hash         sha256 of the thing being counted. For an address
+--                    limiter it is the sha256 of the lower-cased address;
+--                    for a source limiter it is the sha256 of the peer
+--                    address that really opened the connection. The hash is
+--                    the key: the table never stores what the visitor typed.
+--   hits             the number of hits in the CURRENT window.
+--   window_started_at when the current window opened. A hit that arrives
+--                    after the window closed starts a new one and resets
+--                    the count to 1 — that is the decay: an old count
+--                    stops counting, and the row does not grow forever.
+--
+-- WHY A TABLE AND NOT A COLUMN: the sign-in throttle proved the point. A
+-- counter on the account can only slow an account that exists, so a
+-- visitor who types a name that does not exist is never limited. The same
+-- applies to the reset screen: the limiter has to cover an address that
+-- matches no account, and the source limiter has to cover a source that
+-- has never registered (issue-022 §7.2).
+--
+-- The rows are pruned: a window that closed long ago is deleted, so the
+-- table cannot grow without bound (issue-022 §8).
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `request_throttles` (
+    `id`                INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `bucket`            VARCHAR(32)  NOT NULL,
+    `key_hash`          CHAR(64)     NOT NULL,
+    `hits`              INT UNSIGNED NOT NULL DEFAULT 0,
+    `window_started_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `created_at`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_request_throttles_bucket_key` (`bucket`,`key_hash`),
+    KEY `idx_request_throttles_window` (`window_started_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------------------------
+-- mail_outbox — the outgoing mail queue.
+--
+-- The registration and the forgot-password screens do NOT talk to the SMTP
+-- server. They write the message here and answer the visitor; a CLI worker
+-- sends it afterwards. That is what makes the two screens answer in the
+-- same time whatever the address is: the request no longer waits for a
+-- network round trip that a known address causes and an unknown one does
+-- not (issue-022 §7.1).
+--
+--   to_address  the recipient. It is a real address, so this table holds
+--               personal data — which is exactly why the whole database/
+--               directory is denied by .htaccess and the table is never
+--               exposed to the web.
+--   body        the message. A reset link lives here until the worker
+--               sends it, so the table is as sensitive as the mail store
+--               it replaces.
+--   status      'queued' -> 'sent', or 'failed' after the retry budget is
+--               spent. A retry re-uses the SAME row: a retry is never a
+--               second row, so a transient failure cannot send the message
+--               twice.
+--   attempts    how many times the worker has tried.
+--   claimed_at  when the worker took the row. A stale claim (a worker that
+--               died mid-send) is taken back after the lease expires.
+--   next_attempt_at
+--               when the row may be tried again. A failed send is put back
+--               with a BACKOFF — the wait grows with every attempt — so a
+--               dead SMTP server is not hammered and the row is picked up
+--               again as soon as the wait is over.
+-- --------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mail_outbox` (
+    `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `to_address` VARCHAR(254) NOT NULL,
+    `subject`    VARCHAR(255) NOT NULL,
+    `body`       TEXT         NOT NULL,
+    `status`     ENUM('queued','sent','failed') NOT NULL DEFAULT 'queued',
+    `attempts`   INT UNSIGNED NOT NULL DEFAULT 0,
+    `last_error` VARCHAR(255) NULL DEFAULT NULL,
+    `claimed_at` DATETIME     NULL DEFAULT NULL,
+    `created_at` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `sent_at`    DATETIME     NULL DEFAULT NULL,
+    `next_attempt_at` DATETIME NULL DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_mail_outbox_status_created` (`status`,`created_at`),
+    KEY `idx_mail_outbox_claimed` (`claimed_at`),
+    KEY `idx_mail_outbox_next_attempt` (`status`,`next_attempt_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- ==========================================================================
 -- The tables:
 --
 --   users               the accounts
 --   login_attempts      the sign-in throttle, counted per identifier
+--   request_throttles   the generic request throttle (reset, register)
 --   categories          the per-user labels (income | expense)
 --   transactions        the ledger — income and spending in one table
 --   password_resets     the single-use password reset tokens (hash only)
 --   email_verifications the single-use confirmation tokens (hash only)
+--   mail_outbox         the outgoing mail queue (sent by the CLI worker)
 --
 -- There is NO "uncategorised" row. An uncategorised transaction is a
 -- transaction whose `category_id IS NULL` — that is what deleting a category

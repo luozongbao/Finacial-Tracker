@@ -175,10 +175,9 @@ SQL;
 
     $rows = $db->fetchAll($rowsSql, $params);
 } catch (Throwable $ex) {
-    // The raw driver error goes to the log; the page shows plain copy
+    // The context of the failure goes to the log; the page shows plain copy
     // only, and the status is a 500.
-    error_log('[transactions] list failed: ' . $ex->getMessage()
-        . ' @ ' . $ex->getFile() . ':' . $ex->getLine());
+    logFailure('transactions: the list could not be read', $ex);
 
     $failed = true;
 }

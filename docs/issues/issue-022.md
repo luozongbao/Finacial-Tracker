@@ -1,9 +1,22 @@
 # Issue-022 — Security: the unauthenticated endpoints that cost the server something
 
-> **Status:** **open** — found by the audit of 2026-10-28, all of it measured
-> against the running application.
+> **Status:** **implemented and verified** — the enumeration oracle is closed
+> (a **byte-identical** body in every state), the mail leaves through an
+> **outbox** and a **CLI worker** instead of the request path, the SMTP
+> transport is **bounded**, `/register` and `/forgot-password` are
+> **throttled**, and the log carries the **context** of a failure and never
+> the address. The mechanism is guarded by `database/auth_test.php` (the
+> sources, and a sandbox that runs the real screens) and the end-to-end
+> behaviour by `database/live/live_security_test.php` (over real HTTP, with
+> real cookies).
+> **One thing the implementation found that the audit did not:** the two
+> limiters of the reset screen must be consulted in **one** call — two calls
+> raise the source counter for the requests the address counter refused, so
+> the window is extended by the requests that were turned away. See §7.2 and
+> §14.
 > **Target:** `views/forgot_password.php`, `views/register.php`,
-> `includes/auth.php`, `includes/mailer.php`, `database/schema.sql`,
+> `includes/auth.php`, `includes/mailer.php`, `includes/logging.php`,
+> `includes/outbox.php`, `database/outbox_worker.php`, `database/schema.sql`,
 > `database/migrations/`, `database/auth_test.php`,
 > `database/live/live_security_test.php`
 > **Severity:** **Medium to High** — an unauthenticated visitor can turn the
@@ -38,6 +51,7 @@
 11. [Risks](#11-risks)
 12. [Out of scope](#12-out-of-scope)
 13. [Findings that were audited and found clean](#13-findings-that-were-audited-and-found-clean)
+14. [The implementation, as built](#14-the-implementation-as-built)
 
 ---
 
@@ -410,43 +424,96 @@ common race does not reach the log at all.
 
 ## 8. Acceptance criteria
 
-- [ ] `/forgot-password` returns a **byte-identical** response body for a
+- [x] `/forgot-password` returns a **byte-identical** response body for a
       known address and an unknown address, in **every** state: mail sent, mail
       failed, mail not configured, and invalid address.
-- [ ] The response **time** for a known address and an unknown address differ
+      *(SOURCE §B8 — "the two responses are word-for-word identical" in the
+      sent state, "the failed state is the same for an unknown address" in the
+      failed state, and "the two not-configured responses are identical" in the
+      not-configured state; the address is never echoed in any of them.
+      LIVE §I — "the two answers are byte-identical" over real HTTP.)*
+- [x] The response **time** for a known address and an unknown address differ
       by **less than 100 ms** at the median over 20 requests each — measured
       against a mailer stub with a 2-second delay, so the test fails against
       the current implementation.
-- [ ] The SMTP send happens **outside** the request (an outbox table and a
+      *(SOURCE §B8.1 — "the two medians differ by less than 100 ms" against the
+      **2-second** stub, and "the worker paid the two-second delay", so the
+      delay is real and it is the worker that pays it.
+      LIVE §I — "the two answers take the same time" and "the timing floor is
+      honoured" over real HTTP.)*
+- [x] The SMTP send happens **outside** the request (an outbox table and a
       CLI worker), or an equivalent mechanism that removes the round trip
       from the response path. The worker is documented in
       `docs/issues/README.md` and in the operator's notes.
-- [ ] The outbox worker **sends** what was queued, **marks** it sent, and
+      *(SOURCE §B8 — "nothing was sent by the request" and "the request path
+      never called the mailer"; §A13 — the outbox table, the worker and the
+      exclusive claim. The worker is documented in `docs/issues/README.md`,
+      in [docs/About.md](../About.md) and in `AGENTS.md`.)*
+- [x] The outbox worker **sends** what was queued, **marks** it sent, and
       **retries** a transient failure without sending a duplicate.
-- [ ] `/register` is rate-limited **per source address**. A test sends more
+      *(SOURCE §B8 — "exactly one mail was sent" and "the queued message is
+      marked as sent"; §B8.4 — "the worker says it retried the message",
+      "the row was reused, not duplicated", and "the message was delivered
+      once" after a transient failure.)*
+- [x] `/register` is rate-limited **per source address**. A test sends more
       registrations than the limit and asserts that the surplus is refused
       with a **429** and a `Retry-After` header.
-- [ ] `/forgot-password` is rate-limited **per submitted address** and **per
+      *(SOURCE §B8.3 — "the first ten registrations are served", "the surplus
+      is refused with a 429", "the refusal carries a Retry-After header" and
+      "the refused registrations created no accounts".
+      LIVE §K — the same four assertions over real HTTP.)*
+- [x] `/forgot-password` is rate-limited **per submitted address** and **per
       source address**. A test sends more requests than the limit for **one**
       address and asserts the surplus is refused **before** the mail is
       queued — the refusal is what stops the cannon, so it must happen on the
       request path.
-- [ ] The per-address limiter counts the **attempt**, so a known address and
+      *(SOURCE §B8.2 — "the surplus is refused with a 429", "only the served
+      requests queued a message", and "the surplus from one source is refused
+      with a 429".
+      LIVE §J — "the fourth request is refused with 429", "the address counter
+      holds exactly the served requests", "the source counter holds exactly
+      the served requests", and "the source limiter refuses the request".)*
+- [x] The per-address limiter counts the **attempt**, so a known address and
       an unknown address are both counted.
-- [ ] The SMTP timeouts are **explicit and bounded**, and the bounds are
+      *(SOURCE §B8.2 — "the unknown address is refused too — the counter counts
+      the ATTEMPT"; LIVE §J — "a known address is refused the same way" and
+      "the refusal is byte-identical for a known and an unknown address".)*
+- [x] The SMTP timeouts are **explicit and bounded**, and the bounds are
       asserted by the test.
-- [ ] The exception messages that reach `error_log()` **do not contain** the
+      *(SOURCE §A14 — `SMTP_TIMEOUT_SECONDS` is 10, the connect timeout and
+      the socket timeout are both set to it, and the connection is not kept
+      alive; `database/mailer_test.php` asserts the three values on the real
+      transport object.)*
+- [x] The exception messages that reach `error_log()` **do not contain** the
       submitted address, the submitted password or any other submitted value.
       A test asserts that a deliberate duplicate registration does not put the
       address into the log.
-- [ ] A duplicate registration produces the screen's existing **field error**
+      *(SOURCE §B8.5 — "the submitted address never reaches the server log" and
+      "the log does not carry the address", while "the exception message
+      itself carries the address" — so the guard can still fire; §A11 — the
+      same guard on the source.)*
+- [x] A duplicate registration produces the screen's existing **field error**
       (*"that address is already registered"*) and **not** an error page.
-- [ ] The rate limiters are **decaying** — a count older than the window
+      *(SOURCE §B8.5 — "a duplicate registration is the existing field error",
+      "a duplicate registration is not an error page" and "a duplicate
+      registration is a 200".)*
+- [x] The rate limiters are **decaying** — a count older than the window
       stops counting — and the tables are cleaned so they do not grow without
       bound.
-- [ ] `database/auth_test.php` covers the mechanism in a sandbox and
+      *(SOURCE §B8.6 — "a count older than the window does not block", "the
+      stale counter was pruned" and "the old message was pruned"; the counters
+      decay **in SQL** — a hit after the window closed starts a new one and the
+      count goes back to 1.)*
+- [x] `database/auth_test.php` covers the mechanism in a sandbox and
       `database/live/live_security_test.php` covers the end-to-end behaviour
       over HTTP.
+      *(SOURCE: §A11–§A14 for the mechanism (the sanitised log, the request
+      throttle, the outbox and the worker, the bounded transport) and §B8–§B8.6
+      for the behaviour, in a sandbox that runs the real screens against a
+      scratch database with a stub mailer.
+      LIVE: section I for the oracle, section J for the two limiters and
+      section K for the registration limiter — over real HTTP, with real
+      cookies and the real CSRF token.)*
 
 ---
 
@@ -570,3 +637,170 @@ These were checked during the same audit and need **no change**.
 | **The mail is not configured** | Correct. `mailIsConfigured()` is checked, and the "not configured" state is shown for **every** address — it is a property of the installation, not of the visitor. |
 | **The registration gate** | Correct. Two-sided: the `GET` renders no form, and the `POST` is refused **before** the CSRF check and before any input is read. |
 | **The password hash** | Correct. `password_hash()` with `PASSWORD_DEFAULT`; the hash is never logged and never enters the session. |
+
+---
+
+## 14. The implementation, as built
+
+The decisions §7 left open, the ones the implementation had to make, and the
+one thing the implementation found that the audit did not.
+
+### 14.1 The outbox, and the worker that is part of the delivery path
+
+The mail is **queued**, not sent. The request writes one row into
+`mail_outbox` and answers; a **CLI worker** sends it.
+
+| Piece | Where | What it does |
+|---|---|---|
+| `mail_outbox` | `database/schema.sql` + `database/migrations/20261030_mail_outbox_and_request_throttles.sql` | The queue. One row per message, with the recipient, the subject, the body, the attempt count, the status and the lease. |
+| `includes/outbox.php` | the queue | `enqueueMail()`, `claimOutboxMessage()`, `markOutboxSent()`, `releaseOutboxMessage()`, `runOutboxWorker()`, `pruneOutbox()`. |
+| `database/outbox_worker.php` | the worker | The CLI entry point: `php database/outbox_worker.php --limit=20`. It refuses to run under a web server. |
+
+**The worker is not optional.** The request path no longer sends mail, so an
+installation that never runs the worker **never sends mail**. The worker's
+contract is therefore stated in three places: `docs/issues/README.md`,
+[docs/About.md](../About.md) (the operator's notes) and `AGENTS.md`. The
+installation card in `/settings` shows the **queue depth**, so an operator can
+see the backlog without reading the logs.
+
+Three properties the tests assert:
+
+- **The claim is exclusive.** `SELECT … FOR UPDATE SKIP LOCKED`, so two
+  workers cannot send the same message.
+- **A retry re-uses the row.** The release is an `UPDATE`, never an `INSERT`,
+  so a transient failure cannot produce a second copy of the message.
+- **The failures back off.** `OUTBOX_MAX_ATTEMPTS` is 3 and the delay grows
+  from `OUTBOX_BACKOFF_BASE_MINUTES`.
+
+### 14.2 The neutral answer — option B, and the installation-level message
+
+The screen answers the same way for every address, and the *only* thing the
+visitor can learn is whether the **installation** can send mail — which is a
+property of the installation, not of the address.
+
+| State | The message | Reachable when |
+|---|---|---|
+| `sent` | *"If that address has an account, a reset link is on its way."* | Always — for a known address, for an unknown one, and for a mail that the transport later fails to deliver. |
+| `not-configured` | *"Email is not configured for this installation, so reset links cannot be sent."* | The SMTP constants are empty. **The same for every address.** |
+| `failed` | *"Email could not be sent. Please try again later."* | The **queue table is missing** — an installation that was not migrated. **The same for every address.** |
+
+This is **option B** of §7.1: the loud failure message survives, but it is
+**installation-level** instead of address-level, so it cannot become an
+oracle. The transport failure itself now happens in the **worker**, where it
+is logged with its context and never reaches the visitor.
+
+> **A deviation from the mockup.** `docs/mockup/04-forgot-password.html`
+> draws a *"the send failed"* state whose alert reads *"The reset link could
+> not be sent. Please try again."* — an **address-level** message, and the
+> very state the audit found to be the oracle. The implementation replaces it
+> with the installation-level message above, and the mockup's two confirmation
+> states (which are word-for-word identical, as the mockup itself demands)
+> are kept verbatim. The mockup's "the form echoes the submitted address"
+> is also **not** implemented: the field is left empty, so no body can carry
+> the address back to the visitor. The mockup is a design deliverable, and it
+> is the one place where the security fix and the mockup disagree; the
+> security fix wins.
+
+### 14.3 The limits
+
+The constants live in `config.php` (and `config.template.php`), so an operator
+can move them without touching the code.
+
+| Constant | Value | What it bounds |
+|---|---|---|
+| `RESET_ADDRESS_LIMIT` | 3 | The requests for **one submitted address** in an hour. Counted on the **attempt**, so a known and an unknown address count alike. |
+| `RESET_SOURCE_LIMIT` | 20 | The requests from **one source** in an hour — the spray. |
+| `REGISTER_SOURCE_LIMIT` | 10 | The registrations from **one source** in an hour. |
+| `AUTH_TIMING_FLOOR_MILLISECONDS` | 500 | The floor the answer waits for, so a fast answer is not the sign of a fast branch. |
+| `REQUEST_THROTTLE_ENABLED` | `true` | The kill switch. A **real boolean** — the string `'false'` would leave the limiter **on**, which is the wrong way to fail. |
+
+### 14.4 The two limiters are consulted in ONE call
+
+This is the thing the audit did not say, and the implementation found it with
+the LIVE tier.
+
+`takeRequestQuota()` raises the counters of the set it is given — but only
+when **none** of them is blocked. The reset screen has **two** counters: the
+source and the submitted address. Taking them in **two** calls means the
+first call raises the **source** counter before the second call discovers that
+the **address** counter has run out — so a request that was turned away
+extends the window of the counter that did not turn it away. A visitor behind
+a shared address would then lock out everybody else along with them.
+
+The screen therefore passes **both** limiters in **one** call, and
+`requestThrottleState()` resolves them the way
+[issue-021](issue-021.md) §8.1 resolves its two counters: the **stricter**
+wins, never the sum.
+
+The LIVE tier found it: the source counter said **8** where **6** requests
+had been served — the two refusals had extended the source window. The
+assertion that guards it is now in **both** tiers: LIVE §J *"the source
+counter holds exactly the served requests"*, and SOURCE §B8.2 *"the source
+counter holds exactly the served requests"*.
+
+### 14.5 The log
+
+`includes/logging.php` holds one helper:
+
+````php
+logFailure(string $context, ?Throwable $ex = null);
+````
+
+It writes the **context**, the **class**, the **code** and the **file:line**
+of the failure — and **never** the message, because the message is where the
+submitted value lives. The context is a literal the developer wrote, so it
+carries no personal data.
+
+A duplicate registration does not reach the log at all: the unique-key
+violation is **caught** and turned into the screen's existing *"that address is
+already registered"* field error. The test asserts both halves — the field
+error **and** that the address never reaches the log — and it asserts that
+the exception message itself *does* carry the address, so the guard is proved
+to be able to fire.
+
+### 14.6 The bounded transport
+
+`includes/mailer.php` sets the three PHPMailer knobs explicitly:
+
+````php
+$mail->Timeout         = SMTP_TIMEOUT_SECONDS;                            // 10
+$mail->SMTPOptions     = ['socket' => ['timeout' => SMTP_TIMEOUT_SECONDS]];
+$mail->SMTPKeepAlive   = false;
+````
+
+`$mail->Timeout` bounds the connect **and** the socket reads and writes;
+`SMTPOptions` is the **stream-context options array** (not the
+`SMTPOptions` property of a different meaning) and bounds the socket;
+`SMTPKeepAlive = false` stops a dead connection from being kept between
+messages. `database/mailer_test.php` asserts the three values on the **real
+transport object**, not on the source.
+
+### 14.7 The housekeeping
+
+The counters **decay in SQL** — a hit that arrives after the window closed
+starts a new window and the count goes back to 1 — and the worker prunes:
+
+- `request_throttles` rows that are older than
+  `REQUEST_THROTTLE_RETENTION_MINUTES`,
+- `mail_outbox` rows that were sent (or abandoned) more than
+  `OUTBOX_RETENTION_DAYS` ago.
+
+Both prunes run at the end of a worker run and are bounded.
+
+### 14.8 The files
+
+| File | What changed |
+|---|---|
+| `database/schema.sql` | the `mail_outbox` and `request_throttles` tables |
+| `database/migrations/20261030_mail_outbox_and_request_throttles.sql` | the two tables, idempotent |
+| `includes/outbox.php` | **new** — the queue |
+| `includes/logging.php` | **new** — `logFailure()` |
+| `database/outbox_worker.php` | **new** — the CLI worker |
+| `includes/auth.php` | the request-throttle API, `refuseRateLimited()`, the registration gate's throttle |
+| `includes/mailer.php` | the bounded transport |
+| `views/forgot_password.php` | the neutral answer, the outbox, the two limiters |
+| `views/register.php` | the per-source limiter, the duplicate-registration field error |
+| `views/settings.php` | the queue depth in the installation card |
+| `config.php` / `config.template.php` | the six constants of §14.3 |
+| `database/auth_test.php` | §A11–§A14 and §B8–§B8.6 |
+| `database/live/live_security_test.php` | §I, §J and §K |

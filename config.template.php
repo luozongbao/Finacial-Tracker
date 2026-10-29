@@ -44,6 +44,12 @@ const MAIL_FROM_NAME = 'Financial Tracker';
 // rejects the request).
 const ALLOW_REGISTRATION = true;
 
+// The request throttle — the limiter that guards /register and
+// /forgot-password (issue-022 §7.2). true = the limiter is on; false = it
+// is off. It is the kill switch for an operator whose visitors are being
+// blocked by it.
+const REQUEST_THROTTLE_ENABLED = true;
+
 // Week-start rule for period reports, as a weekday number: 1 = Monday ... 7 = Sunday.
 // Keep it in exactly one place so the reports and the UI always agree.
 const WEEK_START = 1;

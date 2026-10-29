@@ -18,7 +18,8 @@
  *   5. The CSRF token is validated BEFORE any input is read, and every form
  *      carries the hidden input.
  *   6. The raw driver error never reaches the page. It is classified into a
- *      plain-language sentence; the raw text goes to the error log.
+ *      plain-language sentence; the log gets the context of the failure
+ *      and never the message (see includes/logging.php).
  *   7. config.php is written with var_export(), atomically (a temp file and
  *      a rename), and parse-checked before the wizard declares success.
  *   8. The wizard is ONE file. Splitting it would leave fragments behind
@@ -36,6 +37,12 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/includes/functions.php';
+
+// The sanitised error log. The wizard logs failures like the application
+// does, through the same helper, so an exception MESSAGE — which carries
+// the database user, the host or the submitted address — never reaches
+// the log (issue-022 §7.4).
+require_once __DIR__ . '/includes/logging.php';
 
 // ---------------------------------------------------------------------------
 // 1. The session.
@@ -498,7 +505,7 @@ function installConnect(array $values, bool $withDatabase = false): array
 
         return ['ok' => true, 'pdo' => $pdo, 'message' => ''];
     } catch (PDOException $ex) {
-        error_log('[install] connection: ' . $ex->getMessage());
+        logFailure('install: the database connection failed', $ex);
 
         return ['ok' => false, 'pdo' => null, 'message' => installDatabaseErrorMessage($ex)];
     }
@@ -552,14 +559,14 @@ function installTestDatabase(array $values): array
         $pdo->exec('CREATE TABLE IF NOT EXISTS `ft_install_probe` (`id` INT UNSIGNED NOT NULL) ENGINE=InnoDB');
         $pdo->exec('DROP TABLE `ft_install_probe`');
     } catch (PDOException $ex) {
-        error_log('[install] database: ' . $ex->getMessage());
+        logFailure('install: the database test failed', $ex);
 
         // The probe table may be left behind when the DROP was the statement
         // that failed.
         try {
             $pdo->exec('DROP TABLE IF EXISTS `ft_install_probe`');
         } catch (PDOException $ignored) {
-            error_log('[install] probe cleanup: ' . $ignored->getMessage());
+            logFailure('install: the probe table could not be dropped', $ignored);
         }
 
         return [
@@ -669,7 +676,7 @@ function installTestMail(array $values): array
 
         $sent = $mailer->send();
     } catch (Throwable $ex) {
-        error_log('[install] mail: ' . $ex->getMessage());
+        logFailure('install: the mail test failed', $ex);
 
         return [
             'ok'      => false,
@@ -679,7 +686,7 @@ function installTestMail(array $values): array
     }
 
     if ($sent !== true) {
-        error_log('[install] mail: the message was refused');
+        logFailure('install: the mail server refused the test message');
 
         return [
             'ok'      => false,
@@ -738,7 +745,7 @@ function installApplySchema(PDO $pdo, string $sql): array
     try {
         $pdo->exec($sql);
     } catch (PDOException $ex) {
-        error_log('[install] schema: ' . $ex->getMessage());
+        logFailure('install: the schema could not be applied', $ex);
 
         return [
             'ok'      => false,
@@ -811,6 +818,11 @@ function installWriteConfig(array $values): array
         '// on BOTH the front end (403, no form) and the back end (the POST handler',
         '// rejects the request).',
         'const ALLOW_REGISTRATION = ' . var_export((bool) $values['allow_registration'], true) . ';',
+        '',
+        '// The request throttle — the limiter that guards /register and /forgot-password',
+        '// (issue-022 §7.2). true = the limiter is on; false = it is off. It is the kill',
+        '// switch for an operator whose visitors are being blocked by it.',
+        'const REQUEST_THROTTLE_ENABLED = true;',
         '',
         '// Week-start rule for period reports, as a weekday number: 1 = Monday ... 7 = Sunday.',
         'const WEEK_START = 1;',
@@ -897,7 +909,11 @@ function installParses(string $path): bool
                 || str_contains($output, 'Parse error')
                 || str_contains($output, 'Fatal error')
             ) {
-                error_log('[install] config parse: ' . trim($output));
+                // The parser's verdict is worth keeping — it names the line
+                // that broke. The temporary path is not: it is replaced with
+                // the name the file will have.
+                logFailure('install: the generated config did not parse: '
+                    . trim(str_replace($path, 'config.php', $output)));
 
                 return false;
             }
@@ -909,7 +925,7 @@ function installParses(string $path): bool
 
         return true;
     } catch (ParseError $ex) {
-        error_log('[install] config parse: ' . $ex->getMessage());
+        logFailure('install: the generated config did not parse', $ex);
 
         return false;
     }

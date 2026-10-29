@@ -941,7 +941,7 @@ ok(
 
 ok(
     'the raw error goes to the error log',
-    str_contains($code, 'error_log(')
+    str_contains($code, 'logFailure(')
 );
 
 ok(

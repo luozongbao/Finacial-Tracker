@@ -209,11 +209,11 @@ try {
         $categories = $db->fetchAll($categoriesSql, [$uid, $range[0], $range[1]]);
     }
 } catch (Throwable $ex) {
-    // The detail goes to the error log, where the operator can read it.
-    // The page gets the error state: an error is never rendered as
-    // 0.00, and neither table is rendered either — they come from the
-    // same failure.
-    error_log('[reports] ' . $ex->getMessage() . ' @ ' . $ex->getFile() . ':' . $ex->getLine());
+    // The context of the failure goes to the error log, where the operator
+    // can read it. The page gets the error state: an error is never
+    // rendered as 0.00, and neither table is rendered either — they come
+    // from the same failure.
+    logFailure('reports: the totals could not be read', $ex);
 
     $failed     = true;
     $totals     = null;

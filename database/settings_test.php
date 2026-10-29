@@ -887,10 +887,11 @@ $expectedRows = [
     'SMTP user',
     'Registration allowed',
     'Week start',
+    'Queued mail',
 ];
 
-ok('the installation card has seven rows', count($rows) === 7, (string) count($rows) . ' rows');
-ok('the installation rows are the seven of the specification', $rows === $expectedRows, implode(', ', $rows));
+ok('the installation card has eight rows', count($rows) === 8, (string) count($rows) . ' rows');
+ok('the installation rows are the eight of the specification', $rows === $expectedRows, implode(', ', $rows));
 
 ok(
     'the installation card has no input',
@@ -1014,6 +1015,14 @@ if ($db === null) {
     ok('the installation card shows the registration flag as Yes', str_contains($installation, '>Yes<'));
     ok('the installation card shows the week start', str_contains($installation, '>Monday<'));
     ok('the installation card shows an em dash for an empty SMTP host', str_contains($installation, "\u{2014}"));
+
+    // The outbox queue depth (issue-022 §7.1): a read-only number for the
+    // operator. The queue is empty in the scratch database, so it reads 0.
+    ok(
+        'the installation card shows the queued mail depth',
+        preg_match('/<dt>Queued mail<\/dt>\s*<dd class="set__value">(\d+)<\/dd>/', $installation, $m) === 1,
+        'the queued mail row is absent'
+    );
     ok('the installation card shows no password row', !str_contains(strtolower($installation), 'password'));
 
     // The secrets are absent from the page altogether.

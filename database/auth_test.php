@@ -28,6 +28,34 @@
  *   5. THE LINKS. The reset link is built from $_SERVER['SERVER_NAME'] and
  *      never from the Host: header, so it cannot be pointed at another host.
  *
+ * Issue-022 (the account-existence oracle and the unthrottled endpoints)
+ * extends the file tier and the behaviour tier:
+ *
+ *   6. THE NEUTRAL ANSWER. The forgot-password screen answers the SAME
+ *      bytes for a known and an unknown address, in EVERY state — the mail
+ *      queued, the mail unavailable, the mail not configured. The address is
+ *      never echoed back, and the two answers take the same time: the mail
+ *      is QUEUED by the request and SENT by the worker, so the SMTP round
+ *      trip is out of the request entirely. That is what closes the timing
+ *      oracle (§B8, §B8.1).
+ *   7. THE TWO LIMITERS. The per-identifier limiter counts the ATTEMPT —
+ *      the refusal happens before the address is looked up and before the
+ *      mail is queued — and the per-source limiter bounds the whole client.
+ *      Both answer 429 with a Retry-After header, and the body is the same
+ *      for a known and an unknown address (§B8.2, §B8.3).
+ *   8. THE SANITISED LOG. A duplicate registration is an ordinary field
+ *      error, not an error page, and the submitted address never reaches
+ *      the log. The log carries the CONTEXT of a failure — the class, the
+ *      code and the place — and never the message of an exception, because
+ *      the message of a rejected mail carries the recipient (§B8.5).
+ *   9. THE DECAY AND THE PRUNING. The counters expire, and the worker
+ *      prunes both the stale counters and the old outbox rows (§B8.6).
+ *
+ * The mail itself leaves the process through the OUTBOX: the request writes
+ * a row, and database/outbox_worker.php sends it. The worker is part of the
+ * delivery path, not an optional extra — a queued message that is never sent
+ * is a message that is lost.
+ *
  * Two tiers:
  *
  *   - The file tier (§A) always runs. It needs no database and no web
@@ -644,6 +672,15 @@ function remove_tree(string $dir): void
  *   ok    — mailIsConfigured() is true and sendMail() returns true
  *   fail  — mailIsConfigured() is true and sendMail() returns false
  *   off   — mailIsConfigured() is false
+ *   slow  — mailIsConfigured() is true and sendMail() takes TWO SECONDS
+ *           before it returns true — the artificial SMTP delay of
+ *           issue-022 §3, against which the timing floor is measured
+ *   flaky — mailIsConfigured() is true, the FIRST send is refused and the
+ *           next ones succeed: a transient failure, which the worker must
+ *           retry without sending the message twice
+ *
+ * Every recorded line carries a 'sent' flag, so a test can tell a REFUSED
+ * attempt from a delivered message.
  */
 function write_stub_mailer(string $dir): void
 {
@@ -665,7 +702,7 @@ function mailer_stub_mode(): string
     $file = __DIR__ . '/mailer-mode.txt';
     $mode = is_file($file) ? trim((string) file_get_contents($file)) : 'off';
 
-    return in_array($mode, ['ok', 'fail', 'off'], true) ? $mode : 'off';
+    return in_array($mode, ['ok', 'fail', 'off', 'slow', 'flaky'], true) ? $mode : 'off';
 }
 
 function mailIsConfigured(): bool
@@ -682,16 +719,40 @@ function sendMail(string $to, string $subject, string $body): bool
 {
     $mode = mailer_stub_mode();
 
+    $sent = $mode === 'ok';
+
+    if ($mode === 'slow') {
+        // The two-second SMTP delay of issue-022 §3. A request that still
+        // answers in half a second proves that the round trip is gone from
+        // the response path.
+        sleep(2);
+
+        $sent = true;
+    } elseif ($mode === 'flaky') {
+        // A TRANSIENT failure: the first attempt is refused and the next
+        // one succeeds. The counter lives in a file, because the worker
+        // runs in another process.
+        $counter   = __DIR__ . '/mailer-attempts.txt';
+        $attempts  = is_file($counter) ? (int) trim((string) file_get_contents($counter)) : 0;
+
+        $attempts++;
+
+        file_put_contents($counter, (string) $attempts);
+
+        $sent = $attempts > 1;
+    }
+
     $line = json_encode([
         'to'      => $to,
         'subject' => $subject,
         'body'    => $body,
         'mode'    => $mode,
+        'sent'    => $sent,
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
     file_put_contents(__DIR__ . '/mailer.log', $line . "\n", FILE_APPEND | LOCK_EX);
 
-    return $mode === 'ok';
+    return $sent;
 }
 
 MAILER;
@@ -734,11 +795,176 @@ function mailer_messages(string $sandbox): array
 }
 
 /**
- * Forget the recorded messages.
+ * Forget the recorded messages — and the transient-failure counter, which
+ * belongs to the same stub.
  */
 function clear_mailer_log(string $sandbox): void
 {
     @unlink($sandbox . '/includes/mailer.log');
+    @unlink($sandbox . '/includes/mailer-attempts.txt');
+}
+
+/**
+ * Empty the request throttle table.
+ *
+ * The limiters are deliberately strict, so a test that measures something
+ * else — the body, the timing — has to start from a clean counter. The
+ * limiter itself is exercised in its own section, where the counter IS the
+ * thing under test.
+ */
+function reset_throttles(PDO $pdo): void
+{
+    $pdo->exec('DELETE FROM request_throttles');
+}
+
+/**
+ * The rows of the outbox, oldest first.
+ *
+ * The status filters the rows: a FINISHED row stays in the table for a
+ * week, so a test that counts the QUEUE has to ask for the queued ones.
+ *
+ * @return array<int, array<string, mixed>>
+ */
+function outbox_rows(PDO $pdo, string $status = ''): array
+{
+    if ($status === '') {
+        $rows = $pdo->query('SELECT * FROM mail_outbox ORDER BY id')->fetchAll();
+    } else {
+        $statement = $pdo->prepare('SELECT * FROM mail_outbox WHERE status = ? ORDER BY id');
+        $statement->execute([$status]);
+
+        $rows = $statement->fetchAll();
+    }
+
+    return is_array($rows) ? $rows : [];
+}
+
+/**
+ * Run the outbox worker of the sandbox and return its output, its exit code
+ * and the time it took.
+ *
+ * The worker is a CLI script, so it runs in its own process — the same way
+ * it runs in production.
+ *
+ * @param array<int, string> $args
+ *
+ * @return array{output: string, code: int, elapsed: float}
+ */
+function run_worker(string $sandbox, array $args = []): array
+{
+    $cmd = escapeshellarg(PHP_BINARY)
+        . ' ' . escapeshellarg($sandbox . '/database/outbox_worker.php');
+
+    foreach ($args as $arg) {
+        $cmd .= ' ' . escapeshellarg($arg);
+    }
+
+    $output   = [];
+    $code     = 0;
+    $started  = microtime(true);
+
+    exec($cmd . ' 2>&1', $output, $code);
+
+    return [
+        'output'  => implode("\n", $output),
+        'code'    => $code,
+        'elapsed' => (microtime(true) - $started) * 1000,
+    ];
+}
+
+/**
+ * Run a snippet of PHP against the sandbox and return its output.
+ *
+ * The snippet runs in its OWN process: a probe that throws must not kill
+ * the test, and a probe that touches the session must not disturb the one
+ * the test is using.
+ *
+ * @return array{output: string, code: int}
+ */
+function run_php(string $sandbox, string $snippet): array
+{
+    $file = $sandbox . '/probe-' . bin2hex(random_bytes(4)) . '.php';
+
+    file_put_contents($file, "<?php\ndeclare(strict_types=1);\n\n" . $snippet . "\n");
+
+    $output = [];
+    $code   = 0;
+
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($file) . ' 2>&1', $output, $code);
+
+    @unlink($file);
+
+    return ['output' => implode("\n", $output), 'code' => $code];
+}
+
+/**
+ * The arguments of every logFailure() call in a source, with the comments
+ * removed.
+ *
+ * The rule is about the CODE, not about the file: "no exception message
+ * reaches the log" is a statement about the arguments of the calls, so the
+ * calls are read out of the source and their arguments are inspected.
+ *
+ * @return array<int, string>
+ */
+function log_failure_arguments(string $src): array
+{
+    $code = code_without_comments($src);
+
+    $arguments = [];
+    $offset    = 0;
+    $length    = strlen($code);
+
+    while (($start = strpos($code, 'logFailure(', $offset)) !== false) {
+        $open  = $start + strlen('logFailure(');
+        $depth = 1;
+
+        for ($i = $open; $i < $length; $i++) {
+            if ($code[$i] === '(') {
+                $depth++;
+                continue;
+            }
+
+            if ($code[$i] === ')') {
+                $depth--;
+
+                if ($depth === 0) {
+                    break;
+                }
+            }
+        }
+
+        $arguments[] = substr($code, $open, $i - $open);
+        $offset      = $i + 1;
+    }
+
+    return $arguments;
+}
+
+/**
+ * The median of a list of numbers.
+ *
+ * The median, not the mean: one slow sample must not decide the verdict of
+ * a timing measurement (issue-022 §11).
+ *
+ * @param array<int, float|int> $values
+ */
+function median(array $values): float
+{
+    if ($values === []) {
+        return 0.0;
+    }
+
+    sort($values);
+
+    $count  = count($values);
+    $middle = intdiv($count, 2);
+
+    if ($count % 2 === 1) {
+        return (float) $values[$middle];
+    }
+
+    return ((float) $values[$middle - 1] + (float) $values[$middle]) / 2;
 }
 
 /**
@@ -751,6 +977,7 @@ function make_sandbox(string $root, array $db, bool $allowRegistration): string
     mkdir($dir, 0700, true);
     mkdir($dir . '/includes', 0700, true);
     mkdir($dir . '/views', 0700, true);
+    mkdir($dir . '/database', 0700, true);
 
     copy($root . '/index.php', $dir . '/index.php');
 
@@ -761,6 +988,11 @@ function make_sandbox(string $root, array $db, bool $allowRegistration): string
     foreach (glob($root . '/views/*.php') ?: [] as $file) {
         copy($file, $dir . '/views/' . basename($file));
     }
+
+    // The mail worker. It computes its root as dirname(__DIR__), so it has
+    // to sit in the database/ directory of the sandbox — exactly where it
+    // sits in the application.
+    copy($root . '/database/outbox_worker.php', $dir . '/database/outbox_worker.php');
 
     // The assets and the vendor tree are read-only for the sandbox.
     @symlink($root . '/assets', $dir . '/assets');
@@ -784,6 +1016,7 @@ function make_sandbox(string $root, array $db, bool $allowRegistration): string
         . "const MAIL_FROM = 'no-reply@example.test';\n"
         . "const MAIL_FROM_NAME = 'Financial Tracker';\n"
         . 'const ALLOW_REGISTRATION = ' . ($allowRegistration ? 'true' : 'false') . ";\n"
+        . "const REQUEST_THROTTLE_ENABLED = true;\n"
         . "const WEEK_START = 1;\n"
         . "const TIMEZONE = 'UTC';\n";
 
@@ -1285,6 +1518,183 @@ ok(
     'the password change clears the failures against the account',
     str_contains($settingsSrc, 'clearLoginIdentifierFailures(')
 );
+
+// --- A11: the log carries the context, never the data --------------------
+
+echo "\n## A11. The log carries the context, never the data\n";
+
+$loggingSource = (string) file_get_contents($root . '/includes/logging.php');
+$schemaSource  = (string) file_get_contents($root . '/database/schema.sql');
+
+ok('includes/logging.php exists', is_file($root . '/includes/logging.php'));
+
+// Every application file that can write to the log. The worker is in the
+// list as well: it is the only other process that writes to it.
+$logSources = [
+    'index.php'                  => $indexSource,
+    'install.php'                => (string) file_get_contents($root . '/install.php'),
+    'database/outbox_worker.php' => (string) file_get_contents($root . '/database/outbox_worker.php'),
+];
+
+foreach (glob($root . '/includes/*.php') ?: [] as $file) {
+    $logSources['includes/' . basename($file)] = (string) file_get_contents($file);
+}
+
+foreach (glob($root . '/views/*.php') ?: [] as $file) {
+    $logSources['views/' . basename($file)] = (string) file_get_contents($file);
+}
+
+// The log is written in ONE place. Everywhere else calls logFailure().
+$callers = [];
+$leaks   = [];
+
+foreach ($logSources as $label => $src) {
+    if ($label === 'includes/logging.php') {
+        continue;
+    }
+
+    $code = code_without_comments($src);
+
+    if (str_contains($code, 'error_log(')) {
+        $callers[] = $label;
+    }
+
+    // A message that reaches the log through a CONTEXT string is just as
+    // bad as one that reaches it through error_log(): the log is written
+    // with whatever the context carries.
+    foreach (log_failure_arguments($src) as $argument) {
+        if (str_contains($argument, 'getMessage(')) {
+            $leaks[] = $label;
+        }
+    }
+}
+
+ok('the log is written in one place only', $callers === [], implode(', ', $callers));
+ok('no logged failure carries an exception message', $leaks === [], implode(', ', $leaks));
+
+$loggingCode = code_without_comments($loggingSource);
+
+ok('logFailure() exists', str_contains($loggingCode, 'function logFailure('));
+ok('logFailure() logs the class of the failure', str_contains($loggingCode, 'get_class('));
+ok('logFailure() logs the code of the failure', str_contains($loggingCode, 'getCode('));
+ok(
+    'logFailure() logs where the failure happened',
+    str_contains($loggingCode, 'getFile(') && str_contains($loggingCode, 'getLine(')
+);
+
+// --- A12: the request throttle --------------------------------------------
+
+echo "\n## A12. The request throttle\n";
+
+$authCode = code_without_comments($authSource);
+
+foreach ([
+    'RESET_ADDRESS_LIMIT'   => 'the per-address reset limit',
+    'RESET_SOURCE_LIMIT'    => 'the per-source reset limit',
+    'REGISTER_SOURCE_LIMIT' => 'the per-source registration limit',
+] as $constant => $label) {
+    ok($label . ' is defined', str_contains($authSource, "define('" . $constant . "'"));
+}
+
+ok('the reset screen counts the submitted address', str_contains($authCode, "'reset:address'"));
+ok('the reset screen counts the source', str_contains($authCode, "'reset:source'"));
+ok('the registration screen counts the source', str_contains($authCode, "'register:source'"));
+ok(
+    'the schema has the request_throttles table',
+    str_contains($schemaSource, 'CREATE TABLE IF NOT EXISTS `request_throttles`')
+);
+
+// The counters are CONSULTED before they are raised, and a refused request
+// raises nothing — so exactly `limit` requests are served per window.
+$quotaBody = function_body($authSource, 'takeRequestQuota');
+
+ok(
+    'the quota is consulted before it is raised',
+    $quotaBody !== ''
+    && strpos($quotaBody, 'requestThrottleState(') !== false
+    && strpos($quotaBody, 'requestThrottleState(') < strpos($quotaBody, 'raiseRequestCounter(')
+);
+ok('a refused request raises nothing', str_contains($quotaBody, 'if ($state[\'blocked\']) {'));
+
+// The count DECAYS: a hit that arrives after the window closed starts a
+// new window, and the count goes back to one.
+ok(
+    'the counter decays when its window closed',
+    preg_match('/hits\s*=\s*IF\(\s*window_started_at\s*<=/', $authCode) === 1
+);
+
+// The kill switch is a REAL boolean. The string 'false' leaves the limiter
+// on, because a limiter that fails open is the wrong way to fail.
+ok(
+    'the limiter has a kill switch',
+    str_contains($authCode, "constant('REQUEST_THROTTLE_ENABLED') !== false")
+);
+
+// --- A13: the outbox and the worker ---------------------------------------
+
+echo "\n## A13. The outbox and the worker\n";
+
+$outboxSource = (string) file_get_contents($root . '/includes/outbox.php');
+$workerSource = (string) file_get_contents($root . '/database/outbox_worker.php');
+
+ok('includes/outbox.php exists', is_file($root . '/includes/outbox.php'));
+ok('database/outbox_worker.php exists', is_file($root . '/database/outbox_worker.php'));
+ok(
+    'the schema has the mail_outbox table',
+    str_contains($schemaSource, 'CREATE TABLE IF NOT EXISTS `mail_outbox`')
+);
+
+foreach ([
+    'mailQueueState'       => 'the state of the queue',
+    'enqueueMail'          => 'the queue write',
+    'claimOutboxMessage'   => 'the claim',
+    'markOutboxSent'       => 'the sent mark',
+    'releaseOutboxMessage' => 'the release',
+    'runOutboxWorker'      => 'the run',
+    'pruneOutbox'          => 'the housekeeping',
+] as $function => $label) {
+    ok($label . ' exists (' . $function . '())', str_contains($outboxSource, 'function ' . $function . '('));
+}
+
+$outboxCode = code_without_comments($outboxSource);
+
+// Two workers cannot send the same message.
+ok('the claim is exclusive', str_contains($outboxCode, 'FOR UPDATE SKIP LOCKED'));
+
+// A retry RE-USES the row: the release is an UPDATE, never an INSERT, so a
+// transient failure cannot produce a second copy of the message.
+$releaseBody = function_body($outboxSource, 'releaseOutboxMessage');
+
+ok(
+    'a retry re-uses the same row',
+    str_contains($releaseBody, 'UPDATE mail_outbox')
+    && !str_contains($releaseBody, 'INSERT INTO mail_outbox')
+);
+
+// The worker is a CLI script. It refuses to run under a web server.
+ok('the worker refuses to run under a web server', str_contains($workerSource, "PHP_SAPI !== 'cli'"));
+
+// --- A14: the SMTP transport is bounded -----------------------------------
+
+echo "\n## A14. The SMTP transport is bounded\n";
+
+$mailerCode = code_without_comments($mailerSource);
+
+ok('the transport timeout is a product constant', str_contains($mailerSource, "define('SMTP_TIMEOUT_SECONDS'"));
+ok('the connect timeout is bounded', str_contains($mailerCode, '$mail->Timeout = SMTP_TIMEOUT_SECONDS'));
+ok(
+    'the socket timeout is bounded',
+    str_contains($mailerCode, "['socket' => ['timeout' => SMTP_TIMEOUT_SECONDS]]")
+);
+ok('the connection is not kept alive', str_contains($mailerCode, '$mail->SMTPKeepAlive = false'));
+
+if (preg_match("/define\('SMTP_TIMEOUT_SECONDS',\s*(\d+)\)/", $mailerSource, $matches) === 1) {
+    $timeout = (int) $matches[1];
+
+    ok('the transport timeout is bounded', $timeout > 0 && $timeout <= 30, 'timeout=' . $timeout);
+} else {
+    ok('the transport timeout is bounded', false, 'the constant was not found');
+}
 
 // ---------------------------------------------------------------------------
 // B. The behaviour, in a sandbox.
@@ -2044,6 +2454,7 @@ ok(
 
 // The successful registration.
 clear_mailer_log($sandbox);
+reset_throttles($db['pdo']);
 
 $posted = [
     'csrf_token'           => $token,
@@ -2080,23 +2491,57 @@ $created = $db['pdo']->query("SELECT id FROM users WHERE username = 'newbie'")->
 
 ok('the account was created', is_array($created));
 
-// The confirmation mail and the token.
+// The confirmation message is QUEUED, not sent.
+//
+// The request path does not talk to the SMTP server (issue-022 §7.1): the
+// message is written into the outbox and the worker sends it. The
+// registration screen is not an enumeration oracle — the address it shows
+// is the one the visitor typed — but it must not be the place a message
+// is sent from either.
+$queued = outbox_rows($db['pdo']);
+
+ok('exactly one message was queued', count($queued) === 1, (string) count($queued));
+ok(
+    'the request did not send the message itself',
+    mailer_messages($sandbox) === [],
+    'the request talked to the SMTP server'
+);
+
+$link = '';
+
+if ($queued !== []) {
+    $row = $queued[0];
+
+    ok('the queued message goes to the new address', (string) $row['to_address'] === 'newbie@example.test');
+    ok('the queued message is waiting', (string) $row['status'] === 'queued', (string) $row['status']);
+
+    if (preg_match('#(https?://[^\s]+/verify-email\?token=[a-f0-9]+)#', (string) $row['body'], $m) === 1) {
+        $link = $m[1];
+    }
+
+    ok('the queued message carries the confirmation link', $link !== '');
+}
+
+// The worker sends it.
+$run = run_worker($sandbox);
+
+ok('the worker ran without an error', $run['code'] === 0, $run['output']);
+ok('the worker says it sent one message', str_contains($run['output'], 'sent 1'), $run['output']);
+
 $messages = mailer_messages($sandbox);
 
-ok('the confirmation mail was sent', count($messages) === 1, (string) count($messages));
+ok('the worker sent the confirmation mail', count($messages) === 1, (string) count($messages));
 
 if ($messages !== []) {
     $message = $messages[0];
 
     ok('the mail goes to the new address', ($message['to'] ?? '') === 'newbie@example.test');
-
-    $link = '';
-
-    if (preg_match('#(https?://[^\s]+/verify-email\?token=[a-f0-9]+)#', (string) $message['body'], $m) === 1) {
-        $link = $m[1];
-    }
-
-    ok('the confirmation carries a link', $link !== '', (string) $message['body']);
+    ok('the mail was delivered', ($message['sent'] ?? false) === true);
+    ok(
+        'the delivered message carries the queued link',
+        $link !== '' && str_contains((string) $message['body'], $link),
+        (string) $message['body']
+    );
     ok(
         'the link is built from the server name, not from the Host: header',
         str_starts_with($link, 'http://auth.test/verify-email?token='),
@@ -2205,6 +2650,7 @@ echo "\n## B8. The forgot password\n";
 reset_cookies();
 set_mailer_mode($sandbox, 'ok');
 clear_mailer_log($sandbox);
+reset_throttles($db['pdo']);
 
 $res = http_request('GET', $base . '/forgot-password');
 
@@ -2218,7 +2664,13 @@ ok(
 
 $token = csrf_of($res['body']);
 
-$known = http_request('POST', $base . '/forgot-password', [
+// The neutral answer.
+//
+// The two addresses must produce the SAME body and the SAME status. The
+// message is QUEUED, not sent, so the known branch pays for two INSERTs
+// and the unknown one for nothing — a difference of milliseconds, which
+// the timing floor swallows. The measurement is further down.
+$known   = http_request('POST', $base . '/forgot-password', [
     'csrf_token' => $token,
     'email'       => 'forgetter@example.test',
 ]);
@@ -2244,9 +2696,14 @@ ok(
     'the bodies differ'
 );
 ok(
-    'the response takes the same time either way',
-    abs($known['elapsed'] - $unknown['elapsed']) < 350.0,
-    'known=' . round($known['elapsed']) . 'ms unknown=' . round($unknown['elapsed']) . 'ms'
+    'the known response does not echo the address',
+    !str_contains($known['body'], 'forgetter@example.test'),
+    'the address is on the page'
+);
+ok(
+    'the unknown response does not echo the address',
+    !str_contains($unknown['body'], 'nobody@example.test'),
+    'the address is on the page'
 );
 ok(
     'the response is not faster than the timing floor',
@@ -2266,22 +2723,33 @@ $noRows = $db['pdo']->query('SELECT COUNT(*) AS c FROM password_resets WHERE use
 
 ok('no reset row was created for the unknown address', is_array($noRows) && (int) $noRows['c'] === 0);
 
-$messages = mailer_messages($sandbox);
+// The message is QUEUED, not sent.
+//
+// The request path does not talk to the SMTP server (issue-022 §7.1): the
+// reset link is written into the outbox and the worker sends it. This is
+// what makes the two branches indistinguishable in time.
+$queued = outbox_rows($db['pdo'], 'queued');
 
-ok('exactly one mail was sent', count($messages) === 1, (string) count($messages));
+ok('exactly one message was queued', count($queued) === 1, (string) count($queued));
+ok(
+    'nothing was sent by the request',
+    mailer_messages($sandbox) === [],
+    'the request talked to the SMTP server'
+);
 
 $resetLink = '';
 
-if ($messages !== []) {
-    $message = $messages[0];
+if ($queued !== []) {
+    $row = $queued[0];
 
-    ok('the mail goes to the known address', ($message['to'] ?? '') === 'forgetter@example.test');
+    ok('the queued message goes to the known address', (string) $row['to_address'] === 'forgetter@example.test');
+    ok('the queued message is waiting', (string) $row['status'] === 'queued', (string) $row['status']);
 
-    if (preg_match('#(https?://[^\s]+/reset-password\?token=[a-f0-9]+)#', (string) $message['body'], $m) === 1) {
+    if (preg_match('#(https?://[^\s]+/reset-password\?token=[a-f0-9]+)#', (string) $row['body'], $m) === 1) {
         $resetLink = $m[1];
     }
 
-    ok('the mail carries the reset link', $resetLink !== '');
+    ok('the queued message carries the reset link', $resetLink !== '');
     ok(
         'the link is built from the server name, not from the Host: header',
         str_starts_with($resetLink, 'http://auth.test/reset-password?token='),
@@ -2289,22 +2757,44 @@ if ($messages !== []) {
     );
 }
 
+// The worker sends it.
+$run = run_worker($sandbox);
+
+ok('the worker ran without an error', $run['code'] === 0, $run['output']);
+ok('the worker says it sent one message', str_contains($run['output'], 'sent 1'), $run['output']);
+
+$messages = mailer_messages($sandbox);
+
+ok('exactly one mail was sent', count($messages) === 1, (string) count($messages));
+
+if ($messages !== []) {
+    ok('the mail goes to the known address', ($messages[0]['to'] ?? '') === 'forgetter@example.test');
+    ok('the mail was delivered', ($messages[0]['sent'] ?? false) === true);
+}
+
+$sent = outbox_rows($db['pdo']);
+
+ok(
+    'the queued message is marked as sent',
+    (string) ($sent[0]['status'] ?? '') === 'sent',
+    json_encode($sent[0] ?? [])
+);
+
 // The link is built from SERVER_NAME even when the client sends another
 // Host: header.
+reset_throttles($db['pdo']);
+
 $hostAttack = http_request('POST', $base . '/forgot-password', [
     'csrf_token' => $token,
     'email'       => 'hosted@example.test',
 ], ['Host: evil.example.com']);
 
-$messages = mailer_messages($sandbox);
+$queued = outbox_rows($db['pdo']);
+$last   = $queued === [] ? [] : $queued[count($queued) - 1];
 $attackLink = '';
 
-if ($messages !== []) {
-    $last = $messages[count($messages) - 1];
-
-    if (preg_match('#(https?://[^\s]+/reset-password\?token=[a-f0-9]+)#', (string) $last['body'], $m) === 1) {
-        $attackLink = $m[1];
-    }
+if (preg_match('#(https?://[^\s]+/reset-password\?token=[a-f0-9]+)#', (string) ($last['body'] ?? ''), $m) === 1) {
+    $attackLink = $m[1];
 }
 
 ok(
@@ -2313,32 +2803,47 @@ ok(
     $attackLink
 );
 
-// The send-failed state.
+// The installation-level failure.
 //
-// The account is the hosted one: issuing a reset token replaces the live one
-// of that account, and the reset flow below still needs the forgetter's
-// first token.
-set_mailer_mode($sandbox, 'fail');
+// The queue table is missing — the installation was not migrated. It is a
+// property of the INSTALLATION, not of the address, so it reads the same
+// way for every address: the message is a fixed string and the address is
+// never echoed.
+//
+// The state is decided BEFORE the lookup of the address, so a visitor
+// cannot learn anything from it.
+reset_throttles($db['pdo']);
+$db['pdo']->exec('RENAME TABLE mail_outbox TO mail_outbox_hidden');
 
-$failed = http_request('POST', $base . '/forgot-password', [
-    'csrf_token' => $token,
-    'email'       => 'hosted@example.test',
-]);
-$failedUnknown = http_request('POST', $base . '/forgot-password', [
-    'csrf_token' => $token,
-    'email'       => 'nobody@example.test',
-]);
+try {
+    $failed = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'forgetter@example.test',
+    ]);
+    $failedUnknown = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'nobody@example.test',
+    ]);
+} finally {
+    $db['pdo']->exec('RENAME TABLE mail_outbox_hidden TO mail_outbox');
+}
 
 ok(
-    'a failed send reads "The reset link could not be sent. Please try again."',
-    str_contains($failed['body'], 'The reset link could not be sent. Please try again.')
+    'the failed state reads "Email could not be sent. Please try again later."',
+    str_contains($failed['body'], 'Email could not be sent. Please try again later.'),
+    'status=' . (string) $failed['status']
 );
 ok('the failed screen keeps the form', str_contains($failed['body'], '<form'));
 ok('the button becomes "Try again"', str_contains($failed['body'], '>Try again<'));
 ok(
-    'the send-failed state is shown only when a real account matched',
-    !str_contains($failedUnknown['body'], 'The reset link could not be sent.'),
-    'an unknown address got the failure state'
+    'the failed state is the same for an unknown address',
+    md5($failed['body']) === md5($failedUnknown['body']),
+    'the bodies differ'
+);
+ok(
+    'the failed state does not echo the address',
+    !str_contains($failed['body'], 'forgetter@example.test'),
+    'the address is on the page'
 );
 
 // The SMTP port is the only needle a random CSRF token can fake: the token
@@ -2398,6 +2903,10 @@ ok('the leak detector ignores a random CSRF token',
     'the token was read as a port leak');
 
 // The not-configured state.
+//
+// It is a property of the INSTALLATION, so it reads the same way for every
+// address — and the address is never echoed.
+reset_throttles($db['pdo']);
 set_mailer_mode($sandbox, 'off');
 
 $offKnown = http_request('POST', $base . '/forgot-password', [
@@ -2421,8 +2930,513 @@ ok(
     'the two not-configured responses are identical',
     md5($offKnown['body']) === md5($offUnknown['body'])
 );
+ok(
+    'the not-configured state does not echo the address',
+    !str_contains($offKnown['body'], 'forgetter@example.test'),
+    'the address is on the page'
+);
 
 set_mailer_mode($sandbox, 'ok');
+
+// --- B8.1: the timing is not an oracle ---------------------------------------
+
+echo "\n## B8.1. The timing is not an oracle\n";
+
+// The stub mailer sleeps for two seconds before it answers. In the old
+// screen the known branch paid that delay and the unknown one did not —
+// that WAS the oracle. The request path must not reach the transport at
+// all, so neither branch pays it.
+//
+// The criterion of issue-022 §8: the two medians differ by less than
+// 100 ms over 20 requests each.
+seed_user($db['pdo'], 'timing', 'timing@example.test', AT_PASSWORD);
+
+set_mailer_mode($sandbox, 'slow');
+clear_mailer_log($sandbox);
+
+$knownTimes   = [];
+$unknownTimes = [];
+
+for ($i = 0; $i < 20; $i++) {
+    // The limiter is exercised in B8.2. Here the counters are cleared
+    // between the requests so that the measurement is of the SCREEN and
+    // not of the refusal.
+    reset_throttles($db['pdo']);
+
+    $knownTimes[] = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'timing@example.test',
+    ])['elapsed'];
+
+    $unknownTimes[] = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'nobody@example.test',
+    ])['elapsed'];
+}
+
+$knownMedian   = median($knownTimes);
+$unknownMedian = median($unknownTimes);
+$gap           = abs($knownMedian - $unknownMedian);
+$slowest       = max(array_merge($knownTimes, $unknownTimes));
+
+ok(
+    'the known address answers in well under a second',
+    $knownMedian < 1000.0,
+    'median=' . round($knownMedian) . 'ms'
+);
+ok(
+    'the unknown address answers in well under a second',
+    $unknownMedian < 1000.0,
+    'median=' . round($unknownMedian) . 'ms'
+);
+ok(
+    'the two medians differ by less than 100 ms',
+    $gap < 100.0,
+    'gap=' . round($gap) . 'ms'
+);
+ok(
+    'no request waited for the SMTP server',
+    $slowest < 1500.0,
+    'slowest=' . round($slowest) . 'ms'
+);
+ok(
+    'the request path never called the mailer',
+    mailer_messages($sandbox) === [],
+    'the request sent the mail itself'
+);
+
+// The delay moved to the worker: it is the worker that pays it.
+$run = run_worker($sandbox, ['--limit=1']);
+
+ok('the worker ran without an error', $run['code'] === 0, $run['output']);
+ok(
+    'the worker paid the two-second delay',
+    $run['elapsed'] >= 2000.0,
+    'elapsed=' . round($run['elapsed']) . 'ms'
+);
+
+$messages = mailer_messages($sandbox);
+
+ok('the worker delivered one message', count($messages) === 1, (string) count($messages));
+ok(
+    'the delivered message was accepted by the transport',
+    ($messages[0]['sent'] ?? false) === true
+);
+
+set_mailer_mode($sandbox, 'ok');
+
+// --- B8.2: the limiters ------------------------------------------------------
+
+echo "\n## B8.2. The limiters\n";
+
+// The per-address limiter: three requests an hour for ONE address. The
+// surplus is refused BEFORE anything is queued, so the mail cannon is
+// stopped rather than slowed down.
+reset_throttles($db['pdo']);
+clear_mailer_log($sandbox);
+
+$depthBefore = count(outbox_rows($db['pdo'], 'queued'));
+$statuses    = [];
+
+for ($i = 0; $i < 5; $i++) {
+    $answer = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'hosted@example.test',
+    ]);
+
+    $statuses[] = $answer['status'];
+}
+
+$depthAfter = count(outbox_rows($db['pdo'], 'queued'));
+
+ok(
+    'the first three requests are served',
+    array_slice($statuses, 0, 3) === [200, 200, 200],
+    implode(',', $statuses)
+);
+ok(
+    'the surplus is refused with a 429',
+    array_slice($statuses, 3) === [429, 429],
+    implode(',', $statuses)
+);
+ok(
+    'only the served requests queued a message',
+    $depthAfter - $depthBefore === 3,
+    'queued=' . ($depthAfter - $depthBefore)
+);
+
+// A refused request raises NO counter — neither the address counter that
+// refused it nor the source counter of the same request. Two separate
+// quota calls would raise the source counter for the requests the address
+// counter refused, and the two counters of one request must move together
+// or not at all.
+$counterRows = $db['pdo']->query(
+    'SELECT bucket, hits FROM request_throttles ORDER BY bucket'
+)->fetchAll(PDO::FETCH_KEY_PAIR);
+
+ok(
+    'the address counter holds exactly the served requests',
+    (int) ($counterRows['reset:address'] ?? 0) === 3,
+    json_encode($counterRows)
+);
+ok(
+    'the source counter holds exactly the served requests',
+    (int) ($counterRows['reset:source'] ?? 0) === 3,
+    json_encode($counterRows)
+);
+
+// The refusal is the same for a known and for an unknown address, and it
+// carries a Retry-After header.
+reset_throttles($db['pdo']);
+
+$knownRefusal   = null;
+$unknownRefusal = null;
+
+for ($i = 0; $i < 4; $i++) {
+    $knownRefusal = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'hosted@example.test',
+    ]);
+
+    $unknownRefusal = http_request('POST', $base . '/forgot-password', [
+        'csrf_token' => $token,
+        'email'       => 'nobody@example.test',
+    ]);
+}
+
+ok('the known address is refused', $knownRefusal['status'] === 429, (string) $knownRefusal['status']);
+ok(
+    'the unknown address is refused too — the counter counts the ATTEMPT',
+    $unknownRefusal['status'] === 429,
+    (string) $unknownRefusal['status']
+);
+ok(
+    'the refusal is the same for both',
+    md5($knownRefusal['body']) === md5($unknownRefusal['body']),
+    'the bodies differ'
+);
+ok(
+    'the refusal carries a Retry-After header',
+    (int) ($knownRefusal['headers']['retry-after'] ?? 0) > 0,
+    json_encode($knownRefusal['headers'])
+);
+ok(
+    'the refusal reads "Too many requests. Please try again in a few minutes."',
+    str_contains($knownRefusal['body'], 'Too many requests. Please try again in a few minutes.')
+);
+
+// The per-source limiter: the counter the application wrote is put where
+// the limit is, and the next request must be refused. The spray — one
+// request per address — is what this limiter exists for.
+reset_throttles($db['pdo']);
+
+http_request('POST', $base . '/forgot-password', [
+    'csrf_token' => $token,
+    'email'       => 'a@example.test',
+]);
+
+$db['pdo']->exec("UPDATE request_throttles SET hits = 20 WHERE bucket = 'reset:source'");
+
+$refused = http_request('POST', $base . '/forgot-password', [
+    'csrf_token' => $token,
+    'email'       => 'b@example.test',
+]);
+
+ok(
+    'the surplus from one source is refused with a 429',
+    $refused['status'] === 429,
+    (string) $refused['status']
+);
+ok(
+    'the source refusal carries a Retry-After header',
+    (int) ($refused['headers']['retry-after'] ?? 0) > 0,
+    json_encode($refused['headers'])
+);
+
+// --- B8.3: the registration limiter -----------------------------------------
+
+echo "\n## B8.3. The registration limiter\n";
+
+// Ten registrations an hour from one source. The surplus is refused with a
+// 429 and creates NO account.
+reset_cookies();
+reset_throttles($db['pdo']);
+
+$res = http_request('GET', $base . '/register');
+
+$registerToken = csrf_of($res['body']);
+$statuses      = [];
+$answer        = null;
+
+for ($i = 0; $i < 12; $i++) {
+    $answer = http_request('POST', $base . '/register', [
+        'csrf_token'           => $registerToken,
+        'username'             => 'spray' . $i,
+        'email'                => 'spray' . $i . '@example.test',
+        'email_confirmation'   => 'spray' . $i . '@example.test',
+        'password'             => AT_PASSWORD,
+        'password_confirmation' => AT_PASSWORD,
+    ]);
+
+    $statuses[] = $answer['status'];
+}
+
+ok(
+    'the first ten registrations are served',
+    array_slice($statuses, 0, 10) === array_fill(0, 10, 200),
+    implode(',', $statuses)
+);
+ok(
+    'the surplus is refused with a 429',
+    array_slice($statuses, 10) === [429, 429],
+    implode(',', $statuses)
+);
+ok(
+    'the refusal carries a Retry-After header',
+    (int) ($answer['headers']['retry-after'] ?? 0) > 0,
+    json_encode($answer['headers'])
+);
+
+$accounts = $db['pdo']->query("SELECT COUNT(*) AS c FROM users WHERE username LIKE 'spray%'")->fetch();
+
+ok(
+    'the refused registrations created no accounts',
+    is_array($accounts) && (int) $accounts['c'] === 10,
+    'accounts=' . json_encode($accounts)
+);
+
+// --- B8.4: the worker --------------------------------------------------------
+
+echo "\n## B8.4. The worker\n";
+
+// A transient failure is RETRIED and it does not send the message twice:
+// the retry re-uses the same row.
+reset_throttles($db['pdo']);
+set_mailer_mode($sandbox, 'flaky');
+clear_mailer_log($sandbox);
+$db['pdo']->exec('DELETE FROM mail_outbox');
+
+// The session changed in B8.3, so the CSRF token of B8 is stale. A stale
+// token is refused by the screen — and the refusal answers with a 200,
+// which would look like a served request. The token is taken again.
+$res   = http_request('GET', $base . '/forgot-password');
+$token = csrf_of($res['body']);
+
+$answer = http_request('POST', $base . '/forgot-password', [
+    'csrf_token' => $token,
+    'email'       => 'hosted@example.test',
+]);
+
+ok('the request is served', $answer['status'] === 200, (string) $answer['status']);
+
+$rows = outbox_rows($db['pdo']);
+
+ok('the message was queued', count($rows) === 1, (string) count($rows));
+
+$run = run_worker($sandbox);
+
+ok('the worker ran without an error', $run['code'] === 0, $run['output']);
+ok('the worker says it retried the message', str_contains($run['output'], 'retried 1'), $run['output']);
+
+$rows = outbox_rows($db['pdo']);
+
+ok(
+    'the message is back in the queue',
+    (string) ($rows[0]['status'] ?? '') === 'queued',
+    (string) ($rows[0]['status'] ?? '')
+);
+ok(
+    'the attempt was counted',
+    (int) ($rows[0]['attempts'] ?? 0) === 1,
+    (string) ($rows[0]['attempts'] ?? '')
+);
+ok(
+    'the message was not delivered',
+    count(array_filter(mailer_messages($sandbox), fn ($m) => ($m['sent'] ?? false) === true)) === 0
+);
+
+// The retry: the row waits for its backoff, so the test moves it into the
+// past.
+$db['pdo']->exec('UPDATE mail_outbox SET next_attempt_at = UTC_TIMESTAMP()');
+
+$run = run_worker($sandbox);
+
+ok('the second run sent the message', str_contains($run['output'], 'sent 1'), $run['output']);
+
+$messages = mailer_messages($sandbox);
+
+ok('the transport was asked twice', count($messages) === 2, (string) count($messages));
+ok(
+    'the message was delivered once',
+    count(array_filter($messages, fn ($m) => ($m['sent'] ?? false) === true)) === 1
+);
+
+$rows = outbox_rows($db['pdo']);
+
+ok('the message is marked as sent', (string) ($rows[0]['status'] ?? '') === 'sent');
+ok('the row was reused, not duplicated', count($rows) === 1, (string) count($rows));
+
+set_mailer_mode($sandbox, 'ok');
+
+// --- B8.5: the log -----------------------------------------------------------
+
+echo "\n## B8.5. The log\n";
+
+// A duplicate registration is the existing field error, not an error page,
+// and the submitted address never reaches the server log.
+reset_cookies();
+reset_throttles($db['pdo']);
+
+$res = http_request('GET', $base . '/register');
+
+$registerToken = csrf_of($res['body']);
+
+$duplicate = http_request('POST', $base . '/register', [
+    'csrf_token'           => $registerToken,
+    'username'             => 'dupe',
+    'email'                => 'demo@example.test',
+    'email_confirmation'   => 'demo@example.test',
+    'password'             => AT_PASSWORD,
+    'password_confirmation' => AT_PASSWORD,
+]);
+
+ok(
+    'a duplicate registration is the existing field error',
+    str_contains($duplicate['body'], 'That email address is already registered.'),
+    'status=' . (string) $duplicate['status']
+);
+ok(
+    'a duplicate registration is not an error page',
+    !str_contains($duplicate['body'], 'Something went wrong on our side')
+);
+ok('a duplicate registration is a 200', $duplicate['status'] === 200, (string) $duplicate['status']);
+
+$serverLog = is_file($sandbox . '/server.log') ? (string) file_get_contents($sandbox . '/server.log') : '';
+
+ok(
+    'the submitted address never reaches the server log',
+    !str_contains($serverLog, 'demo@example.test'),
+    'the address is in the log'
+);
+
+// The race the SELECT cannot see — the UNIQUE constraint — carries the
+// address in the message of the exception. The probe provokes it and logs
+// it the way the application does: the context, the class, the code and
+// the place. Never the message.
+$probe = run_php($sandbox, <<<'PHP'
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/includes/Database.php';
+require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/logging.php';
+
+try {
+    Database::getInstance()->execute(
+        'INSERT INTO users (username, email, password_hash, status) VALUES (?, ?, ?, ?)',
+        ['racer', 'demo@example.test', 'not-a-real-hash', 'active']
+    );
+
+    echo "inserted\n";
+} catch (Throwable $ex) {
+    logFailure('auth: the registration failed', $ex);
+
+    echo 'message-carries-the-address=' . (str_contains($ex->getMessage(), 'demo@example.test') ? 'yes' : 'no') . "\n";
+}
+PHP);
+
+ok(
+    'the violation was caught',
+    str_contains($probe['output'], 'message-carries-the-address='),
+    $probe['output']
+);
+ok(
+    'the exception message itself carries the address',
+    str_contains($probe['output'], 'message-carries-the-address=yes'),
+    $probe['output']
+);
+ok(
+    'the log carries the context',
+    str_contains($probe['output'], 'auth: the registration failed'),
+    $probe['output']
+);
+ok(
+    'the log carries the class of the failure',
+    str_contains($probe['output'], 'PDOException'),
+    $probe['output']
+);
+ok(
+    'the log does not carry the address',
+    !str_contains($probe['output'], 'demo@example.test'),
+    $probe['output']
+);
+
+// --- B8.6: the counters decay and the tables are cleaned ---------------------
+
+echo "\n## B8.6. The counters decay and the tables are cleaned\n";
+
+// A counter whose window has passed does not block: the limiter decays.
+reset_throttles($db['pdo']);
+
+// The session changed in B8.5, so the CSRF token is taken again.
+$res   = http_request('GET', $base . '/forgot-password');
+$token = csrf_of($res['body']);
+
+$decayEmail = 'decay@example.test';
+$decayKey   = hash('sha256', strtolower(trim($decayEmail)));
+
+$db['pdo']->exec(
+    "INSERT INTO request_throttles (bucket, key_hash, hits, window_started_at)
+     VALUES ('reset:address', '" . $decayKey . "', 3, TIMESTAMPADD(HOUR, -2, UTC_TIMESTAMP()))"
+);
+
+$answer = http_request('POST', $base . '/forgot-password', [
+    'csrf_token' => $token,
+    'email'       => $decayEmail,
+]);
+
+ok(
+    'a count older than the window does not block',
+    $answer['status'] === 200,
+    'status=' . (string) $answer['status']
+);
+
+// The worker prunes the counters and the finished messages.
+$staleKey = str_repeat('b', 64);
+
+$db['pdo']->exec(
+    "INSERT INTO request_throttles (bucket, key_hash, hits, window_started_at)
+     VALUES ('reset:address', '" . $staleKey . "', 1, TIMESTAMPADD(DAY, -2, UTC_TIMESTAMP()))"
+);
+
+$db['pdo']->exec('DELETE FROM mail_outbox');
+$db['pdo']->exec(
+    "INSERT INTO mail_outbox (to_address, subject, body, status, attempts, sent_at, created_at)
+     VALUES ('old@example.test', 'Old', 'Old', 'sent', 1, TIMESTAMPADD(DAY, -8, UTC_TIMESTAMP()), TIMESTAMPADD(DAY, -8, UTC_TIMESTAMP()))"
+);
+
+$run = run_worker($sandbox, ['--quiet']);
+
+ok('the worker ran without an error', $run['code'] === 0, $run['output']);
+
+$staleCounter = $db['pdo']->query(
+    "SELECT COUNT(*) AS c FROM request_throttles WHERE key_hash = '" . $staleKey . "'"
+)->fetch();
+
+ok(
+    'the stale counter was pruned',
+    is_array($staleCounter) && (int) $staleCounter['c'] === 0,
+    json_encode($staleCounter)
+);
+
+$oldMessage = $db['pdo']->query(
+    "SELECT COUNT(*) AS c FROM mail_outbox WHERE to_address = 'old@example.test'"
+)->fetch();
+
+ok(
+    'the old message was pruned',
+    is_array($oldMessage) && (int) $oldMessage['c'] === 0,
+    json_encode($oldMessage)
+);
 
 // --- B9: the reset ----------------------------------------------------------
 

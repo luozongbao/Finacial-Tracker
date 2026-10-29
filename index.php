@@ -87,6 +87,19 @@ require_once __DIR__ . '/includes/Database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/Router.php';
 
+// The sanitised log and the mail outbox.
+//
+// logging.php holds logFailure() — the ONE place in the application that
+// writes to the error log. An exception's MESSAGE is never logged: a MySQL
+// unique-key violation carries the submitted address in it (issue-022
+// §7.4), and the log ends up in support tickets.
+//
+// outbox.php holds the mail queue. The request writes a row and returns;
+// the CLI worker sends it. The response path therefore never waits for
+// SMTP, which is what closes the enumeration timing gap (issue-022 §7.1).
+require_once __DIR__ . '/includes/logging.php';
+require_once __DIR__ . '/includes/outbox.php';
+
 // The mailer is part of the runtime, so the front controller loads it.
 //
 // The registration and the forgot-password screens call mailIsConfigured()
@@ -174,11 +187,11 @@ try {
 
     require __DIR__ . '/includes/views/' . $errorView;
 } catch (Throwable $ex) {
-    // Anything else is a 500. The detail — the message, the file and the
-    // line — goes to the error log, where the operator can read it. The
+    // Anything else is a 500. The CONTEXT, the class and the code of the
+    // failure go to the error log, where the operator can read them. The
     // page gets a generic sentence and nothing else: no stack trace, no
-    // file path, no raw message.
-    error_log('[app] ' . $ex->getMessage() . ' @ ' . $ex->getFile() . ':' . $ex->getLine());
+    // file path, no raw message — and no message in the log either.
+    logFailure('app: the request failed', $ex);
 
     http_response_code(500);
 

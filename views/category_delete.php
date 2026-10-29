@@ -103,8 +103,9 @@ try {
         ]
     );
 } catch (Throwable $ex) {
-    // The raw driver error goes to the log; the visitor gets a sentence.
-    error_log('[categories] the delete failed: ' . $ex->getMessage());
+    // The context of the failure goes to the log; the visitor gets a
+    // sentence.
+    logFailure('categories: the delete failed', $ex);
 
     // The categories screen renders the list, the open dialog and the
     // error, and answers with a 500.

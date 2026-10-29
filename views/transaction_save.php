@@ -117,8 +117,7 @@ try {
 } catch (HttpException $ex) {
     throw $ex;
 } catch (Throwable $ex) {
-    error_log('[transactions] save could not read: ' . $ex->getMessage()
-        . ' @ ' . $ex->getFile() . ':' . $ex->getLine());
+    logFailure('transactions: the submitted values could not be read', $ex);
 
     $formMode        = $isEdit ? 'edit' : 'add';
     $formValues      = $input;
@@ -182,10 +181,9 @@ try {
         $formId = $db->lastInsertId();
     }
 } catch (Throwable $ex) {
-    // The raw driver error goes to the log; the page shows plain copy and
-    // keeps every value, so the submit can be retried.
-    error_log('[transactions] save failed: ' . $ex->getMessage()
-        . ' @ ' . $ex->getFile() . ':' . $ex->getLine());
+    // The context of the failure goes to the log; the page shows plain copy
+    // and keeps every value, so the submit can be retried.
+    logFailure('transactions: the save failed', $ex);
 
     $formMode        = $isEdit ? 'edit' : 'add';
     $formValues      = $result['values'];

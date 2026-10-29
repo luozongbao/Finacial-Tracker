@@ -125,7 +125,7 @@ if ($method === 'POST' && $path === '/settings/profile') {
             redirect('/settings');
         }
 
-        error_log('[settings] the profile update failed: ' . $ex->getMessage());
+        logFailure('settings: the profile update failed', $ex);
 
         throw new HttpException(500, 'Your profile could not be saved. Please try again.');
     }
@@ -197,7 +197,7 @@ if ($method === 'POST' && $path === '/settings/password') {
             ]
         );
     } catch (Throwable $ex) {
-        error_log('[settings] the password update failed: ' . $ex->getMessage());
+        logFailure('settings: the password update failed', $ex);
 
         throw new HttpException(500, 'Your password could not be changed. Please try again.');
     }
@@ -280,6 +280,18 @@ $smtpPort     = defined('SMTP_PORT') ? (string) SMTP_PORT : '';
 $smtpUser     = defined('SMTP_USER') ? (string) SMTP_USER : '';
 $registration = defined('ALLOW_REGISTRATION') && ALLOW_REGISTRATION === true;
 $weekStart    = defined('WEEK_START') ? (int) WEEK_START : 0;
+
+// The outbox queue depth — how many messages are waiting for the worker
+// to send them (issue-022 §7.1). It is a read-only number for the
+// operator: a failure to read it must not break the screen, so it reads
+// as a dash rather than as an error.
+$queuedMail = null;
+
+try {
+    $queuedMail = outboxQueueDepth();
+} catch (Throwable $ex) {
+    logFailure('settings: the outbox depth could not be read', $ex);
+}
 
 // ---------------------------------------------------------------------------
 // 7. The shell.
@@ -456,6 +468,10 @@ require __DIR__ . '/../includes/header.php';
         <div class="readonly-list__row">
             <dt>Week start</dt>
             <dd class="set__value"><?= e(weekStartName($weekStart)) ?></dd>
+        </div>
+        <div class="readonly-list__row">
+            <dt>Queued mail</dt>
+            <dd class="set__value"><?= $queuedMail === null ? '—' : e((string) $queuedMail) ?></dd>
         </div>
     </dl>
 </div>

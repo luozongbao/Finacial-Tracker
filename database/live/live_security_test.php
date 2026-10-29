@@ -34,12 +34,25 @@ if (!is_file(__DIR__ . '/../../config.php')) {
 require_once __DIR__ . '/../../config.php';
 require_once __DIR__ . '/../../includes/Database.php';
 
+// The limits of the request throttle are PRODUCT constants. The test
+// reads them from here instead of repeating the numbers, so a change to
+// the product rule cannot leave the test asserting a limit that no
+// longer exists. Loading the file has no side effect: it declares the
+// constants and the functions, and nothing else.
+require_once __DIR__ . '/../../includes/auth.php';
+
 /**
  * The random marker of this run. It is the only handle on the accounts the
  * test creates, and it is random hex, so the cleanup pattern cannot match
  * a real account.
  */
 $GLOBALS['live_test_marker'] = '';
+
+/**
+ * The addresses this run submitted. The request throttle counts them and
+ * the outbox holds their messages, and both have to be cleaned up.
+ */
+$GLOBALS['live_test_addresses'] = [];
 
 /**
  * Delete every account this run created.
@@ -87,7 +100,26 @@ function live_cleanup(): void
         }
 
         $pdo->exec("DELETE FROM `login_attempts` WHERE `scope` = 'source'");
+        // The request throttle rows (issue-022). The source buckets are
+        // keyed on the address this test connected from, and the address
+        // buckets on the addresses it submitted — so both are the test's
+        // own rows and both go.
+        foreach (['reset:source', 'register:source'] as $bucket) {
+            $stmt = $pdo->prepare('DELETE FROM `request_throttles` WHERE `bucket` = ?');
+            $stmt->execute([$bucket]);
+        }
 
+        foreach ((array) ($GLOBALS['live_test_addresses'] ?? []) as $address) {
+            $stmt = $pdo->prepare(
+                'DELETE FROM `request_throttles` WHERE `bucket` = ? AND `key_hash` = ?'
+            );
+            $stmt->execute(['reset:address', hash('sha256', strtolower(trim((string) $address)))]);
+        }
+
+        // The queued messages. They carry a reset link and a confirmation
+        // link, so they leave with the accounts they belong to.
+        $stmt = $pdo->prepare('DELETE FROM `mail_outbox` WHERE `to_address` LIKE ?');
+        $stmt->execute(['live\_test\_%']);
         $stmt = $pdo->prepare('DELETE FROM `users` WHERE `username` LIKE ?');
         $stmt->execute(['live\\_test\\_%' . $marker . '%']);
     } catch (Throwable $e) {
@@ -406,6 +438,295 @@ $stmt = $pdo->prepare('SELECT COUNT(*) FROM `login_attempts` WHERE `scope` = ?')
 $stmt->execute(['source']);
 $left = (int) $stmt->fetchColumn();
 ok('a successful sign-in clears the source counter', $left === 0, 'the rows left: ' . $left);
+
+echo "\n== I. The account-existence oracle, over real HTTP ==\n";
+
+// The counters are emptied first. The source bucket is shared with
+// every other request that comes from this address, and a leftover from
+// an earlier run must not change the outcome.
+$pdo->exec('DELETE FROM `request_throttles`');
+
+$oracleJar = [];
+
+// The KNOWN address -- the account this file created in section B.
+$r = req('GET', BASE . '/forgot-password', [], $oracleJar);
+$token = csrf($r['body']);
+
+$started = microtime(true);
+$r = req('POST', BASE . '/forgot-password', [
+    'csrf_token' => $token, 'email' => $email,
+], $oracleJar);
+$knownElapsed = microtime(true) - $started;
+$knownStatus  = $r['status'];
+$knownBody    = $r['body'];
+
+// The UNKNOWN address -- nothing in the database carries it.
+$unknown = 'live_test_unknown_' . $marker . '@example.test';
+$GLOBALS['live_test_addresses'][] = $unknown;
+
+$r = req('GET', BASE . '/forgot-password', [], $oracleJar);
+$token = csrf($r['body']);
+
+$started = microtime(true);
+$r = req('POST', BASE . '/forgot-password', [
+    'csrf_token' => $token, 'email' => $unknown,
+], $oracleJar);
+$unknownElapsed = microtime(true) - $started;
+$unknownStatus  = $r['status'];
+$unknownBody    = $r['body'];
+
+ok('the known address answers 200', $knownStatus === 200, 'status=' . $knownStatus);
+ok('the unknown address answers 200', $unknownStatus === 200, 'status=' . $unknownStatus);
+
+// The ORACLE. The two answers must not differ in a single byte.
+ok('the two answers are byte-identical', $knownBody === $unknownBody,
+    'the bodies differ: ' . strlen($knownBody) . ' against ' . strlen($unknownBody) . ' bytes');
+
+ok('the known address is never echoed back', !str_contains($knownBody, $email));
+ok('the unknown address is never echoed back', !str_contains($unknownBody, $unknown));
+
+// The TIMING ORACLE. The request never talks to the SMTP server
+// (issue-022 section 7.1), so the known branch pays for one INSERT and
+// the unknown branch for none -- a difference of milliseconds, and the
+// floor swallows it.
+ok('the two answers take the same time',
+    abs($knownElapsed - $unknownElapsed) < 0.15,
+    sprintf('%.3fs against %.3fs', $knownElapsed, $unknownElapsed));
+
+$floor = (AUTH_TIMING_FLOOR_MILLISECONDS / 1000) * 0.8;
+ok('the timing floor is honoured', $knownElapsed >= $floor && $unknownElapsed >= $floor,
+    sprintf('%.3fs against %.3fs, the floor is %.3fs', $knownElapsed, $unknownElapsed, $floor));
+
+// The queue. A KNOWN address queues one message and an UNKNOWN one
+// queues none -- but only when the installation can queue at all. The
+// state is read from the answer itself, so the test also works on an
+// installation whose mail is not configured.
+$canQueue = str_contains($knownBody, 'a reset link is on its way');
+
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM `mail_outbox` WHERE `to_address` = ?');
+$stmt->execute([$email]);
+$knownQueued = (int) $stmt->fetchColumn();
+
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM `mail_outbox` WHERE `to_address` = ?');
+$stmt->execute([$unknown]);
+$unknownQueued = (int) $stmt->fetchColumn();
+
+ok('an unknown address queues nothing', $unknownQueued === 0, (string) $unknownQueued);
+
+if ($canQueue) {
+    ok('a known address queues exactly one message', $knownQueued === 1, (string) $knownQueued);
+} else {
+    ok('an installation that cannot send queues nothing', $knownQueued === 0, (string) $knownQueued);
+    ok('the installation state is the same for every address',
+        str_contains($knownBody, 'Email is not configured for this installation'),
+        'the state is not the not-configured one');
+}
+
+echo "\n== J. The two limiters, over real HTTP ==\n";
+
+// The counters are emptied again: the section above counted two
+// requests against the source bucket.
+$pdo->exec('DELETE FROM `request_throttles`');
+
+$limitJar = [];
+$served   = 0;
+
+// --- J1. The per-address limiter ---
+
+// An address that matches no account: the limiter counts the ATTEMPT,
+// so an address nobody owns is throttled too.
+$limiterAddress = 'live_test_limiter_' . $marker . '@example.test';
+$GLOBALS['live_test_addresses'][] = $limiterAddress;
+
+$statuses    = [];
+$refusal     = '';
+$refusalHead = [];
+
+for ($i = 0; $i < 4; $i++) {
+    $r = req('GET', BASE . '/forgot-password', [], $limitJar);
+    $token = csrf($r['body']);
+    $r = req('POST', BASE . '/forgot-password', [
+        'csrf_token' => $token, 'email' => $limiterAddress,
+    ], $limitJar);
+
+    $statuses[] = $r['status'];
+
+    if ($r['status'] === 200) {
+        $served++;
+    }
+
+    if ($r['status'] === 429) {
+        $refusal     = $r['body'];
+        $refusalHead = $r['headers'];
+    }
+}
+
+ok('the first three requests are served',
+    array_slice($statuses, 0, 3) === [200, 200, 200], implode(', ', $statuses));
+ok('the fourth request is refused with 429', $statuses[3] === 429, 'status=' . $statuses[3]);
+ok('the refusal says that the visitor is early',
+    str_contains($refusal, 'Too many requests. Please try again in a few minutes.'),
+    'the body says: ' . substr(trim(strip_tags($refusal)), 0, 120));
+
+// The Retry-After header: a client cannot schedule against a refusal
+// that does not say how long to wait.
+$retryAfter = 0;
+
+foreach ($refusalHead as $h) {
+    if (stripos($h, 'Retry-After:') === 0) {
+        $retryAfter = (int) trim(substr($h, 12));
+    }
+}
+
+ok('the refusal carries a Retry-After header', $retryAfter > 0, 'the header says ' . $retryAfter);
+
+// The counter holds EXACTLY the served requests: a refused request
+// does not raise it, so the window is not extended by the requests that
+// were turned away.
+$stmt = $pdo->prepare('SELECT hits FROM `request_throttles` WHERE `bucket` = ? AND `key_hash` = ?');
+$stmt->execute(['reset:address', hash('sha256', strtolower($limiterAddress))]);
+$addressHits = (int) $stmt->fetchColumn();
+ok('the address counter holds exactly the served requests', $addressHits === 3, (string) $addressHits);
+
+// The same refusal for a KNOWN address. The bodies must be identical:
+// a refusal that differed would tell the caller which addresses have
+// an account.
+$knownStatuses = [];
+$knownRefusal  = '';
+
+for ($i = 0; $i < 4; $i++) {
+    $r = req('GET', BASE . '/forgot-password', [], $limitJar);
+    $token = csrf($r['body']);
+    $r = req('POST', BASE . '/forgot-password', [
+        'csrf_token' => $token, 'email' => $email,
+    ], $limitJar);
+
+    $knownStatuses[] = $r['status'];
+
+    if ($r['status'] === 200) {
+        $served++;
+    }
+
+    if ($r['status'] === 429) {
+        $knownRefusal = $r['body'];
+    }
+}
+
+ok('a known address is refused the same way',
+    array_slice($knownStatuses, 0, 3) === [200, 200, 200] && $knownStatuses[3] === 429,
+    implode(', ', $knownStatuses));
+ok('the refusal is byte-identical for a known and an unknown address',
+    $knownRefusal === $refusal,
+    'the bodies differ: ' . strlen($knownRefusal) . ' against ' . strlen($refusal) . ' bytes');
+
+// The source counter counted the requests that were SERVED, and only
+// those: the two refusals did not extend the window.
+$stmt = $pdo->prepare('SELECT hits FROM `request_throttles` WHERE `bucket` = ?');
+$stmt->execute(['reset:source']);
+$sourceHits = (int) $stmt->fetchColumn();
+ok('the source counter holds exactly the served requests', $sourceHits === $served,
+    'the counter says ' . $sourceHits . ', the served requests were ' . $served);
+
+// --- J2. The per-source limiter ---
+
+// The source counter is driven to the limit directly: the point of the
+// assertion is the REFUSAL, not that twenty requests were counted.
+// The address counters are emptied first, so the refusal can only come
+// from the source bucket.
+$pdo->exec("DELETE FROM `request_throttles` WHERE `bucket` = 'reset:address'");
+$pdo->exec("UPDATE `request_throttles` SET `hits` = " . (int) RESET_SOURCE_LIMIT
+    . " WHERE `bucket` = 'reset:source'");
+
+$freshAddress = 'live_test_source_' . $marker . '@example.test';
+$GLOBALS['live_test_addresses'][] = $freshAddress;
+
+$r = req('GET', BASE . '/forgot-password', [], $limitJar);
+$token = csrf($r['body']);
+$r = req('POST', BASE . '/forgot-password', [
+    'csrf_token' => $token, 'email' => $freshAddress,
+], $limitJar);
+
+ok('the source limiter refuses the request', $r['status'] === 429, 'status=' . $r['status']);
+ok('the source refusal says that the visitor is early',
+    str_contains($r['body'], 'Too many requests. Please try again in a few minutes.'));
+
+$sourceRetry = 0;
+
+foreach ($r['headers'] as $h) {
+    if (stripos($h, 'Retry-After:') === 0) {
+        $sourceRetry = (int) trim(substr($h, 12));
+    }
+}
+
+ok('the source refusal carries a Retry-After header', $sourceRetry > 0, 'the header says ' . $sourceRetry);
+
+echo "\n== K. The registration limiter, over real HTTP ==\n";
+
+// The counter is emptied first: the source bucket is shared with the
+// earlier sections of this file.
+$pdo->exec("DELETE FROM `request_throttles` WHERE `bucket` = 'register:source'");
+
+$registerJar = [];
+$registered  = 0;
+
+for ($i = 1; $i <= 2; $i++) {
+    $name    = 'live_test_r_' . $marker . '_' . $i;
+    $address = $name . '@example.test';
+    $GLOBALS['live_test_addresses'][] = $address;
+
+    $r = req('GET', BASE . '/register', [], $registerJar);
+    $token = csrf($r['body']);
+    $r = req('POST', BASE . '/register', [
+        'csrf_token' => $token, 'username' => $name, 'email' => $address,
+        'email_confirmation' => $address, 'password' => $pass, 'password_confirmation' => $pass,
+    ], $registerJar);
+
+    if ($r['status'] === 200 && str_contains($r['body'], 'Your account is ready')) {
+        $registered++;
+    }
+}
+
+ok('the limiter does not stop an ordinary registration', $registered === 2, (string) $registered);
+
+$stmt = $pdo->prepare('SELECT hits FROM `request_throttles` WHERE `bucket` = ?');
+$stmt->execute(['register:source']);
+$registerHits = (int) $stmt->fetchColumn();
+ok('the register counter counted the requests', $registerHits === 2, (string) $registerHits);
+
+// The counter is driven to the limit: the point of the assertion is
+// the REFUSAL -- and that a refused request creates no account.
+$pdo->exec("UPDATE `request_throttles` SET `hits` = " . (int) REGISTER_SOURCE_LIMIT
+    . " WHERE `bucket` = 'register:source'");
+
+$refusedName    = 'live_test_r_' . $marker . '_refused';
+$refusedAddress = $refusedName . '@example.test';
+$GLOBALS['live_test_addresses'][] = $refusedAddress;
+
+$r = req('GET', BASE . '/register', [], $registerJar);
+$token = csrf($r['body']);
+$r = req('POST', BASE . '/register', [
+    'csrf_token' => $token, 'username' => $refusedName, 'email' => $refusedAddress,
+    'email_confirmation' => $refusedAddress, 'password' => $pass, 'password_confirmation' => $pass,
+], $registerJar);
+
+ok('the registration is refused with 429', $r['status'] === 429, 'status=' . $r['status']);
+ok('the refusal says that the visitor is early',
+    str_contains($r['body'], 'Too many requests. Please try again in a few minutes.'));
+
+$registerRetry = 0;
+
+foreach ($r['headers'] as $h) {
+    if (stripos($h, 'Retry-After:') === 0) {
+        $registerRetry = (int) trim(substr($h, 12));
+    }
+}
+
+ok('the registration refusal carries a Retry-After header', $registerRetry > 0,
+    'the header says ' . $registerRetry);
+
+$stmt = $pdo->prepare('SELECT COUNT(*) FROM `users` WHERE `username` = ?');
+$stmt->execute([$refusedName]);
+ok('the refused registration created no account', (int) $stmt->fetchColumn() === 0);
 
 echo "\nFailed: " . count($fails) . "\n";
 

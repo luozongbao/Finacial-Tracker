@@ -24,11 +24,44 @@
  *
  * The runtime never runs Composer. vendor/ is produced by a deliberate
  * vendor-time install and is git-ignored — see docs/issues/issue-010.md.
+ *
+ * Issue-022 (§7.3) adds the transport BOUNDS:
+ *
+ *   7. Every timeout is EXPLICIT and BOUNDED. The library default is 300
+ *      seconds, which is a denial of service on its own: a request that
+ *      waits five minutes for a dead SMTP server holds a worker slot the
+ *      whole time. The bounds are set on the object, not left to the
+ *      library, and the test asserts them.
+ *   8. A transport failure is logged SANITISED. The exception message of
+ *      a rejected mail carries the recipient address, so it never goes to
+ *      the log verbatim — the context, the class and the code do.
  */
 
 declare(strict_types=1);
 
 use PHPMailer\PHPMailer\PHPMailer;
+
+require_once __DIR__ . '/logging.php';
+
+/*
+ * The product's own transport bounds. They are declared with a guard
+ * because this file is included by the front controller, by the worker and
+ * by the regression tests' child processes — a second inclusion must not
+ * emit a warning. A config.php that declares the constant wins: the guard
+ * keeps the value that is already there.
+ */
+if (!defined('SMTP_TIMEOUT_SECONDS')) {
+    /**
+     * How long the SMTP transport may take, in seconds.
+     *
+     * It bounds the CONNECT and the socket reads and writes: PHPMailer
+     * passes $mail->Timeout to the stream context and calls
+     * stream_set_timeout() with it, so a server that accepts the
+     * connection and then says nothing is cut off after this many
+     * seconds (issue-022 §7.3).
+     */
+    define('SMTP_TIMEOUT_SECONDS', 10);
+}
 
 /**
  * Is SMTP configured at all?
@@ -72,8 +105,20 @@ function createMailer(): PHPMailer
     // The messages contain user-supplied text.
     $mail->CharSet = 'UTF-8';
 
-    // A web request must not hang for the library default of 300 seconds.
-    $mail->Timeout = 30;
+    // Every timeout is explicit and bounded (issue-022 §7.3). The library
+    // default is 300 seconds, and a request that waits five minutes for a
+    // dead SMTP server is a denial of service on its own.
+    $mail->Timeout = SMTP_TIMEOUT_SECONDS;
+
+    // The same bound at the stream level: PHPMailer hands $mail->SMTPOptions
+    // straight to stream_context_create(), so the socket's own timeout is
+    // the context's socket timeout.
+    $mail->SMTPOptions = ['socket' => ['timeout' => SMTP_TIMEOUT_SECONDS]];
+
+    // One message per connection. A kept-alive connection is a socket the
+    // worker holds open between two messages, and a socket that is held
+    // open is a socket that can go stale without anybody noticing.
+    $mail->SMTPKeepAlive = false;
 
     // setFrom(), never addReplyTo() alone: a message with no From: is refused
     // by most SMTP servers. $auto stays on so the envelope sender matches.
@@ -121,8 +166,11 @@ function sendMail(string $to, string $subject, string $body): bool
         return $mail->send();
     } catch (Throwable $ex) {
         // display_errors is Off, so the reason belongs in the error log —
-        // never in the response body, and never in the user's face.
-        error_log('[mailer] ' . $ex->getMessage());
+        // never in the response body, and never in the user's face. The
+        // log is SANITISED: the message of a rejected mail carries the
+        // recipient address, so only the context, the class and the code
+        // are written (issue-022 §7.4).
+        logFailure('mailer: the send failed', $ex);
 
         return false;
     }

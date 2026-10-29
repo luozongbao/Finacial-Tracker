@@ -409,6 +409,9 @@ echo json_encode([
     'from_name' => $m->FromName,
     'auth' => $m->SMTPAuth,
     'username' => $m->Username,
+    'timeout' => $m->Timeout,
+    'keep_alive' => $m->SMTPKeepAlive,
+    'socket_timeout' => $m->SMTPOptions['socket']['timeout'] ?? null,
 ]);
 PHP;
 
@@ -436,6 +439,25 @@ foreach ([
     ok('the configured SMTP user is used', $data['username'] === 'user@example.com');
     ok('the From: address is MAIL_FROM, not SMTP_USER', $data['from'] === 'no-reply@example.com');
     ok('the From: display name is MAIL_FROM_NAME', $data['from_name'] === 'Financial Tracker');
+
+    // The transport BOUNDS (issue-022 §7.3). The library default is 300
+    // seconds, and a request that waits five minutes for a dead SMTP
+    // server holds a worker slot the whole time.
+    ok(
+        'the transport timeout is explicit and bounded',
+        (float) $data['timeout'] > 0.0 && (float) $data['timeout'] <= 30.0,
+        'Timeout is ' . var_export($data['timeout'], true)
+    );
+    ok(
+        'the socket timeout is bounded too',
+        (float) $data['socket_timeout'] > 0.0 && (float) $data['socket_timeout'] <= 30.0,
+        'the socket timeout is ' . var_export($data['socket_timeout'], true)
+    );
+    ok(
+        'the keep-alive is off — one message per connection',
+        $data['keep_alive'] === false,
+        'SMTPKeepAlive is ' . var_export($data['keep_alive'], true)
+    );
 }
 
 echo "\n## F. A failed send is a false, never an exception\n";

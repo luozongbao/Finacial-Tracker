@@ -295,7 +295,7 @@ function make_sandbox(string $root): string
 
     copy($root . '/index.php', $dir . '/index.php');
 
-    foreach (['functions.php', 'bootstrap.php', 'Database.php', 'auth.php', 'Router.php', 'header.php', 'footer.php', 'mailer.php'] as $file) {
+    foreach (['functions.php', 'bootstrap.php', 'Database.php', 'auth.php', 'Router.php', 'header.php', 'footer.php', 'mailer.php', 'logging.php', 'outbox.php'] as $file) {
         copy($root . '/includes/' . $file, $dir . '/includes/' . $file);
     }
 
@@ -467,7 +467,7 @@ foreach (['error_404.php', 'error_403.php', 'error_405.php', 'error_500.php'] as
 
 ok(
     'the generic catch writes the detail to the error log',
-    str_contains($indexSrc, 'error_log(')
+    str_contains($indexSrc, 'logFailure(')
 );
 ok(
     'the 500 page does not echo the exception message',

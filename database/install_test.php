@@ -518,6 +518,7 @@ function make_sandbox(string $root): string
 
     copy($root . '/install.php', $dir . '/install.php');
     copy($root . '/includes/functions.php', $dir . '/includes/functions.php');
+    copy($root . '/includes/logging.php', $dir . '/includes/logging.php');
     copy($root . '/database/schema.sql', $dir . '/database/schema.sql');
 
     // The assets are read by asset_url() when the page renders.
@@ -633,7 +634,7 @@ ok(
 // The raw driver error never reaches the page.
 ok(
     'the raw driver error goes to the error log',
-    str_contains($code, 'error_log(')
+    str_contains($code, 'logFailure(')
 );
 
 foreach (['1045', '1049', '2002', '2003', '2005'] as $errno) {
@@ -701,7 +702,7 @@ $written = [];
 foreach ([
     'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS',
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS',
-    'MAIL_FROM', 'MAIL_FROM_NAME', 'ALLOW_REGISTRATION', 'WEEK_START', 'TIMEZONE',
+    'MAIL_FROM', 'MAIL_FROM_NAME', 'ALLOW_REGISTRATION', 'REQUEST_THROTTLE_ENABLED', 'WEEK_START', 'TIMEZONE',
 ] as $constant) {
     $written[] = $constant;
 
@@ -714,7 +715,7 @@ foreach ([
 
 ok(
     'the wizard writes no constant that the template does not declare',
-    count($written) === 13,
+    count($written) === 14,
     (string) count($written)
 );
 

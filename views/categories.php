@@ -138,7 +138,7 @@ SQL;
 
     $categories = $db->fetchAll($listSql, [$uid]);
 } catch (Throwable $ex) {
-    error_log('[categories] the list failed: ' . $ex->getMessage());
+    logFailure('categories: the list could not be read', $ex);
 
     $failed = true;
 }

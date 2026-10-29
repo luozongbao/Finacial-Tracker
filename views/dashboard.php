@@ -174,11 +174,11 @@ try {
     // latest entries, and the LIMIT is in the query.
     $recent = $db->fetchAll($recentSql, [$uid]);
 } catch (Throwable $ex) {
-    // The detail goes to the error log, where the operator can read it.
-    // The page gets the error state: an error is never rendered as 0.00,
-    // and the recent list is not rendered either — it comes from the same
-    // failure.
-    error_log('[dashboard] ' . $ex->getMessage() . ' @ ' . $ex->getFile() . ':' . $ex->getLine());
+    // The context of the failure goes to the error log, where the operator
+    // can read it. The page gets the error state: an error is never
+    // rendered as 0.00, and the recent list is not rendered either — it
+    // comes from the same failure.
+    logFailure('dashboard: the totals could not be read', $ex);
 
     $failed       = true;
     $summary      = null;

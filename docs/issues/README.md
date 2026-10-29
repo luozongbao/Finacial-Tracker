@@ -12,7 +12,7 @@ Two tracks run through this folder:
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
 | **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **All ten issues (011–020) are implemented & verified.** |
-| **Security** | Dev | [021](issue-021.md) – [025](issue-025.md) | The findings of the pre-release security audit of 2026-10-28. **021 is implemented & verified; 022–025 are open.** |
+| **Security** | Dev | [021](issue-021.md) – [025](issue-025.md) | The findings of the pre-release security audit of 2026-10-28. **021 and 022 are implemented & verified; 023–025 are open.** |
 | **Requirements** | Dev + Design | [026](issue-026.md) | The gap between [docs/About.md](../About.md) and the application: the **average** is required and missing. **Open.** |
 
 ---
@@ -42,7 +42,7 @@ Two tracks run through this folder:
 | [019](issue-019.md) | App: the reports | App | **implemented & verified** | 013, 014, 016 | `views/reports.php`, `assets/css/pages/reports.css` — the period selector, the "Over time" and "By category" tables — guarded by `database/reports_test.php` |
 | [020](issue-020.md) | App: the categories and the settings | App | **implemented & verified** | 013, 014, 016 | `views/categories.php`, `views/category_save.php`, `views/category_delete.php`, `views/settings.php`, `assets/css/pages/categories.css`, `assets/css/pages/settings.css` — the category list, the profile, the read-only installation card — guarded by `database/categories_test.php` and `database/settings_test.php` |
 | [021](issue-021.md) | Security: the sign-in throttle is a denial of service | Security | **implemented & verified** | 011, 012, 016 | the decaying two-counter backoff in `includes/auth.php`, the `scope` column in `login_attempts`, the migration, and the source key that follows the **connecting peer** — guarded by `database/auth_test.php` and `database/live/live_security_test.php` |
-| [022](issue-022.md) | Security: the unauthenticated endpoints that cost the server something | Security | **open** | 016 | the registration and reset floods, the forgot-password enumeration oracle, the PII in the error log |
+| [022](issue-022.md) | Security: the unauthenticated endpoints that cost the server something | Security | **implemented & verified** | 016 | the neutral answer, the **outbox** and its CLI worker, the two request limiters, the bounded SMTP transport, and the sanitised log — guarded by `database/auth_test.php` and `database/live/live_security_test.php` |
 | [023](issue-023.md) | Security: the web root still serves the deployment topology | Security | **open** | 003 | the deny block for `docker-compose.yml`, `config.template.php` and the internal documentation — and the hardening test that pins the leak in place |
 | [024](issue-024.md) | Security: the response-hardening headers | Security | **open** | 013, 014, 015 | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers |
 | [025](issue-025.md) | Security: the installer keeps the credentials in the session store | Security | **open** | 010, 012, 015 | the database and SMTP passwords in clear text in `/tmp/sess_*`, under an attacker-chosen file name |
@@ -150,7 +150,17 @@ Two tracks run through this folder:
 > thing the audit did not** — LiteSpeed **rewrites `REMOTE_ADDR` from
 > `X-Forwarded-For`**, so the source key is built from the address that
 > really connected (`PROXY_REMOTE_ADDR`) and the header cannot move the
-> bucket. The remaining five findings are still open.
+> bucket.
+> **Issue 022 is implemented and verified**: the forgot-password screen now
+> answers **byte-identically** for a known and an unknown address in every
+> state, the mail is **queued** and sent by a **CLI worker** instead of the
+> request, the SMTP transport is **bounded**, `/register` and
+> `/forgot-password` are **throttled** per source and per submitted address,
+> and the log carries the **context** of a failure and never the address.
+> **The implementation found one thing the audit did not** — the two limiters
+> of the reset screen have to be consulted in **one** call, or a request the
+> address counter refused still extends the source window.
+> The remaining three findings are still open.
 > A requirement check against [docs/About.md](../About.md) found the
 > application **meets every claim in the brief except one**: the brief says
 > *"search and sum/average in time period like day, month, weeks, year"*, the
@@ -182,6 +192,35 @@ implementation will mirror them.
 
 The delivery contract for these files is in
 [`docs/mockup/README.md`](../mockup/README.md).
+
+---
+
+## The outbox worker — required, not optional
+
+Since [issue-022](issue-022.md) the application **queues** the mail it would
+send and a **CLI worker** sends it. The request path never talks to the SMTP
+server, so **an installation that never runs the worker never sends mail**.
+
+| Piece | Where |
+|---|---|
+| the queue | `mail_outbox` in `database/schema.sql` (and `database/migrations/20261030_mail_outbox_and_request_throttles.sql`) |
+| the queue API | `includes/outbox.php` |
+| the worker | `database/outbox_worker.php` |
+
+````bash
+# Send everything that is waiting, up to 20 messages, and prune the tables.
+docker compose exec -T app php /var/www/html/database/outbox_worker.php --limit=20
+
+# The same, quietly — for a cron entry.
+docker compose exec -T app php /var/www/html/database/outbox_worker.php --quiet
+````
+
+Run it **from cron** (every minute or every five minutes is enough for a
+personal installation). The worker refuses to run under a web server, claims
+each row exclusively (`SELECT … FOR UPDATE SKIP LOCKED`), re-uses the row when
+a send fails, backs off between the attempts and prunes the rows it no longer
+needs. The **queue depth** is shown in the installation card of `/settings`,
+so a backlog is visible without reading a log.
 
 ---
 
@@ -239,7 +278,7 @@ The implementation copies the shape, not the text.
 | starting the application from the schema | **011** (the schema) → **012** (the runtime) → **013** (the tokens and the shell) → **014** (the front controller) → **015** (the installer) |
 | building the screens | **016** (authentication) → **017** (the dashboard) → **018** (transactions) → **019** (the reports) → **020** (categories and settings) |
 | reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor), 010 (the vendored dependency tree), 015 (the install gate), 016 (the two-sided registration gate), 020 (the installation card) |
-| fixing the findings of the 2026-10-28 audit | **021** (the throttle is a DoS — **done**) → **022** (the unthrottled endpoints) → **023** (the web root) → **024** (the headers) → **025** (the installer's secrets). All five are independent of each other. |
+| fixing the findings of the 2026-10-28 audit | **021** (the throttle is a DoS — **done**) → **022** (the unthrottled endpoints — **done**) → **023** (the web root) → **024** (the headers) → **025** (the installer's secrets). All five are independent of each other. |
 | closing the gap against the brief | **026** — but read **007** (the mockup contract) and **019** (the reports screen) first; 026 changes the design *and* the screen. |
 | adding a third-party PHP library | 010 (Composer as a vendor-time tool) |
 
@@ -263,7 +302,7 @@ The implementation copies the shape, not the text.
 | Issue | Fixes | Depends on |
 |---|---|---|
 | [021](issue-021.md) | the identifier-keyed lockout, the lost count under concurrency, the unbounded `login_attempts` table, the lock columns that are never read | 011, 012, 016 — **implemented & verified** |
-| [022](issue-022.md) | the registration and reset floods, the forgot-password enumeration oracle, the PII in the error log | 016 |
+| [022](issue-022.md) | the registration and reset floods, the forgot-password enumeration oracle, the PII in the error log | 016 — **implemented & verified** |
 | [023](issue-023.md) | the deny block for `docker-compose.yml`, `config.template.php` and the internal documentation, and the hardening test that pins the leak in place | 003 |
 | [024](issue-024.md) | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers | 013, 014, 015 |
 | [025](issue-025.md) | the database and SMTP passwords in clear text in `/tmp/sess_*`, under an attacker-chosen file name | 010, 012, 015 |

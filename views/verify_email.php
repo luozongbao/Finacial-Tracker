@@ -29,7 +29,7 @@ if ($token !== '') {
     try {
         $confirmed = consumeEmailVerification($token) !== null;
     } catch (Throwable $ex) {
-        error_log('[auth] the confirmation failed: ' . $ex->getMessage());
+        logFailure('auth: the confirmation failed', $ex);
 
         $confirmed = false;
     }
