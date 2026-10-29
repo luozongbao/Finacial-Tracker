@@ -24,6 +24,15 @@
  *      a rename), and parse-checked before the wizard declares success.
  *   8. The wizard is ONE file. Splitting it would leave fragments behind
  *      that have to be deleted as well.
+ *   9. The wizard holds NO SECRET. The database password and the SMTP
+ *      password are asked again on step 3 and live in a local variable for
+ *      the length of that one request. They are never written into
+ *      $_SESSION and never reach the session file on disk
+ *      (issue-025 §7.1).
+ *  10. The session id is regenerated when the wizard starts and after every
+ *      step boundary, and session.use_strict_mode is 1, so a client cannot
+ *      choose the name of the file the session is written to
+ *      (issue-025 §7.2).
  *
  * The page has no application navigation and no footer link farm: the
  * visitor is not signed in and the installer is not part of the product.
@@ -53,6 +62,15 @@ require_once __DIR__ . '/includes/logging.php';
 // exist before either of them is used.
 // ---------------------------------------------------------------------------
 startSession();
+
+// The wizard rotates its session id as soon as it starts.
+//
+// A session id that the CLIENT chose is a session-fixation foothold, and
+// the installer is exactly where a production credential is typed into a
+// browser. The rotation happens on the FIRST GET only: a POST has to find
+// the session it was sent with, because the CSRF token lives in that
+// session and a rotation before the CSRF check would throw the token away.
+installBeginSession();
 
 // ---------------------------------------------------------------------------
 // 1b. The security headers.
@@ -145,9 +163,22 @@ if (is_file(__DIR__ . '/config.php')) {
                         $errors[] = $result['message'];
                         $db       = array_merge($db, $submitted);
                     } else {
-                        $state['db']         = $submitted;
-                        $state['db_created'] = $result['created'];
-                        $state['step']       = 2;
+                        // The password is NOT kept. The wizard needs it
+                        // again in step 3, and step 3 asks for it again —
+                        // a secret that never has to survive a page
+                        // boundary never has to be written to disk.
+                        $state['db'] = [
+                            'db_host' => $submitted['db_host'],
+                            'db_name' => $submitted['db_name'],
+                            'db_user' => $submitted['db_user'],
+                        ];
+                        $state['db_pass_set'] = $submitted['db_pass'] !== '';
+                        $state['db_created']  = $result['created'];
+                        $state['step']        = 2;
+
+                        // A step boundary is a new session: the id is
+                        // regenerated before the new state is written.
+                        installRotateSessionId();
                         installSaveState($state);
                         redirect(INSTALL_PATH);
                     }
@@ -171,12 +202,14 @@ if (is_file(__DIR__ . '/config.php')) {
                         'smtp_host'      => '',
                         'smtp_port'      => '587',
                         'smtp_user'      => '',
-                        'smtp_pass'      => '',
                         'mail_from'      => installMailDefaults()['mail_from'],
                         'mail_from_name' => installMailDefaults()['mail_from_name'],
                     ];
                     $state['mail_configured'] = false;
-                    $state['step']            = 3;
+                    $state['smtp_pass_set']    = false;
+                    $state['step']             = 3;
+
+                    installRotateSessionId();
                     installSaveState($state);
                     redirect(INSTALL_PATH);
                 }
@@ -193,9 +226,20 @@ if (is_file(__DIR__ . '/config.php')) {
                         $errors[] = $result['message'];
                         $mail     = array_merge($mail, $submitted);
                     } else {
-                        $state['mail']             = $submitted;
-                        $state['mail_configured']  = true;
+                        // The SMTP password is NOT kept, for the same
+                        // reason as the database password.
+                        $state['mail'] = [
+                            'smtp_host'      => $submitted['smtp_host'],
+                            'smtp_port'      => $submitted['smtp_port'],
+                            'smtp_user'      => $submitted['smtp_user'],
+                            'mail_from'      => $submitted['mail_from'],
+                            'mail_from_name' => $submitted['mail_from_name'],
+                        ];
+                        $state['mail_configured'] = true;
+                        $state['smtp_pass_set']    = $submitted['smtp_pass'] !== '';
                         $state['step']             = 3;
+
+                        installRotateSessionId();
                         installSaveState($state);
                         redirect(INSTALL_PATH);
                     }
@@ -221,9 +265,27 @@ if (is_file(__DIR__ . '/config.php')) {
                 $dbValues   = installDbValues($state['db']);
                 $mailValues = array_merge(installMailDefaults(), $state['mail']);
 
+                // The wizard holds no secret, so step 3 asks for the
+                // passwords AGAIN. They live in these two variables for the
+                // length of this request and go nowhere else: they are
+                // never written into the session and never reach the
+                // session file on disk.
+                $dbPass   = installRawPost('db_pass', '');
+                $smtpPass = installRawPost('smtp_pass', '');
+
+                $dbValues['db_pass']     = $dbPass;
+                $mailValues['smtp_pass'] = $smtpPass;
+
                 $schema = installLoadSchema(__DIR__ . '/database/schema.sql');
 
-                if ($schema['ok'] === false) {
+                // Both secrets are proved again before anything is written
+                // to the disk: the database by the connection below, the
+                // mail server by a real authentication.
+                $secretErrors = installCheckSecrets($state, $dbValues, $mailValues);
+
+                if ($secretErrors !== []) {
+                    $errors = $secretErrors;
+                } elseif ($schema['ok'] === false) {
                     $errors[] = $schema['message'];
                 } else {
                     $connection = installConnect($dbValues, true);
@@ -305,13 +367,24 @@ function installState(): array
 
     $step = (int) ($state['step'] ?? 1);
 
+    $db   = is_array($state['db'] ?? null) ? $state['db'] : [];
+    $mail = is_array($state['mail'] ?? null) ? $state['mail'] : [];
+
+    // A session written by an EARLIER version of the wizard may still hold
+    // the passwords. They are dropped here, on the READ, so a session that
+    // was written before the fix is cleaned the next time the wizard writes
+    // its state.
+    unset($db['db_pass'], $mail['smtp_pass']);
+
     return [
         'step'              => ($step >= 1 && $step <= 3) ? $step : 1,
-        'db'                => is_array($state['db'] ?? null) ? $state['db'] : [],
-        'mail'              => is_array($state['mail'] ?? null) ? $state['mail'] : [],
+        'db'                => $db,
+        'mail'              => $mail,
         'allow_registration' => (bool) ($state['allow_registration'] ?? true),
         'db_created'        => (bool) ($state['db_created'] ?? false),
         'mail_configured'   => (bool) ($state['mail_configured'] ?? false),
+        'db_pass_set'       => (bool) ($state['db_pass_set'] ?? false),
+        'smtp_pass_set'     => (bool) ($state['smtp_pass_set'] ?? false),
     ];
 }
 
@@ -322,7 +395,168 @@ function installState(): array
  */
 function installSaveState(array $state): void
 {
+    // THE CHOKEPOINT.
+    //
+    // This is the only place that writes the install state, so this is the
+    // only place that has to know the state holds no secret. The passwords
+    // are dropped here whatever the caller put into the array: a code path
+    // that tries to keep one fails HERE instead of writing it to the disk.
+    if (isset($state['db']) && is_array($state['db'])) {
+        unset($state['db']['db_pass']);
+    }
+
+    if (isset($state['mail']) && is_array($state['mail'])) {
+        unset($state['mail']['smtp_pass']);
+    }
+
     $_SESSION['install'] = $state;
+}
+
+/**
+ * Start the wizard's session: rotate the id, once.
+ *
+ * The rotation is the answer to a session fixation: the id the client sent
+ * is not the id the wizard keeps, so a file whose name the client chose
+ * never holds the operator's data.
+ *
+ * It happens on the first GET and never on a POST — a POST has to find the
+ * session it was sent with, because the CSRF token lives in that session
+ * and a rotation before the CSRF check would throw the token away.
+ */
+function installBeginSession(): void
+{
+    if (($_SESSION['install_started'] ?? false) === true) {
+        return;
+    }
+
+    $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+
+    if ($method === 'POST') {
+        return;
+    }
+
+    $_SESSION['install_started'] = true;
+
+    installRotateSessionId();
+}
+
+/**
+ * Regenerate the session id.
+ *
+ * The old id is destroyed and a new one is issued; the data of the session
+ * moves with it, so the step state survives the step boundary.
+ */
+function installRotateSessionId(): void
+{
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+
+    session_regenerate_id(true);
+}
+
+/**
+ * The problems with the secrets of the step-3 POST.
+ *
+ * The wizard kept no secret, so step 3 asks for the passwords again. This
+ * is the check that the operator actually answered: a password that WAS
+ * given at an earlier step has to be given again, and a missing password
+ * is a message and not a silent empty string.
+ *
+ * The mail server is proved here as well, when a password was given: step 2
+ * already proved that the server works, and step 3 only has to prove that
+ * the password the operator typed is the right one. The check authenticates
+ * and sends nothing.
+ *
+ * @param  array<string, mixed>  $state
+ * @param  array<string, string> $dbValues
+ * @param  array<string, string> $mailValues
+ * @return string[]
+ */
+function installCheckSecrets(array $state, array $dbValues, array $mailValues): array
+{
+    $errors = [];
+
+    if (($state['db_pass_set'] ?? false) === true && $dbValues['db_pass'] === '') {
+        $errors[] = 'Enter the database password again — the wizard does not keep it.';
+    }
+
+    if (($state['mail_configured'] ?? false) === true
+        && ($state['smtp_pass_set'] ?? false) === true
+        && $mailValues['smtp_pass'] === ''
+    ) {
+        $errors[] = 'Enter the SMTP password again — the wizard does not keep it.';
+    }
+
+    if ($errors !== []) {
+        return $errors;
+    }
+
+    // There is nothing to prove when the mail server takes no password:
+    // step 2 already proved that the server answers.
+    if (($state['mail_configured'] ?? false) === true && $mailValues['smtp_pass'] !== '') {
+        $verified = installVerifyMailCredentials($mailValues);
+
+        if ($verified['ok'] === false) {
+            $errors[] = $verified['message'];
+        }
+    }
+
+    return $errors;
+}
+
+/**
+ * Prove the SMTP credentials without sending a message.
+ *
+ * The connection is opened and the authentication is done — that is what
+ * proves the password. No message is sent: the operator has already seen a
+ * test message arrive in step 2, and a second one would be noise.
+ *
+ * The failure is a plain sentence. The server's own answer is not shown:
+ * it can carry the user name, and the page is not the place for it.
+ *
+ * @param  array<string, string> $values
+ * @return array{ok: bool, message: string}
+ */
+function installVerifyMailCredentials(array $values): array
+{
+    if (!class_exists(\PHPMailer\PHPMailer\PHPMailer::class)) {
+        return [
+            'ok'      => false,
+            'message' => 'The mail library is not installed, so the mail password could not be checked. '
+                . 'Run composer install --no-dev --optimize-autoloader, or skip the mail step and add mail later.',
+        ];
+    }
+
+    $port = (int) $values['smtp_port'];
+
+    try {
+        $mailer = new \PHPMailer\PHPMailer\PHPMailer(true);
+        $mailer->isSMTP();
+        $mailer->Host       = $values['smtp_host'];
+        $mailer->Port       = $port;
+        $mailer->SMTPAuth   = $values['smtp_user'] !== '';
+        $mailer->Username   = $values['smtp_user'];
+        $mailer->Password   = $values['smtp_pass'];
+        $mailer->CharSet    = 'UTF-8';
+        $mailer->Timeout    = 30;
+        $mailer->SMTPSecure = $port === 465
+            ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+            : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+
+        $mailer->smtpConnect();
+        $mailer->smtpClose();
+    } catch (Throwable $ex) {
+        logFailure('install: the mail credentials could not be verified', $ex);
+
+        return [
+            'ok'      => false,
+            'message' => 'The mail server refused the mail password. Check the user name and the password, '
+                . 'then try again.',
+        ];
+    }
+
+    return ['ok' => true, 'message' => ''];
 }
 
 /**
@@ -828,6 +1062,12 @@ function installWriteConfig(array $values): array
         'const MAIL_FROM = ' . var_export((string) $values['mail_from'], true) . ';',
         'const MAIL_FROM_NAME = ' . var_export((string) $values['mail_from_name'], true) . ';',
         '',
+        '// ---- Session ---------------------------------------------------------',
+        '// Where the session files are written. The directory is created with mode',
+        '// 0700 when it is missing, and the web-root deny block refuses it. The',
+        '// path is relative to this file, so the project can be moved.',
+        'const SESSION_SAVE_PATH = __DIR__ . \'/storage/sessions\';',
+        '',
         '// ---- Application ------------------------------------------------------',
         '',
         '// Public registration. true = the register page is open; false = it is closed',
@@ -980,8 +1220,8 @@ function installPhpBinary(): string
 /**
  * End the session.
  *
- * The step state, the CSRF token and the collected secrets all go. The next
- * visitor must not inherit any of it.
+ * The step state and the CSRF token go, and the session file on disk goes
+ * with them. The next visitor must not inherit any of it.
  */
 function installDestroySession(): void
 {
@@ -1230,6 +1470,28 @@ $dash = "\u{2014}";
             <input type="hidden" name="step" value="3">
 
             <div class="field">
+                <label class="field__label" for="iw-db-pass">Database password</label>
+                <input class="input" id="iw-db-pass" name="db_pass" type="password"
+                       autocomplete="new-password" value=""
+                       <?= $state['db_pass_set'] === true ? 'required' : '' ?>>
+                <span class="field__hint">
+                    Enter the password again — the wizard does not keep it.
+                </span>
+            </div>
+
+<?php if ($state['mail_configured'] === true): ?>
+            <div class="field">
+                <label class="field__label" for="iw-smtp-pass">SMTP password</label>
+                <input class="input" id="iw-smtp-pass" name="smtp_pass" type="password"
+                       autocomplete="new-password" value=""
+                       <?= $state['smtp_pass_set'] === true ? 'required' : '' ?>>
+                <span class="field__hint">
+                    Enter the password again — the wizard does not keep it.
+                </span>
+            </div>
+<?php endif; ?>
+
+            <div class="field">
                 <span class="field__label" id="iw-reg-label">Allow registration</span>
                 <input type="hidden" name="allow_registration" value="0">
                 <label class="switch" for="iw-reg">
@@ -1270,7 +1532,7 @@ $dash = "\u{2014}";
             </div>
             <div class="readonly-list__row">
                 <dt>Database password</dt>
-                <dd class="masked"><?= e($mask) ?></dd>
+                <dd<?= $state['db_pass_set'] === true ? ' class="masked"' : '' ?>><?= $state['db_pass_set'] === true ? e($mask) : e($dash) ?></dd>
             </div>
             <div class="readonly-list__row">
                 <dt>SMTP host</dt>
@@ -1286,7 +1548,7 @@ $dash = "\u{2014}";
             </div>
             <div class="readonly-list__row">
                 <dt>SMTP password</dt>
-                <dd class="masked"><?= e($mask) ?></dd>
+                <dd<?= $state['smtp_pass_set'] === true ? ' class="masked"' : '' ?>><?= $state['smtp_pass_set'] === true ? e($mask) : e($dash) ?></dd>
             </div>
             <div class="readonly-list__row">
                 <dt>From: address</dt>

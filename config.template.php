@@ -37,6 +37,21 @@ const SMTP_PASS = 'your_email_password';
 const MAIL_FROM = 'no-reply@example.com';
 const MAIL_FROM_NAME = 'Financial Tracker';
 
+// ---- Session --------------------------------------------------------------
+
+// Where the session files are written.
+//
+// The session file is written by PHP's file handler, and its name is the
+// session id. The shared /tmp of the host is the wrong place for it: the
+// directory is world-readable, so a listing hands out the live session ids
+// of the visitors. This directory is created with mode 0700 when it is
+// missing, and the web-root deny block refuses it.
+//
+// The value is a code expression, not a plain path, so the project can be
+// moved after the install. The wizard uses the same directory before
+// config.php exists — see issue-025 §7.3.
+const SESSION_SAVE_PATH = __DIR__ . '/storage/sessions';
+
 // ---- Application ----------------------------------------------------------
 
 // Public registration. true = the register page is open; false = it is closed

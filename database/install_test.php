@@ -38,6 +38,11 @@
 
 declare(strict_types=1);
 
+// The shared helpers of the install tests: the HTTP client with its cookie
+// jar, the sandbox copy of the wizard and the session-store inspection that
+// issue-025 needs. The file is not a test itself.
+require_once __DIR__ . '/install_sandbox.php';
+
 $failures = [];
 $skips    = [];
 
@@ -152,101 +157,6 @@ function strip_comments(string $src): string
 }
 
 /**
- * Perform an HTTP request and return the status, the headers and the body.
- *
- * The session cookie is carried from one request to the next — the wizard's
- * step state lives in it, so a request without the cookie would start a new
- * session every time and the walk through the steps would be impossible.
- */
-function http_request(string $method, string $url, array $fields = [], int $timeout = 15): array
-{
-    $headers = [
-        'User-Agent: financial-tracker-install-test',
-        'Accept: text/html',
-    ];
-
-    $body = '';
-
-    if ($method === 'POST') {
-        $body = http_build_query($fields);
-        $headers[] = 'Content-Type: application/x-www-form-urlencoded';
-        $headers[] = 'Content-Length: ' . strlen($body);
-    }
-
-    $jar = $GLOBALS['iw_cookies'] ?? [];
-
-    if ($jar !== []) {
-        $pairs = [];
-
-        foreach ($jar as $name => $value) {
-            $pairs[] = $name . '=' . $value;
-        }
-
-        $headers[] = 'Cookie: ' . implode('; ', $pairs);
-    }
-
-    $ctx = stream_context_create([
-        'http' => [
-            'method'        => $method,
-            'timeout'       => $timeout,
-            'ignore_errors' => true,
-            'follow_location' => 0,
-            'content'       => $body,
-            'header'        => implode("\r\n", $headers),
-        ],
-    ]);
-
-    $response = @file_get_contents($url, false, $ctx);
-    $status   = null;
-    $headers  = [];
-
-    foreach ($http_response_header ?? [] as $header) {
-        if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m) === 1) {
-            $status = (int) $m[1];
-            continue;
-        }
-
-        $pos = strpos($header, ':');
-
-        if ($pos !== false) {
-            $headers[strtolower(trim(substr($header, 0, $pos)))] = trim(substr($header, $pos + 1));
-        }
-    }
-
-    // Keep the cookies the server set.
-    foreach ($headers as $name => $value) {
-        if ($name !== 'set-cookie') {
-            continue;
-        }
-
-        $pair = explode(';', $value)[0];
-        $eq   = strpos($pair, '=');
-
-        if ($eq !== false) {
-            $GLOBALS['iw_cookies'][trim(substr($pair, 0, $eq))] = trim(substr($pair, $eq + 1));
-        }
-    }
-
-    return [
-        'status'  => $status,
-        'body'    => $response === false ? '' : $response,
-        'headers' => $headers,
-    ];
-}
-
-/**
- * The CSRF token of a rendered page, or an empty string.
- */
-function csrf_of(string $body): string
-{
-    if (preg_match('/name="csrf_token" value="([a-f0-9]{64})"/', $body, $m) === 1) {
-        return $m[1];
-    }
-
-    return '';
-}
-
-/**
  * The base URL of the application under test.
  */
 function resolve_base_url(): string
@@ -280,113 +190,6 @@ function resolve_base_url(): string
     }
 
     return 'http://localhost:' . $port;
-}
-
-/**
- * A free TCP port on the loopback interface.
- */
-function free_port(): int
-{
-    $sock = @stream_socket_server('tcp://127.0.0.1:0', $errno, $errstr);
-
-    if ($sock === false) {
-        return 0;
-    }
-
-    $name = (string) stream_socket_get_name($sock, false);
-    fclose($sock);
-
-    $colon = strrpos($name, ':');
-
-    return $colon === false ? 0 : (int) substr($name, $colon + 1);
-}
-
-/**
- * Start the PHP built-in server on the sandbox and wait for it to answer.
- *
- * @return array{proc: resource|null, base: string}
- */
-function start_server(string $docroot): array
-{
-    $port = free_port();
-
-    if ($port === 0) {
-        return ['proc' => null, 'base' => ''];
-    }
-
-    $log = $docroot . '/server.log';
-
-    $cmd = escapeshellarg(PHP_BINARY)
-        . ' -S 127.0.0.1:' . $port
-        . ' -t ' . escapeshellarg($docroot)
-        . ' ' . escapeshellarg($docroot . '/router.php');
-
-    $descriptors = [
-        0 => ['pipe', 'r'],
-        1 => ['file', $log, 'w'],
-        2 => ['file', $log, 'a'],
-    ];
-
-    $pipes = [];
-    $proc  = proc_open($cmd, $descriptors, $pipes);
-
-    if (!is_resource($proc)) {
-        return ['proc' => null, 'base' => ''];
-    }
-
-    $base = 'http://127.0.0.1:' . $port;
-
-    for ($attempt = 0; $attempt < 100; $attempt++) {
-        $res = http_request('GET', $base . '/__ping__', [], 2);
-
-        if ($res['status'] !== null) {
-            break;
-        }
-
-        usleep(50000);
-    }
-
-    return ['proc' => $proc, 'base' => $base];
-}
-
-/**
- * Stop the built-in server.
- *
- * @param array{proc: resource|null, base: string} $server
- */
-function stop_server(array $server): void
-{
-    if (isset($server['proc']) && is_resource($server['proc'])) {
-        proc_terminate($server['proc'], 15);
-        proc_close($server['proc']);
-    }
-}
-
-/**
- * Remove a directory tree.
- */
-function remove_tree(string $dir): void
-{
-    if (!is_dir($dir)) {
-        return;
-    }
-
-    foreach (scandir($dir) ?: [] as $item) {
-        if ($item === '.' || $item === '..') {
-            continue;
-        }
-
-        $path = $dir . '/' . $item;
-
-        if (is_dir($path) && !is_link($path)) {
-            remove_tree($path);
-            continue;
-        }
-
-        @unlink($path);
-    }
-
-    @rmdir($dir);
 }
 
 /**
@@ -506,39 +309,78 @@ function drop_scratch_database(string $root, array $db): void
 }
 
 /**
- * Build the sandbox: a copy of the application in a temporary directory.
+ * A connection as the root account, or null when it is not reachable.
  */
-function make_sandbox(string $root): string
+function install_root_pdo(string $root): ?PDO
 {
-    $dir = sys_get_temp_dir() . '/ft_install_' . bin2hex(random_bytes(5));
+    $env  = env_values($root);
+    $host = is_dir('/usr/local/lsws') ? 'db' : '127.0.0.1';
+    $pass = $env['MYSQL_ROOT_PASSWORD'] ?? '';
 
-    mkdir($dir, 0700, true);
-    mkdir($dir . '/includes', 0700, true);
-    mkdir($dir . '/database', 0700, true);
+    if ($pass === '') {
+        return null;
+    }
 
-    copy($root . '/install.php', $dir . '/install.php');
-    copy($root . '/includes/functions.php', $dir . '/includes/functions.php');
-    copy($root . '/includes/logging.php', $dir . '/includes/logging.php');
-    copy($root . '/database/schema.sql', $dir . '/database/schema.sql');
-
-    // The assets are read by asset_url() when the page renders.
-    @symlink($root . '/assets', $dir . '/assets');
-
-    // The router: a real file is served, everything else is not found.
-    file_put_contents($dir . '/router.php', <<<'ROUTER'
-<?php
-$path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
-$file = __DIR__ . '/' . ltrim((string) $path, '/');
-
-if ($path !== '/' && is_file($file)) {
-    return false;
+    try {
+        return new PDO('mysql:host=' . $host . ';charset=utf8mb4', 'root', $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        ]);
+    } catch (PDOException $ex) {
+        return null;
+    }
 }
 
-http_response_code(404);
-echo 'not found';
-ROUTER);
+/**
+ * A database user whose password begins and ends with a space.
+ *
+ * The criterion of issue-025 is that the password reaches config.php EXACTLY
+ * as it was typed — not trimmed, not re-encoded. A password without a space
+ * cannot prove that, so the test installs one: the wizard connects with it,
+ * and the file that comes out has to hold it byte for byte.
+ *
+ * @param  array{host: string, name: string, user: string, pass: string, created: bool} $db
+ * @return array{user: string, pass: string}|null
+ */
+function install_probe_user(string $root, array $db): ?array
+{
+    $pdo = install_root_pdo($root);
 
-    return $dir;
+    if ($pdo === null) {
+        return null;
+    }
+
+    $user = 'ft_install_probe_user';
+    $pass = ' Pr0be Secret ';
+
+    try {
+        $pdo->exec("DROP USER IF EXISTS `{$user}`@'%'");
+        $pdo->exec("CREATE USER `{$user}`@'%' IDENTIFIED BY " . $pdo->quote($pass));
+        $pdo->exec("GRANT ALL PRIVILEGES ON `{$db['name']}`.* TO `{$user}`@'%'");
+    } catch (PDOException $ex) {
+        echo "  [WARN] the probe user could not be created: " . $ex->getMessage() . "\n";
+
+        return null;
+    }
+
+    return ['user' => $user, 'pass' => $pass];
+}
+
+/**
+ * Drop the probe user again.
+ */
+function install_drop_probe_user(string $root): void
+{
+    $pdo = install_root_pdo($root);
+
+    if ($pdo === null) {
+        return;
+    }
+
+    try {
+        $pdo->exec("DROP USER IF EXISTS `ft_install_probe_user`@'%'");
+    } catch (PDOException $ex) {
+        echo "  [WARN] the probe user could not be dropped: " . $ex->getMessage() . "\n";
+    }
 }
 
 $root = realpath(__DIR__ . '/..');
@@ -703,6 +545,7 @@ foreach ([
     'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS',
     'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS',
     'MAIL_FROM', 'MAIL_FROM_NAME', 'ALLOW_REGISTRATION', 'REQUEST_THROTTLE_ENABLED', 'WEEK_START', 'TIMEZONE',
+    'SESSION_SAVE_PATH',
 ] as $constant) {
     $written[] = $constant;
 
@@ -715,7 +558,7 @@ foreach ([
 
 ok(
     'the wizard writes no constant that the template does not declare',
-    count($written) === 14,
+    count($written) === 15,
     (string) count($written)
 );
 
@@ -792,6 +635,122 @@ if (is_file($installCss)) {
 }
 
 // ---------------------------------------------------------------------------
+// B2. The secrets never reach the session (issue-025).
+//
+// The rule is structural: there is no code path that writes a password into
+// $_SESSION. A grep for the password names is not enough — the assertion
+// below is that no LINE that mentions a password also touches the session.
+// ---------------------------------------------------------------------------
+
+echo "\n## B2. The secrets never reach the session\n";
+
+$functionsSrc  = (string) file_get_contents($root . '/includes/functions.php');
+$functionsCode = strip_comments($functionsSrc);
+
+$offenders = [];
+
+foreach (explode("\n", $code) as $number => $line) {
+    if (!str_contains($line, 'db_pass') && !str_contains($line, 'smtp_pass')) {
+        continue;
+    }
+
+    if (str_contains($line, '$_SESSION')) {
+        $offenders[] = ($number + 1) . ': ' . trim($line);
+    }
+}
+
+ok(
+    'no line writes a password into the session',
+    $offenders === [],
+    implode(' | ', $offenders)
+);
+
+$saveState = extract_function_source($src, 'installSaveState');
+$readState = extract_function_source($src, 'installState');
+
+ok('the state is written in exactly one place', str_contains($code, "\$_SESSION['install'] = \$state;"));
+ok(
+    'the writer drops the database password',
+    str_contains($saveState, "unset(\$state['db']['db_pass'])"),
+    'installSaveState() does not drop db_pass'
+);
+ok(
+    'the writer drops the SMTP password',
+    str_contains($saveState, "unset(\$state['mail']['smtp_pass'])"),
+    'installSaveState() does not drop smtp_pass'
+);
+ok(
+    'the reader drops the database password',
+    preg_match('/unset\\([^)]*\\$db\\[\'db_pass\'\\]/', $readState) === 1,
+    'installState() does not drop db_pass on the read'
+);
+ok(
+    'the reader drops the SMTP password',
+    preg_match('/unset\\([^)]*\\$mail\\[\'smtp_pass\'\\]/', $readState) === 1,
+    'installState() does not drop smtp_pass on the read'
+);
+
+// The password is still read RAW: a password may begin or end with a space,
+// and trimming it would lock the operator out of their own installation.
+ok(
+    'the password is still read raw, not trimmed',
+    str_contains($src, 'function installRawPost(')
+        && str_contains($src, "installRawPost('db_pass'")
+        && str_contains($src, "installRawPost('smtp_pass'")
+);
+
+// The step 3 form asks for the passwords again, and never echoes them.
+ok(
+    'step 3 asks for the database password again',
+    str_contains($src, 'name="db_pass" type="password"')
+);
+ok(
+    'step 3 asks for the SMTP password again',
+    str_contains($src, 'name="smtp_pass" type="password"')
+);
+ok(
+    'the password fields are never filled in',
+    preg_match('/name="(?:db_pass|smtp_pass)"\s+type="password"\s+autocomplete="new-password"\s+value=""/', $src) === 1,
+    'a password field carries a value'
+);
+
+// The session hardening (issue-025 §7.2 and §7.3).
+ok(
+    'the wizard regenerates the session id',
+    str_contains($code, 'session_regenerate_id(true)')
+);
+ok(
+    'the id is regenerated at the start and after every step boundary',
+    substr_count($code, 'installRotateSessionId();') >= 4,
+    'the calls: ' . substr_count($code, 'installRotateSessionId();')
+);
+ok(
+    'the session refuses an id it does not know',
+    str_contains($functionsCode, "ini_set('session.use_strict_mode', '1')")
+);
+
+$strictPos = pos_of($functionsCode, "ini_set('session.use_strict_mode', '1')");
+$startPos  = pos_of($functionsCode, 'session_start()');
+
+ok(
+    'the strict mode is set before the session starts',
+    $strictPos !== -1 && $startPos !== -1 && $strictPos < $startPos,
+    'strict=' . $strictPos . ' start=' . $startPos
+);
+ok(
+    'the session files live in the application\'s own directory',
+    str_contains($functionsCode, "'/storage/sessions'")
+);
+ok(
+    'the session directory is created private',
+    str_contains($functionsCode, '0700')
+);
+ok(
+    'the wizard writes the session directory into the configuration',
+    str_contains($src, 'const SESSION_SAVE_PATH =')
+);
+
+// ---------------------------------------------------------------------------
 // C. The behaviour, in a sandbox.
 //
 // The real wizard, walked through the three steps. The copy is in a
@@ -800,13 +759,23 @@ if (is_file($installCss)) {
 
 echo "\n## C. The behaviour in a sandbox\n";
 
-$sandbox = make_sandbox($root);
-$server  = start_server($sandbox);
+$sandbox = install_sandbox_make($root);
+$server  = install_sandbox_start($sandbox);
 $db      = resolve_database($root);
 
+// A database user whose password begins and ends with a space.
+//
+// The criterion is that the password lands in config.php EXACTLY as it was
+// typed — not trimmed, not re-encoded. A password without a space cannot
+// prove that, so the test installs one.
+$probe     = install_probe_user($root, $db);
+$wizardUser = $probe['user'] ?? $db['user'];
+$wizardPass = $probe['pass'] ?? $db['pass'];
+
 register_shutdown_function(static function () use ($sandbox, $server, $db, $root): void {
-    stop_server($server);
-    remove_tree($sandbox);
+    install_sandbox_stop($server);
+    install_sandbox_remove($sandbox);
+    install_drop_probe_user($root);
     drop_scratch_database($root, $db);
 });
 
@@ -817,14 +786,18 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C1: the first page ------------------------------------------------
 
-    $res = http_request('GET', $base . '/install.php');
+    $res = install_sandbox_request('GET', $base . '/install.php');
 
     ok('the wizard answers with a 200', $res['status'] === 200, (string) $res['status']);
     ok('the page carries the stepper', str_contains($res['body'], 'stepper__num'));
     ok('the first step is the current one', str_contains($res['body'], 'aria-current="step"'));
     ok('the page says it is the installer', str_contains($res['body'], 'Install Financial Tracker'));
 
-    $token = csrf_of($res['body']);
+    $token = install_sandbox_csrf($res['body']);
+
+    // The id the wizard handed out on the first page. The wizard regenerates
+    // the id when it starts, so this is already not an id the client chose.
+    $idAfterFirstGet = install_sandbox_session_id();
 
     ok('the page carries a CSRF token', $token !== '', 'no 64-character token found');
     ok(
@@ -842,7 +815,7 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C2: a wrong CSRF token --------------------------------------------
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => str_repeat('0', 64),
         'step'       => '1',
         'action'     => 'test_db',
@@ -869,7 +842,7 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C3: a step that is ahead of the session ---------------------------
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => $token,
         'step'       => '3',
         'action'     => 'install',
@@ -887,14 +860,14 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C4: a database name that is not an identifier ---------------------
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => $token,
         'step'       => '1',
         'action'     => 'test_db',
         'db_host'    => $db['host'],
         'db_name'    => 'ft_test; DROP TABLE users',
-        'db_user'    => $db['user'],
-        'db_pass'    => $db['pass'],
+        'db_user'    => $wizardUser,
+        'db_pass'    => $wizardPass,
     ]);
 
     ok(
@@ -909,14 +882,14 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C4b: a name that tries to break out of the attribute ---------------
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => $token,
         'step'       => '1',
         'action'     => 'test_db',
         'db_host'    => $db['host'],
         'db_name'    => 'ft_test" onfocus="x',
-        'db_user'    => $db['user'],
-        'db_pass'    => $db['pass'],
+        'db_user'    => $wizardUser,
+        'db_pass'    => $wizardPass,
     ]);
 
     ok(
@@ -931,7 +904,7 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C5: a wrong password ----------------------------------------------
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => $token,
         'step'       => '1',
         'action'     => 'test_db',
@@ -963,14 +936,14 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C6: the right details ---------------------------------------------
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => $token,
         'step'       => '1',
         'action'     => 'test_db',
         'db_host'    => $db['host'],
         'db_name'    => $db['name'],
-        'db_user'    => $db['user'],
-        'db_pass'    => $db['pass'],
+        'db_user'    => $wizardUser,
+        'db_pass'    => $wizardPass,
     ]);
 
     ok(
@@ -984,7 +957,77 @@ if ($server['proc'] === null || $server['base'] === '') {
         (string) ($res['headers']['location'] ?? '')
     );
 
-    $res = http_request('GET', $base . '/install.php');
+    // --- C6b: the session store holds no secret (issue-025) ----------------
+    //
+    // The criterion is not "the page does not show the password" — it is
+    // "the password is nowhere on the disk". The session store is read
+    // directly, in the raw bytes.
+
+    $idAfterStep1 = install_sandbox_session_id();
+    $sessionDir   = install_sandbox_session_dir($sandbox);
+    $tmpDir       = rtrim(sys_get_temp_dir(), '/');
+
+    ok(
+        'the session store of the copy is the application\'s own directory',
+        $sessionDir === $sandbox . '/storage/sessions',
+        $sessionDir
+    );
+    ok(
+        'the session store is not the shared temporary directory',
+        !str_starts_with($sessionDir, $tmpDir),
+        $sessionDir
+    );
+
+    $inStore = install_sandbox_scan($sessionDir, $wizardPass);
+
+    ok(
+        'no file of the session store holds the password',
+        $inStore === [],
+        implode(', ', $inStore)
+    );
+
+    $inTmp = install_sandbox_scan_sessions($tmpDir, $wizardPass);
+
+    ok(
+        'no session file in the shared temporary directory holds the password',
+        $inTmp === [],
+        implode(', ', $inTmp)
+    );
+
+    ok(
+        'the session id is regenerated after a step boundary',
+        $idAfterStep1 !== '' && $idAfterStep1 !== $idAfterFirstGet,
+        'after the first page=' . $idAfterFirstGet . ' after step 1=' . $idAfterStep1
+    );
+
+    // --- C6c: an unknown session id is not adopted (issue-025) --------------
+    //
+    // The visitor chooses the id. With session.use_strict_mode = 1 the
+    // server refuses it and issues one of its own — and nothing is written
+    // under the name the visitor chose.
+
+    $forged = bin2hex(random_bytes(16));
+
+    $res = install_sandbox_request('GET', $base . '/install.php', [], 15, [], ['PHPSESSID' => $forged]);
+
+    $issued = '';
+
+    if (preg_match('/PHPSESSID=([A-Za-z0-9,\-]+)/', (string) ($res['headers']['set-cookie'] ?? ''), $m) === 1) {
+        $issued = $m[1];
+    }
+
+    ok(
+        'an unknown session id is not adopted',
+        $issued !== '' && $issued !== $forged,
+        'sent=' . $forged . ' issued=' . $issued
+    );
+    ok(
+        'no file was created for the unknown session id',
+        !is_file($sessionDir . '/sess_' . $forged),
+        $sessionDir . '/sess_' . $forged
+    );
+
+    $res = install_sandbox_request('GET', $base . '/install.php');
 
     ok(
         'the wizard is on step 2',
@@ -998,9 +1041,9 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C7: the mail step, skipped ----------------------------------------
 
-    $token = csrf_of($res['body']);
+    $token = install_sandbox_csrf($res['body']);
 
-    $res = http_request('POST', $base . '/install.php', [
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token' => $token,
         'step'       => '2',
         'action'     => 'skip_mail',
@@ -1012,27 +1055,68 @@ if ($server['proc'] === null || $server['base'] === '') {
         (string) $res['status']
     );
 
-    $res = http_request('GET', $base . '/install.php');
+    $idAfterStep2 = install_sandbox_session_id();
+
+    ok(
+        'the session id is regenerated after the step 2 boundary',
+        $idAfterStep2 !== '' && $idAfterStep2 !== $idAfterStep1,
+        'after step 1=' . $idAfterStep1 . ' after step 2=' . $idAfterStep2
+    );
+
+    $res = install_sandbox_request('GET', $base . '/install.php');
 
     ok('the wizard is on step 3', str_contains($res['body'], 'Access'));
     ok('the summary is on the page', str_contains($res['body'], 'readonly-list'));
     ok(
         'the passwords are masked, not echoed',
-        str_contains($res['body'], 'masked') && !str_contains($res['body'], $db['pass'])
+        str_contains($res['body'], 'masked') && !str_contains($res['body'], $wizardPass)
+    );
+    ok(
+        'step 3 asks for the database password again',
+        str_contains($res['body'], 'name="db_pass"')
+    );
+    ok(
+        'the password field of step 3 is empty',
+        preg_match('/name="db_pass"\\s+type="password"\\s+autocomplete="new-password"\\s+value=""/', $res['body']) === 1
     );
     ok(
         'the registration switch is on the page',
         str_contains($res['body'], 'name="allow_registration"')
     );
 
-    // --- C8: the install ----------------------------------------------------
+    // --- C8: the install ---------------------------------------------------
 
-    $token = csrf_of($res['body']);
+    $token = install_sandbox_csrf($res['body']);
 
-    $res = http_request('POST', $base . '/install.php', [
+    // The password is not in the session, so the wizard asks for it again.
+    // An install that skipped that would have no password to write.
+
+    $res = install_sandbox_request('POST', $base . '/install.php', [
         'csrf_token'        => $token,
         'step'              => '3',
         'action'            => 'install',
+        'allow_registration' => '0',
+    ]);
+
+    ok(
+        'the install is refused when the password is not typed again',
+        str_contains($res['body'], 'does not keep it'),
+        'status=' . (string) $res['status']
+    );
+    ok(
+        'the refused install wrote no configuration file',
+        !is_file($sandbox . '/config.php')
+    );
+
+    // --- C8b: the install, with the password typed again -------------------
+
+    $token = install_sandbox_csrf($res['body']);
+
+    $res = install_sandbox_request('POST', $base . '/install.php', [
+        'csrf_token'        => $token,
+        'step'              => '3',
+        'action'            => 'install',
+        'db_pass'           => $wizardPass,
         'allow_registration' => '0',
     ]);
 
@@ -1100,6 +1184,24 @@ if ($server['proc'] === null || $server['base'] === '') {
             'the file parses',
             install_test_parses($sandbox . '/config.php')
         );
+
+        // The criterion of issue-025: the password lands in the file EXACTLY
+        // as it was typed. A password with a space at each end proves the
+        // trim — the mistake this criterion is about — did not happen.
+
+        ok(
+            'the file holds the password exactly as it was typed',
+            str_contains($live, 'const DB_PASS = ' . var_export($wizardPass, true) . ';'),
+            'the file does not hold the password'
+        );
+
+        if ($probe !== null) {
+            ok(
+                'the password was not trimmed on the way in',
+                !str_contains($live, 'const DB_PASS = ' . var_export(trim($wizardPass), true) . ';'),
+                'the trimmed password is in the file'
+            );
+        }
     }
 
     // The schema.
@@ -1115,7 +1217,7 @@ if ($server['proc'] === null || $server['base'] === '') {
 
     // --- C9: the wizard refuses to run again -------------------------------
 
-    $res = http_request('GET', $base . '/install.php');
+    $res = install_sandbox_request('GET', $base . '/install.php');
 
     ok(
         'the wizard refuses to run once the application is installed',
@@ -1172,7 +1274,7 @@ function install_test_tables(array $db): ?array
 echo "\n## D. The live stack\n";
 
 $liveBase = resolve_base_url();
-$live     = http_request('GET', $liveBase . '/install.php');
+$live     = install_sandbox_request('GET', $liveBase . '/install.php');
 
 if ($live['status'] === null) {
     skip('the live tier', 'the application is not answering at ' . $liveBase);
@@ -1185,7 +1287,7 @@ if ($live['status'] === null) {
 
     if ($live['status'] === 200) {
         ok('the live page carries the stepper', str_contains($live['body'], 'stepper__num'));
-        ok('the live page carries a CSRF token', csrf_of($live['body']) !== '');
+        ok('the live page carries a CSRF token', install_sandbox_csrf($live['body']) !== '');
 
         foreach (['app__bar', 'nav__link', 'bottom-nav__link', 'app__footer'] as $shell) {
             ok(
@@ -1196,8 +1298,8 @@ if ($live['status'] === null) {
     }
 
     // A failed step must not put the driver error on the page.
-    $liveToken = csrf_of($live['body']);
-    $res       = http_request('POST', $liveBase . '/install.php', [
+    $liveToken = install_sandbox_csrf($live['body']);
+    $res       = install_sandbox_request('POST', $liveBase . '/install.php', [
         'csrf_token' => $liveToken !== '' ? $liveToken : str_repeat('0', 64),
         'step'       => '1',
         'action'     => 'test_db',
@@ -1247,6 +1349,7 @@ if ($live['status'] === null) {
     } else {
         $probe = "<?php\n"
             . "// TEMPORARY probe written by database/install_test.php.\n"
+            . "require_once __DIR__ . '/includes/logging.php';\n"
             . $parseFn . "\n\n"
             . $binaryFn . "\n\n"
             . '$ft_good = __DIR__ . "/" . (string) ($_GET["g"] ?? "");' . "\n"
@@ -1270,7 +1373,7 @@ if ($live['status'] === null) {
         $goodName = '_ft_install_fx_good_' . bin2hex(random_bytes(6)) . '.inc';
         $badName  = '_ft_install_fx_bad_' . bin2hex(random_bytes(6)) . '.inc';
 
-        $probeRes = http_request('GET', $liveBase . '/' . $probeName . '?g=' . $goodName . '&b=' . $badName);
+        $probeRes = install_sandbox_request('GET', $liveBase . '/' . $probeName . '?g=' . $goodName . '&b=' . $badName);
 
         @unlink($probePath);
         @unlink($root . '/' . $goodName);

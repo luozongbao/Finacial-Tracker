@@ -12,12 +12,12 @@ This file holds only what an agent cannot infer from the tree.
 twenty of the twenty original issues are in and verified. A pre-release
 security audit (2026-10-28) and a requirement check against
 [docs/About.md](docs/About.md) produced **six further issues (021–026)**: the
-first **four** are **in and verified**, and **two (025–026) are open**.
+first **five** are **in and verified**, and **one (026) is open**.
 Nothing in the application is a placeholder.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/security_headers_test.php`, `database/css_cascade.php` (the cascade resolver the header test proves), `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer) | — | **two (025–026)** — the installer secrets in the session store, and the **missing average** |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/security_headers_test.php`, `database/css_cascade.php` (the cascade resolver the header test proves), `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer), `storage/sessions/` (the private session store, mode `0700`, denied by `.htaccess`) | — | **one (026)** — the **missing average** |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -100,9 +100,9 @@ helpers (`resolveMonthRange()`, `reportGrain()`, `reportSpanDays()`,
 sandbox that runs the real screen against a scratch database. **All twenty
 of the original issues are in.**
 
-**Two further issues (025–026) are open** — they are the output of a
-pre-release security audit and a requirement check carried out on 2026-10-28,
-and they are **not** implemented. Read
+**One further issue (026) is open** — it is the output of a requirement
+check carried out on 2026-10-28, and it is **not** implemented. The five
+security findings of the audit (021–025) are all in and verified. Read
 [docs/issues/README.md](docs/issues/README.md) for the index.
 
 - **021 — the sign-in throttle is a denial-of-service weapon.** **Implemented
@@ -164,6 +164,18 @@ and they are **not** implemented. Read
 - **025 — the installer writes the database and the SMTP password into the
   session store**: a **clear-text file in the shared `/tmp`**, under a **file
   name the client chooses**, and the session id is never rotated.
+  **Implemented and verified.** The wizard holds **no** secret at all — step 3
+  asks for the database and the SMTP password **again**, in empty fields, and
+  the state that reaches the session is stripped of both by the **one**
+  function that writes it; the session id is regenerated at the start of the
+  wizard and after every step boundary; `session.use_strict_mode` is `1`; and
+  the session files live in a private `0700` directory of the application
+  (`storage/sessions/`), not in the shared `/tmp`. **The implementation found
+  one thing the audit did not** — the regression test runs as **root** while
+  the web server runs as the application user, so a copy of the wizard created
+  by the test is a directory the web server **cannot write into**: the session
+  store could not be created, the application fell back to the shared `/tmp`,
+  and the test was about to pass while the defect it guards was live.
 - **026 — the requirement gap.** The brief says *"search and sum/average in
   time period like day, month, weeks, year"*. The search and the sum are
   implemented; **the average is implemented nowhere**. This issue also
@@ -175,8 +187,8 @@ The audit itself was **not** a clean bill of health on those six points and
 redirect, session and path-traversal audits all came back clean, and the
 findings are written up with their measurements in
 [docs/issues/issue-021.md](docs/issues/issue-021.md) –
-[docs/issues/issue-026.md](docs/issues/issue-026.md). **021, 022, 023 and 024 are
-done; 025–026 are open.**
+[docs/issues/issue-026.md](docs/issues/issue-026.md). **021–025 are all
+done; 026 is open.**
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -245,10 +257,13 @@ database/
   schema.sql           # single source of truth for a fresh install   [issue-011 — exists]
   migrations/          # YYYYMMDD_short_name.sql, applied by hand (README.md = the contract)
   *_test.php           # standalone PHP CLI regression tests (the SOURCE tier)
+  install_sandbox.php  # the shared harness of the install tests (NOT a test itself) [issue-025]
   outbox_worker.php    # the CLI mail worker — REQUIRED, not optional   [issue-022]
   live/                # the LIVE tier — sweeps the running application over HTTP
     *_test.php         # live_app_test.php, live_security_test.php
     run-live-tests.sh  # the runner (NOT part of run-tests.sh)
+storage/
+  sessions/            # the private session store, mode 0700        [issue-025 — git-ignored]
 docs/
   About.md             # the product brief
   issues/              # issue specifications (26) — see docs/issues/README.md
@@ -366,6 +381,25 @@ functions — `mailIsConfigured()`, `createMailer()` and `sendMail()` — and it
 reads **only** `config.php`: no `getenv()`, no `$_ENV`, no `$_SERVER`. The
 wizard collects the two new values in step 2 of
 `docs/mockup/11-install-wizard.html`.
+
+### The session store’s one constant
+
+The session files are **not** written to the shared `/tmp`. They live in a
+private directory of the application, `storage/sessions/`, created with mode
+`0700`. The location is configurable, because the correct path is
+host-specific:
+
+````php
+const SESSION_SAVE_PATH = __DIR__ . '/storage/sessions';
+````
+
+It is the **15th** constant of the contract: it is declared in
+`config.template.php` **and** in `config.php`, and `database/config_test.php`
+guards the parity. `sessionSavePath()` in `includes/functions.php` resolves it
+in four steps — the constant, the application's own `storage/sessions`, the
+`php.ini` default when it is private, and a `0700` directory under the system
+temporary directory that carries the uid. A **symlink** at any of those paths
+is refused.
 
 ## Commands
 
@@ -808,6 +842,36 @@ It writes the context, the class, the code and the file:line — and **never**
   controller and never requested directly. **Extend the deny block — never
   replace the file wholesale.**
 
+### The session never carries a secret
+
+The session file is **plain text on disk**. It is serialised by PHP and it
+lives in a directory of the application, mode `0700` — but the name of the
+file is the session id, so anybody who can write into that directory, or read
+it, holds the state of a visitor. **No secret goes into it.**
+
+- **The installer holds no secret at all.** `installSaveState()` is the **one**
+  function that writes `$_SESSION['install']`, and it drops `db_pass` and
+  `smtp_pass` before the write — whatever the caller put into the array.
+  `installState()` drops them again on the **read**, so a session written by an
+  earlier version of the wizard is cleaned the next time it writes its state.
+- **A secret is read raw and used inside the request that collects it.** The
+  wizard asks for the database and the SMTP password **again** on step 3, in
+  empty fields, and proves them before it writes `config.php`. The written
+  file holds the password **exactly** as it was typed — the trimming is never
+  applied to the value that is written.
+- **`session.use_strict_mode` is `1`**, set **before** `session_start()`. PHP
+  reads it when it opens the session, not afterwards. An unknown session id is
+  not adopted and no file is created under that name.
+- **The session id is rotated at the wizard's start and after every step
+  boundary** — `session_regenerate_id(true)`. The rotation never happens on a
+  POST: the CSRF token lives in the session, and a rotation before the CSRF
+  check would throw it away.
+- **The store is `storage/sessions/`**, mode `0700`, denied by `.htaccess` —
+  the name of a session file **is** the session id, so a directory listing
+  hands out the live sessions of the visitors. It is **git-ignored**.
+- **The application’s own session carries the user id and the credential
+  version** — never the password hash, never a token.
+
 ### LiteSpeed rewrites `REMOTE_ADDR`
 
 LiteSpeed — like every server with a "use the client IP from the header" option —
@@ -849,7 +913,7 @@ from `REMOTE_ADDR` is a dial the visitor can turn.
 | [docs/issues/issue-009.md](docs/issues/issue-009.md) | The PHP 8.5.12 runtime floor: PHP2Shell, the pinned image tag, the paths that move. |
 | [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
 | [docs/issues/issue-011.md](docs/issues/issue-011.md) – [issue-020.md](docs/issues/issue-020.md) | The application specification: the schema, the runtime, the tokens, the front controller, the installer, the authentication and the five screens. |
-| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021, 022, 023 and 024 are implemented & verified; 025 is open.** |
+| [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021–025 are all implemented & verified.** |
 | [docs/issues/issue-026.md](docs/issues/issue-026.md) | The requirement gap against [docs/About.md](docs/About.md): the missing **average**. **Open.** |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |

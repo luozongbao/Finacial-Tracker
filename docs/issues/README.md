@@ -12,7 +12,7 @@ Two tracks run through this folder:
 | **DevOps / infrastructure** | DevOps | [001](issue-001.md) · [002](issue-002.md) · [003](issue-003.md) · [009](issue-009.md) · [010](issue-010.md) | The running development stack, the mockup viewer, the web-root hardening, the PHP 8.5.12 runtime floor, and the Composer dependency policy. |
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
 | **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **All ten issues (011–020) are implemented & verified.** |
-| **Security** | Dev | [021](issue-021.md) – [025](issue-025.md) | The findings of the pre-release security audit of 2026-10-28. **021, 022, 023 and 024 are implemented & verified; 025 is open.** |
+| **Security** | Dev | [021](issue-021.md) – [025](issue-025.md) | The findings of the pre-release security audit of 2026-10-28. **021 – 025 are all implemented & verified.** |
 | **Requirements** | Dev + Design | [026](issue-026.md) | The gap between [docs/About.md](../About.md) and the application: the **average** is required and missing. **Open.** |
 
 ---
@@ -45,7 +45,7 @@ Two tracks run through this folder:
 | [022](issue-022.md) | Security: the unauthenticated endpoints that cost the server something | Security | **implemented & verified** | 016 | the neutral answer, the **outbox** and its CLI worker, the two request limiters, the bounded SMTP transport, and the sanitised log — guarded by `database/auth_test.php` and `database/live/live_security_test.php` |
 | [023](issue-023.md) | Security: the web root still serves the deployment topology | Security | **implemented & verified** | 003 | the deny block for `docker-compose.yml`, `config.template.php`, `AGENTS.md` and `docs/` — the loopback WebAdmin binding and the pinned image tags in `docker-compose.yml` — and the hardening test that used to pin the leak in place |
 | [024](issue-024.md) | Security: the response-hardening headers | Security | **done** | 013, 014, 015 | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers |
-| [025](issue-025.md) | Security: the installer keeps the credentials in the session store | Security | **open** | 010, 012, 015 | the database and SMTP passwords in clear text in `/tmp/sess_*`, under an attacker-chosen file name |
+| [025](issue-025.md) | Security: the installer keeps the credentials in the session store | Security | **done** | 010, 012, 015 | the secrets are never written to the session, the session id is rotated at every step boundary, `session.use_strict_mode` is 1, and the store is a private `0700` directory of the application — guarded by `database/install_test.php` and `database/live/live_security_test.php` |
 | [026](issue-026.md) | Requirements: the average is missing | Requirements | **open** | 007, 019 | the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first |
 
 > **The Application track has its first seven issues in.** Issue 011 — the
@@ -184,7 +184,18 @@ Two tracks run through this folder:
 > understand rather than guessing. The optional `mod_headers` block of §7.3
 > was **removed**: the module is **not in the pinned image**, measured three
 > ways, so the static tree's header is a vhost concern.
-> The remaining finding is still open.
+> **Issue 025 is implemented and verified**: the wizard now holds **no**
+> secret at all — step 3 asks for the database and the SMTP password again,
+> in empty fields, and the state that is written to the session is stripped of
+> both by the **one** function that writes it; the session id is regenerated at
+> the start of the wizard and after every step boundary; `session.use_strict_mode`
+> is `1`; and the session files live in a private `0700` directory of the
+> application instead of the shared `/tmp`. **The implementation found one
+> thing the audit did not** — the regression test runs as **root** while the
+> web server runs as the application user, so a copy of the wizard created by
+> the test is a directory the web server **cannot write into**: the session
+> store could not be created, the application fell back to the shared `/tmp`,
+> and the test was about to pass while the defect it guards was live.
 > A requirement check against [docs/About.md](../About.md) found the
 > application **meets every claim in the brief except one**: the brief says
 > *"search and sum/average in time period like day, month, weeks, year"*, the
@@ -302,7 +313,7 @@ The implementation copies the shape, not the text.
 | starting the application from the schema | **011** (the schema) → **012** (the runtime) → **013** (the tokens and the shell) → **014** (the front controller) → **015** (the installer) |
 | building the screens | **016** (authentication) → **017** (the dashboard) → **018** (transactions) → **019** (the reports) → **020** (categories and settings) |
 | reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor), 010 (the vendored dependency tree), 015 (the install gate), 016 (the two-sided registration gate), 020 (the installation card) |
-| fixing the findings of the 2026-10-28 audit | **021** (the throttle is a DoS — **done**) → **022** (the unthrottled endpoints — **done**) → **023** (the web root — **done**) → **024** (the headers — **done**) → **025** (the installer's secrets). All five are independent of each other. |
+| fixing the findings of the 2026-10-28 audit | **021** (the throttle is a DoS — **done**) → **022** (the unthrottled endpoints — **done**) → **023** (the web root — **done**) → **024** (the headers — **done**) → **025** (the installer's secrets — **done**). All five are implemented and verified. |
 | closing the gap against the brief | **026** — but read **007** (the mockup contract) and **019** (the reports screen) first; 026 changes the design *and* the screen. |
 | adding a third-party PHP library | 010 (Composer as a vendor-time tool) |
 

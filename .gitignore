@@ -11,6 +11,15 @@ vendor/
 # The Composer binary is downloaded per machine, never committed.
 composer.phar
 
+# The session files — written by PHP at runtime, created with mode 0700.
+# Never committed: they are the live sessions of the visitors.
+storage/
+
+# The copy of the install wizard the LIVE tier builds under the document
+# root. It is removed when the test finishes; if a run is killed it is left
+# behind, and it must never be committed either.
+_ft_install_probe_*/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db

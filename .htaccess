@@ -16,6 +16,7 @@
 #     /docs/issues/*     -> internal issue write-ups
 #     /docs/*            -> the product brief and any other internal doc
 #     /vendor/*          -> third-party library source
+#     /storage/*         -> the session files (the file name IS the session id)
 #     /composer.json     -> the dependency manifest
 #     /composer.lock     -> the exact deployed dependency versions
 #     /docker-compose.yml-> the default credential set of the dev stack
@@ -61,6 +62,13 @@
     RewriteRule "^/?docker/"    - [F,L]
     RewriteRule "^/?vendor/"    - [F,L]
     RewriteRule "^/?views/"     - [F,L]
+
+    # ---- The session store ------------------------------------------------
+    # storage/sessions/ holds the session files. The name of a file IS the
+    # session id, so a directory listing hands out the live sessions of the
+    # visitors. The directory is created with mode 0700, which stops the
+    # other accounts on the host; this rule stops the web server itself.
+    RewriteRule "^/?storage/" - [F,L]
 
     # ---- Dependency manifest ---------------------------------------------
     # composer.json and composer.lock describe the dependency tree. They are

@@ -23,6 +23,10 @@
  * Section F covers the other half of the issue: the compose file itself must
  * bind the admin console to loopback and must not float an image tag.
  *
+ * Issue-025 added one more denied tree: storage/, the session store. The
+ * name of a session file IS the session id, so a directory listing hands out
+ * the live sessions of the visitors.
+ *
  * It is a structural + live-HTTP test: no database is needed.
  *
  * Run:  docker compose exec -T app php database/webroot_hardening_test.php
@@ -234,6 +238,7 @@ $denied = [
     '/database/',
     '/database/config_test.php',
     '/database/css_cascade.php',
+    '/database/install_sandbox.php',
     '/docs/',
     '/docs/About.md',
     '/docs/issues/',
@@ -241,6 +246,8 @@ $denied = [
     '/docker/',
     '/docker/entrypoint.sh',
     '/includes/',
+    '/storage/',
+    '/storage/sessions/',
     '/views/',
     '/views/login.php',
     '/vendor/',
@@ -396,6 +403,7 @@ if (is_file($htaccess)) {
         'views/'         => 'views/ is denied',
         'docker/'        => 'docker/ is denied',
         'vendor/'        => 'vendor/ is denied',
+        'storage/'       => 'the session store is denied',
         'docs/issues/'   => 'docs/issues/ is denied',
         'docs/(?!mockup' => 'the internal documentation is denied, except the mockup',
         'docker-compose' => 'the compose file is denied',

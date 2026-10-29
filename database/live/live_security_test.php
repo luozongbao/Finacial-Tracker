@@ -41,6 +41,91 @@ require_once __DIR__ . '/../../includes/Database.php';
 // constants and the functions, and nothing else.
 require_once __DIR__ . '/../../includes/auth.php';
 
+// The shared helpers of the install tests (issue-025). The file declares
+// functions only: it never echoes, never exits and never terminates the
+// process.
+require_once __DIR__ . '/../install_sandbox.php';
+
+
+/**
+ * The values of the development environment file.
+ *
+ * @return array<string, string>
+ */
+function live_env_values(): array
+{
+    $file   = dirname(__DIR__, 2) . '/.env';
+    $values = [];
+
+    if (!is_file($file)) {
+        return $values;
+    }
+
+    foreach (explode("\n", (string) file_get_contents($file)) as $line) {
+        $line = trim($line);
+
+        if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
+            continue;
+        }
+
+        [$name, $value] = explode('=', $line, 2);
+        $values[trim($name)] = trim($value);
+    }
+
+    return $values;
+}
+
+/**
+ * A connection as the root account of the database, or null.
+ *
+ * The probe of section L needs a database user with a password of its own:
+ * the needle it searches the disk for has to belong to this run and to
+ * nothing else. The application account cannot create a user.
+ */
+function live_root_pdo(): ?PDO
+{
+    $pass = live_env_values()['MYSQL_ROOT_PASSWORD'] ?? '';
+
+    if ($pass === '' || !defined('DB_HOST')) {
+        return null;
+    }
+
+    try {
+        return new PDO('mysql:host=' . DB_HOST . ';charset=utf8mb4', 'root', $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        ]);
+    } catch (PDOException $ex) {
+        return null;
+    }
+}
+
+/**
+ * Remove a directory tree.
+ */
+function live_remove_tree(string $dir): void
+{
+    if (!is_dir($dir)) {
+        return;
+    }
+
+    foreach (scandir($dir) ?: [] as $item) {
+        if ($item === '.' || $item === '..') {
+            continue;
+        }
+
+        $path = $dir . '/' . $item;
+
+        if (is_dir($path) && !is_link($path)) {
+            live_remove_tree($path);
+            continue;
+        }
+
+        @unlink($path);
+    }
+
+    @rmdir($dir);
+}
+
 /**
  * The random marker of this run. It is the only handle on the accounts the
  * test creates, and it is random hex, so the cleanup pattern cannot match
@@ -127,6 +212,25 @@ function live_cleanup(): void
         // visible, or the litter accumulates unnoticed.
         fwrite(STDERR, 'live_cleanup: ' . $e->getMessage() . "\n");
     }
+
+    // The wizard copy of section L. It lives in the document root, so it
+    // has to go — and it goes even when the run died half way through.
+    $probeDir = (string) ($GLOBALS['live_test_probe_dir'] ?? '');
+
+    if ($probeDir !== '' && is_dir($probeDir)) {
+        live_remove_tree($probeDir);
+    }
+
+    // The probe database user of section L.
+    $root = live_root_pdo();
+
+    if ($root !== null) {
+        try {
+            $root->exec("DROP USER IF EXISTS `ft_install_probe_user`@'%'");
+        } catch (Throwable $e) {
+            fwrite(STDERR, 'live_cleanup: ' . $e->getMessage() . "\n");
+        }
+    }
 }
 
 register_shutdown_function('live_cleanup');
@@ -187,7 +291,9 @@ $marker = bin2hex(random_bytes(4));
 $GLOBALS['live_test_marker'] = $marker;
 $user = 'live_test_s_' . $marker;
 $GLOBALS['live_test_username'] = $user;
-$pass = 'Str0ngPass!A1';
+// The password carries the marker of this run, so the needle the session
+// store is searched for belongs to THIS run and to nothing else (section L).
+$pass = 'Str0ngPass!A1' . $marker;
 $email = 'live_test_s_' . $marker . '@example.test';
 $jar = [];
 
@@ -727,6 +833,166 @@ ok('the registration refusal carries a Retry-After header', $registerRetry > 0,
 $stmt = $pdo->prepare('SELECT COUNT(*) FROM `users` WHERE `username` = ?');
 $stmt->execute([$refusedName]);
 ok('the refused registration created no account', (int) $stmt->fetchColumn() === 0);
+
+
+// ---------------------------------------------------------------------------
+// L. The installer keeps no secret on the disk (issue-025).
+//
+// The wizard is the one screen where a production credential is typed into
+// a browser. This section proves that the credential is nowhere on the
+// disk when the step is over: not in the session file, and not in the
+// shared temporary directory either.
+// ---------------------------------------------------------------------------
+
+echo "\n== L. The installer keeps no secret on the disk ==\n";
+
+$docRoot       = realpath(__DIR__ . '/../..');
+$appSessionDir = defined('SESSION_SAVE_PATH') ? (string) SESSION_SAVE_PATH : '';
+$tmpDir        = rtrim(sys_get_temp_dir(), '/');
+
+ok('the application declares a session directory', $appSessionDir !== '', 'SESSION_SAVE_PATH is not declared');
+
+if ($appSessionDir !== '') {
+    ok(
+        'the session directory is the application\'s own directory',
+        $appSessionDir === $docRoot . '/storage/sessions',
+        $appSessionDir . ' — the document root is ' . $docRoot
+    );
+}
+
+$sid = (string) ($jar['PHPSESSID'] ?? '');
+
+ok('the signed-in session has an id', $sid !== '');
+
+if ($sid !== '' && $appSessionDir !== '') {
+    ok(
+        'the session file is in the application\'s own directory',
+        is_file($appSessionDir . '/sess_' . $sid),
+        $appSessionDir . '/sess_' . $sid
+    );
+    ok(
+        'the session file is not in the shared temporary directory',
+        !is_file($tmpDir . '/sess_' . $sid)
+    );
+}
+
+$leaks = install_sandbox_scan($appSessionDir, $pass);
+
+ok('no file of the session store holds the password', $leaks === [], implode(', ', $leaks));
+
+$tmpLeaks = install_sandbox_scan_sessions($tmpDir, $pass);
+
+ok(
+    'no session file in the shared temporary directory holds the password',
+    $tmpLeaks === [],
+    implode(', ', $tmpLeaks)
+);
+
+// --- L2. A copy of the wizard, under the running server ---------------------
+//
+// The real installer refuses to run: the application is installed, so
+// install.php answers 403. The wizard therefore runs from a COPY inside the
+// document root — the same copy the SOURCE tier runs, but under the real
+// web server this time, with the real session handling.
+
+$probeName = '_ft_install_probe_' . bin2hex(random_bytes(6));
+$probeDir  = $docRoot . '/' . $probeName;
+
+$GLOBALS['live_test_probe_dir'] = $probeDir;
+
+install_sandbox_make_at($probeDir, $docRoot);
+
+$probeUrl = BASE . '/' . $probeName . '/install.php';
+$probeJar = [];
+
+$r = req('GET', $probeUrl, [], $probeJar);
+
+ok('the wizard answers under the running server', $r['status'] === 200, 'status=' . $r['status']);
+ok('the wizard carries a CSRF token', csrf($r['body']) !== '');
+
+$idBefore = (string) ($probeJar['PHPSESSID'] ?? '');
+
+// A database user with a password of its own. The needle of this run has
+// to be unique, or the assertion would prove nothing.
+$probePass = 'Ft Pr0be ' . bin2hex(random_bytes(8)) . ' ';
+$probeUser = 'ft_install_probe_user';
+$root      = live_root_pdo();
+
+if ($root === null) {
+    ok('the probe database user could be created', false, 'the root account is not reachable');
+} else {
+    try {
+        $root->exec("DROP USER IF EXISTS `{$probeUser}`@'%'");
+        $root->exec("CREATE USER `{$probeUser}`@'%' IDENTIFIED BY " . $root->quote($probePass));
+        $root->exec('GRANT ALL PRIVILEGES ON `' . DB_NAME . '`.* TO `' . $probeUser . '`@\'%\'');
+        ok('the probe database user was created', true);
+    } catch (PDOException $ex) {
+        ok('the probe database user was created', false, $ex->getMessage());
+    }
+
+    $r = req('POST', $probeUrl, [
+        'csrf_token' => csrf($r['body']),
+        'step'       => '1',
+        'action'     => 'test_db',
+        'db_host'    => DB_HOST,
+        'db_name'    => DB_NAME,
+        'db_user'    => $probeUser,
+        'db_pass'    => $probePass,
+    ], $probeJar);
+
+    ok('step 1 of the wizard succeeds', $r['status'] === 302, 'status=' . $r['status']);
+
+    $probeSessionDir = $probeDir . '/storage/sessions';
+
+    ok(
+        'the session store of the wizard is its own directory',
+        is_dir($probeSessionDir),
+        $probeSessionDir
+    );
+
+    $leaks = install_sandbox_scan($probeSessionDir, $probePass);
+
+    ok(
+        'no file of the wizard\'s session store holds the password',
+        $leaks === [],
+        implode(', ', $leaks)
+    );
+
+    $tmpLeaks = install_sandbox_scan_sessions($tmpDir, $probePass);
+
+    ok(
+        'no session file in the shared temporary directory holds the password',
+        $tmpLeaks === [],
+        implode(', ', $tmpLeaks)
+    );
+
+    $idAfter = (string) ($probeJar['PHPSESSID'] ?? '');
+
+    ok(
+        'the session id is regenerated after the step boundary',
+        $idAfter !== '' && $idAfter !== $idBefore,
+        'before=' . $idBefore . ' after=' . $idAfter
+    );
+
+    // --- L3. An unknown session id is not adopted --------------------------
+
+    $forged    = bin2hex(random_bytes(16));
+    $forgedJar = ['PHPSESSID' => $forged];
+
+    req('GET', $probeUrl, [], $forgedJar);
+
+    $issued = (string) ($forgedJar['PHPSESSID'] ?? '');
+
+    ok(
+        'an unknown session id is not adopted',
+        $issued !== '' && $issued !== $forged,
+        'sent=' . $forged . ' issued=' . $issued
+    );
+    ok(
+        'no file was created for the unknown session id',
+        !is_file($probeSessionDir . '/sess_' . $forged)
+    );
+}
 
 echo "\nFailed: " . count($fails) . "\n";
 

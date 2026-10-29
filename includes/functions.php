@@ -34,6 +34,11 @@
 
 declare(strict_types=1);
 
+// The sanitised error log. It is a thin wrapper around error_log() with no
+// dependencies of its own, so the helpers below can report a failure
+// through the ONE place that decides what a log line is allowed to hold.
+require_once __DIR__ . '/logging.php';
+
 /**
  * A failure that carries an HTTP status code.
  *
@@ -317,6 +322,151 @@ function requestIsHttps(): bool
 }
 
 /**
+ * The directory the session files are written to.
+ *
+ * The shared /tmp is the wrong place for a session file:
+ *
+ *   - On a native installation it is the HOST's /tmp: shared by every
+ *     process of every user on the box, and world-readable.
+ *   - The NAME of the file is the session id, so a directory listing hands
+ *     out the live session ids of the visitors.
+ *
+ * The candidates, in order:
+ *
+ *   1. SESSION_SAVE_PATH from config.php — the operator's choice. It is a
+ *      constant and not an environment variable, because config.php is the
+ *      only configuration source of this application.
+ *   2. <project root>/storage/sessions — the default. This file lives in
+ *      includes/, so dirname(__DIR__) is the project root.
+ *   3. The php.ini default, when the host has one.
+ *   4. A private directory under the system temporary directory.
+ *
+ * The directory is created with mode 0700 when it is missing, and a SYMLINK
+ * is refused: a symlink at that path would let anybody who can write the
+ * parent point the session files at a directory they can read.
+ *
+ * The value is resolved once per request and then reused — the ini setting
+ * is read before startSession() changes it.
+ */
+function sessionSavePath(): string
+{
+    static $resolved = null;
+
+    if ($resolved !== null) {
+        return $resolved;
+    }
+
+    $candidates = [];
+
+    if (defined('SESSION_SAVE_PATH')) {
+        $configured = trim((string) SESSION_SAVE_PATH);
+
+        if ($configured !== '') {
+            $candidates[] = $configured;
+        }
+    }
+
+    $candidates[] = dirname(__DIR__) . '/storage/sessions';
+
+    // The php.ini default, when the host has one. It is only accepted when
+    // it is private: /var/lib/php/sessions on a stock Debian is 0700, and
+    // the shared /tmp is not.
+    $ini = trim((string) ini_get('session.save_path'));
+
+    if ($ini !== '') {
+        $candidates[] = $ini;
+    }
+
+    // A private directory under the system temporary directory. The name
+    // carries the uid and the directory itself is 0700, so another user on
+    // the same box cannot read it.
+    $candidates[] = rtrim(sys_get_temp_dir(), '/') . '/ft-sessions-' . getmyuid();
+
+    foreach ($candidates as $candidate) {
+        $path = sessionPrivateDirectory($candidate);
+
+        if ($path !== '') {
+            $resolved = $path;
+
+            return $path;
+        }
+    }
+
+    // Nothing private could be created. The ini default is the last resort:
+    // a session that does not start at all would leave the application
+    // unusable, and a host that cannot write anywhere is the operator's
+    // problem to fix.
+    logFailure('session: no private session directory could be created');
+
+    $resolved = (string) ini_get('session.save_path');
+
+    return $resolved;
+}
+
+/**
+ * A private directory for the session files, or an empty string.
+ *
+ * The directory is created when it is missing, with mode 0700. A symlink —
+ * at the path itself or at its parent — is refused: the session files would
+ * be written wherever the symlink points, and that is a place the owner of
+ * the symlink chose.
+ *
+ * A directory that is readable by anybody else is refused as well. The mode
+ * is corrected when it is too wide, and the directory is only accepted when
+ * the correction worked.
+ */
+function sessionPrivateDirectory(string $path): string
+{
+    if ($path === '' || is_link($path)) {
+        return '';
+    }
+
+    if (!is_dir($path)) {
+        $parent = dirname($path);
+
+        if (!is_dir($parent)) {
+            // The parent may be missing as well: the application creates
+            // its own storage directory the first time it runs.
+            if (!@mkdir($parent, 0700, true) && !is_dir($parent)) {
+                return '';
+            }
+
+            @chmod($parent, 0700);
+        }
+
+        // A symlinked parent is refused: the session files would be
+        // written wherever the symlink points, and that is a place the
+        // owner of the symlink chose.
+        if (is_link($parent)) {
+            return '';
+        }
+
+        if (!@mkdir($path, 0700)) {
+            return '';
+        }
+
+        @chmod($path, 0700);
+    }
+
+    if (!is_writable($path)) {
+        return '';
+    }
+
+    $mode = @fileperms($path);
+
+    if ($mode !== false && ($mode & 0077) !== 0) {
+        @chmod($path, 0700);
+        $mode = @fileperms($path);
+
+        if ($mode !== false && ($mode & 0077) !== 0) {
+            return '';
+        }
+    }
+
+    return $path;
+}
+
+/**
  * Start the session.
  *
  * This is the FIRST call in every request. It opens ob_start() because
@@ -336,10 +486,29 @@ function requestIsHttps(): bool
                   the LAN, a reverse proxy in front) would otherwise
  *                  never get its session cookie back and every request
  *                  would land on the sign-in screen.
+ *
+ * Two settings protect the session FILE itself (issue-025 7.2 and 7.3):
+ *
+ *   - session.use_strict_mode -- an UNKNOWN session id is never adopted.
+ *     Without it a client may choose the id, and the id is the name of the
+ *     file its session is written to: a client that sends
+ *     "PHPSESSID=secret" gets its own data written into a file it named.
+ *   - session.save_path -- the session files are written to a private
+ *     directory of this application and not to the shared /tmp.
  */
 function startSession(): void
 {
     if (session_status() === PHP_SESSION_NONE) {
+        // Both settings have to be in place BEFORE the session starts: PHP
+        // reads them when it opens the session, not afterwards.
+        ini_set('session.use_strict_mode', '1');
+
+        $savePath = sessionSavePath();
+
+        if ($savePath !== '') {
+            ini_set('session.save_path', $savePath);
+        }
+
         session_set_cookie_params([
             'lifetime' => 0,
             'path'     => '/',

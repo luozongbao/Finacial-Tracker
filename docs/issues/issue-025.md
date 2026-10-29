@@ -1,10 +1,9 @@
 # Issue-025 — Security: the installer keeps the credentials in the session store
 
-> **Status:** **open** — the audit of 2026-10-28 confirmed that the installer
-> writes the database password, and later the SMTP password, into the PHP
-> session in clear text, and that the file-session handler then writes them to
-> disk in the shared `/tmp` directory of the host, under a **file name an
-> attacker can choose**.
+> **Status:** **implemented and verified** — found by the audit of 2026-10-28,
+> measured against the running application; implemented on 2026-10-30.
+> See [§14](#14-the-implementation-as-built) for what was built and what was
+> measured.
 > **Target:** `install.php`, `includes/functions.php` (`startSession()`),
 > `database/install_test.php`, `database/live/live_security_test.php`
 > **Severity:** **Medium** — the window is short (the install is a one-time
@@ -36,6 +35,7 @@
 11. [Risks](#11-risks)
 12. [Out of scope](#12-out-of-scope)
 13. [Findings that were audited and found clean](#13-findings-that-were-audited-and-found-clean)
+14. [The implementation, as built](#14-the-implementation-as-built)
 
 ---
 
@@ -331,31 +331,59 @@ directory that every process on the host can see the name of.
 
 ## 8. Acceptance criteria
 
-- [ ] `$_SESSION['install']` **never contains** `db_pass` or `smtp_pass`, at
+- [x] `$_SESSION['install']` **never contains** `db_pass` or `smtp_pass`, at
       any step, in any outcome — including the success path.
-- [ ] The wizard still completes a full install: step 1 tests the database,
+      *The state is written by **one** function, `installSaveState()`, and
+      that function drops both passwords before the write. The state is also
+      stripped **on the read**, so a session written by an earlier version of
+      the wizard is cleaned the next time it writes its state.
+      §B2 of `database/install_test.php` (17 assertions) proves it
+      structurally; the LIVE tier proves it on the disk.*
+- [x] The wizard still completes a full install: step 1 tests the database,
       step 2 tests (or skips) the mail server, step 3 writes `config.php` with
       the **correct** password and the correct `ALLOW_REGISTRATION` boolean.
-- [ ] The `config.php` that is written contains the password **exactly** as it
+      *§C of `database/install_test.php` drives the real wizard through all
+      three steps against a scratch database and reads the `config.php` it
+      wrote.*
+- [x] The `config.php` that is written contains the password **exactly** as it
       was typed — not trimmed, not re-encoded (the current `installRawPost()`
       behaviour must be preserved for the value that is written, even if the
       value is no longer stored in the session).
-- [ ] The session id is regenerated at the start of the wizard and after every
+      *The probe password is `' Pr0be Secret '` — a leading **and** a
+      trailing space — and the written file holds that value verbatim while
+      the trimmed form is absent.*
+- [x] The session id is regenerated at the start of the wizard and after every
       step boundary; a request carrying an unknown `PHPSESSID` does **not**
       cause a session file with that name to be created.
-- [ ] `session.use_strict_mode` is `1` for the wizard's session.
-- [ ] The session file is **not** written to the shared `/tmp` (or, if the host
+      *Measured on the running server: the id before the step boundary and
+      the id after it differ, and a forged id leaves no file behind.*
+- [x] `session.use_strict_mode` is `1` for the wizard's session.
+      *Set in `startSession()` **before** `session_start()` — PHP reads it
+      when it opens the session, not afterwards.*
+- [x] The session file is **not** written to the shared `/tmp` (or, if the host
       has no alternative, the directory is at least not world-readable).
-- [ ] The wizard still renders the same three steps, the same validation
+      *The store is `storage/sessions/` under the application root, mode
+      `0700`; the directory is created by the application and a **symlink** at
+      that path is refused.*
+- [x] The wizard still renders the same three steps, the same validation
       messages and the same success page — **no** regression to the operator's
       experience.
-- [ ] The wizard still refuses to run once `config.php` exists, with a 403.
-- [ ] The wizard's own document still sends the security headers of
+      *The wizard renders its own document, exactly as before. The one
+      addition is the second password prompt on step 3 — the wizard has to
+      ask for the secret it no longer keeps.*
+- [x] The wizard still refuses to run once `config.php` exists, with a 403.
+      *Asserted by `database/install_test.php`.*
+- [x] The wizard's own document still sends the security headers of
       [issue-024](issue-024.md).
-- [ ] `database/install_test.php` asserts the structural rule: **no** code path
+      *`sendSecurityHeaders()` is called by both entry points; the wizard's
+      copy of the header set is unchanged.*
+- [x] `database/install_test.php` asserts the structural rule: **no** code path
       writes a password into `$_SESSION`.
-- [ ] A LIVE test asserts that after a completed step 1, **no** file under the
+      *§B2 — 17 assertions over the source of `install.php`.*
+- [x] A LIVE test asserts that after a completed step 1, **no** file under the
       session save path contains the submitted password.
+      *§L of `database/live/live_security_test.php` — 17 assertions, over real
+      HTTP, against the running server.*
 
 ---
 
@@ -455,3 +483,258 @@ recorded here so that the next reader does not repeat the work.
 | **The password is not trimmed** | Correct — `installRawPost()` exists precisely so that a password may begin or end with a space. That behaviour must survive the fix. |
 | **The installer renders its own document** | Correct — no `includes/header.php`, no `includes/footer.php`, no application navigation, no footer link farm. |
 | **The wizard loads `vendor/autoload.php` only when it exists** | Correct — a machine without the vendor tree can still finish the wizard and configure the database. |
+
+---
+
+## 14. The implementation, as built
+
+Implemented on 2026-10-30, in one change: the wizard, the session layer, the
+configuration contract, the two regression tiers and the documentation land
+together — because the criterion that holds the whole thing together (the
+password is nowhere on the disk) cannot be checked without the test harness
+that can drive the wizard.
+
+### 14.1 What changed
+
+| File | Change |
+|---|---|
+| `install.php` | The passwords are read **raw** and used inside the request that collects them, and they are **never** written to the session. Step 3 asks for them again. The session id is rotated at the start of the wizard and after every step boundary. |
+| `includes/functions.php` | Two new functions: `sessionSavePath()` — the private session store — and `sessionPrivateDirectory()` — the directory, created with mode `0700`, a symlink refused. `startSession()` sets `session.use_strict_mode = 1` and points the save path at the private directory. |
+| `config.template.php` | The new `SESSION_SAVE_PATH` constant — the 15th constant of the contract. |
+| `config.php` | The same constant, written by the installer and by hand in the dev stack. |
+| `.htaccess` | The deny rule for `^/?storage/` — the name of a session file **is** the session id, so a directory listing hands out the live sessions. |
+| `.gitignore` | `storage/` — the session files are runtime artefacts, never committed. |
+| `database/install_sandbox.php` | **New** — the shared harness of the install tests: a copy of the wizard in its own directory, a cookie jar, a CSRF reader and a session-file scanner. |
+| `database/install_test.php` | §B2 (the structural rule) and §C (the behaviour) — the SOURCE tier. |
+| `database/live/live_security_test.php` | §L — the LIVE tier: the running application and a copy of the wizard under the running server. |
+| `database/webroot_hardening_test.php` | `/storage/` and `/database/install_sandbox.php` pinned in the denied list. |
+| `AGENTS.md`, `docs/About.md`, `docs/issues/README.md` | The status, the operator notes and the index. |
+
+### 14.2 The rule, in one place
+
+The whole fix rests on **one** function. `installSaveState()` is the only
+place that writes the install state, so it is the only place that has to know
+the state holds no secret:
+
+```php
+function installSaveState(array $state): void
+{
+    // THE CHOKEPOINT.
+    //
+    // This is the only place that writes the install state, so this is the
+    // only place that has to know the state holds no secret. The passwords
+    // are dropped here whatever the caller put into the array: a code path
+    // that tries to keep one fails HERE instead of writing it to the disk.
+    if (isset($state['db']) && is_array($state['db'])) {
+        unset($state['db']['db_pass']);
+    }
+
+    if (isset($state['mail']) && is_array($state['mail'])) {
+        unset($state['mail']['smtp_pass']);
+    }
+
+    $_SESSION['install'] = $state;
+}
+```
+
+The state is stripped **twice**, and the second strip matters: `installState()`
+drops the two passwords on the **read** as well, so a session file that was
+written by an earlier version of the wizard — before the fix — is cleaned the
+next time the wizard writes its state. A deployment that upgrades in place
+does not carry the old secret forward.
+
+### 14.3 The wizard asks for the secret again
+
+The wizard needs the database password twice: to **test** the connection at
+step 1 and to **write** `config.php` at step 3. The fix chose the
+**re-ask** design of §7.1 — the wizard holds no secret at all, not even for
+one request:
+
+- Step 1 reads the password with `installRawPost()` — **untrimmed**, so a
+  password may begin or end with a space — and uses it inside that request to
+  prove the database. It stores `db_pass_set = true` and **not** the password.
+- Step 2 does the same for the SMTP password: `smtp_pass_set = true`, no
+  password.
+- Step 3 asks for **both** passwords again, in empty fields, and proves them
+  before it writes anything. A password that was given at an earlier step and
+  is missing now is a **message**, not a silent empty string:
+
+  > Enter the database password again — the wizard does not keep it.
+
+The written `config.php` holds the password **exactly** as it was typed. The
+regression test proves it with a password that has a leading **and** a
+trailing space (`' Pr0be Secret '`): the written file holds the value
+verbatim, and the trimmed form is absent from it.
+
+### 14.4 The session store
+
+`sessionSavePath()` resolves the store once per request, from four candidates
+in order:
+
+| # | Candidate | Why |
+|---|---|---|
+| 1 | `SESSION_SAVE_PATH` from `config.php` | The operator's choice. A **constant**, not an environment variable: `config.php` is the only configuration source of this application. |
+| 2 | `<project root>/storage/sessions` | The default. The application creates its own storage directory the first time it runs. |
+| 3 | The `php.ini` default | Only when the host has one, and only when it is **private** — `/var/lib/php/sessions` on a stock Debian is `0700`; the shared `/tmp` is not. |
+| 4 | `<system temp>/ft-sessions-<uid>` | The last resort before the raw ini value: the directory is `0700` and carries the uid, so another user on the same box cannot read it. |
+
+`sessionPrivateDirectory()` is what makes a candidate acceptable:
+
+- A **symlink** at the path, or at its parent, is refused. The session files
+  would be written wherever the symlink points, and that is a place the owner
+  of the symlink chose.
+- A missing directory is created with mode `0700` — the parent too, when the
+  parent is missing as well.
+- A directory that is readable by anybody else is refused: the mode is
+  corrected first, and the directory is only accepted when the correction
+  worked.
+
+`startSession()` sets `session.use_strict_mode = 1` **before** `session_start()`
+— PHP reads the setting when it opens the session, not afterwards — and points
+`session.save_path` at the resolved directory.
+
+### 14.5 The session id
+
+`installBeginSession()` rotates the id **once**, on the first GET of the
+wizard. It never rotates on a POST: a POST has to find the session it was
+sent with, because the CSRF token lives in that session and a rotation
+before the CSRF check would throw the token away.
+
+After **every** step boundary — step 1, step 2 and step 3 — the wizard calls
+`installRotateSessionId()`, which is `session_regenerate_id(true)`: the old id
+is destroyed, a new one is issued, and the step state moves with it.
+
+With `session.use_strict_mode = 1` a client-supplied id that has **no** session
+file behind it is not adopted at all, and no file is created under that name.
+
+### 14.6 The regression test, as written
+
+The SOURCE tier grew two sections.
+
+**§B2 — the structural rule (17 assertions).** The rule is asserted over the
+**source** of `install.php`, not over its behaviour, because a behaviour test
+can only prove the paths it happens to walk. The section asserts that:
+
+- no line that mentions `db_pass` or `smtp_pass` touches `$_SESSION`;
+- `$_SESSION['install'] = $state;` appears in **exactly one** place;
+- that place is `installSaveState()`, and it drops both passwords;
+- `installState()` drops both passwords on the read;
+- the password is still read **raw**;
+- step 3 asks for both passwords again, and the fields are **empty**;
+- `session_regenerate_id(true)` is present, and the rotation is called after
+  every step boundary;
+- `ini_set('session.use_strict_mode', '1')` is present **before**
+  `session_start()`;
+- the private session directory and the `0700` mode are in
+  `includes/functions.php`, and the `SESSION_SAVE_PATH` constant is in the
+  wizard.
+
+**§C — the behaviour.** The real wizard is driven through all three steps in a
+sandbox against a scratch database, and the test asserts that the session
+store of the copy is **its own** directory, that no file of that store holds
+the password, that no file of the shared `/tmp` holds it either, that the id
+is regenerated after step 1 and after step 2, that an unknown `PHPSESSID` is
+not adopted and leaves no file behind, that step 3 refuses an install without
+the password and writes no `config.php`, and that the `config.php` it writes
+holds the password verbatim.
+
+### 14.7 The LIVE assertion
+
+§L of `database/live/live_security_test.php` proves the same rules over real
+HTTP, against the running server — **17 assertions**:
+
+- **L1 — the running application.** `SESSION_SAVE_PATH` is declared and points
+  at the application's own directory; the session file of a signed-in visitor
+  is in that directory and **not** in the shared `/tmp`; no file of the store
+  holds the password.
+- **L2 — a copy of the wizard under the running server.** The copy is placed
+  in the document root, so the real LiteSpeed process answers it. The probe
+  database user is created with a random password; step 1 is driven to
+  completion; the copy's own session directory is asserted to exist; no file
+  of it holds the password; and the id is regenerated after the step
+  boundary.
+- **L3 — the fixation.** A request with an unknown `PHPSESSID` is not
+  adopted and leaves no file behind.
+
+### 14.8 The one thing the audit did not say
+
+**The test itself can recreate the defect it tests.**
+
+The first run of the LIVE section failed on exactly one assertion — *"the
+session store of the wizard is its own directory"* — and the reason is worth
+writing down, because it is a trap that will bite the next person who writes
+a test against a server that runs as another user:
+
+- The regression test runs as **root** (`docker compose exec` is root), while
+  the web server runs as the **application user**.
+- The copy of the wizard was created by the test, owned by root, mode `0755`.
+- The application creates its own session directory **inside** the copy. It
+  could not: the directory belonged to root, and the application user had no
+  right to write into it.
+- `sessionPrivateDirectory()` therefore refused every candidate, the
+  application fell back to the ini value, and the session landed in the shared
+  `/tmp` — **the very defect issue-025 is about**.
+
+Two things came out of it:
+
+1. The harness now gives the copy to the **owner of the application tree**,
+   so the web server can write into it exactly as it can write into the real
+   tree.
+2. The assertion was rewritten to look at **where the session file actually
+   landed** rather than at the path the copy was expected to use — so a
+   fallback to the shared `/tmp` fails the test instead of passing it.
+
+The rule that came out of it, for every test in this repository: **a test that
+runs as root must not create a restrictive directory that the web server has
+to write into.**
+
+### 14.9 The measured result
+
+```
+$ ls -ld storage storage/sessions
+drwx------ 2 zongbao zongbao 4096 storage
+drwx------ 2 zongbao zongbao 4096 storage/sessions
+
+$ ls -l storage/sessions | head -3
+-rw------- 1 zongbao zongbao  83 Oct 30 01:40 sess_098f53bfed6df6804e91d61b08542
+-rw------- 1 zongbao zongbao 188 Oct 30 01:39 sess_104b0765c9b1f5f648974b2b156cfd03
+-rw------- 1 zongbao zongbao  31 Oct 30 01:39 sess_273e577a15ba1588b7b49881213a6153
+
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8088/storage/
+403
+```
+
+```
+== L. The installer keeps no secret on the disk ==
+  [PASS] the application declares a session directory
+  [PASS] the session directory is the application's own directory
+  [PASS] the signed-in session has an id
+  [PASS] the session file is in the application's own directory
+  [PASS] the session file is not in the shared temporary directory
+  [PASS] no file of the session store holds the password
+  [PASS] no session file in the shared temporary directory holds the password
+  [PASS] the wizard answers under the running server
+  [PASS] the wizard carries a CSRF token
+  [PASS] the probe database user was created
+  [PASS] step 1 of the wizard succeeds
+  [PASS] the session store of the wizard is its own directory
+  [PASS] no file of the wizard's session store holds the password
+  [PASS] no session file in the shared temporary directory holds the password
+  [PASS] the session id is regenerated after the step boundary
+  [PASS] an unknown session id is not adopted
+  [PASS] no file was created for the unknown session id
+
+  Failed: 0
+```
+
+### 14.10 The operator's note
+
+The session store is now a directory under the application root. On a native
+installation the operator has to make sure the web-server user may write
+there — the application creates it, but it cannot create it in a root-owned
+tree. The directory is created with mode `0700`, so on a shared host only the
+web-server account can read the sessions.
+
+The session files are **not** a backup target and **not** a deployment
+artefact: they are runtime state. The application recreates them on the first
+request, and every visitor gets a new session.
