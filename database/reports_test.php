@@ -704,6 +704,41 @@ function rt_seed_transaction(
     return (int) $pdo->lastInsertId();
 }
 
+/**
+ * The number of an average figure: "−27.35 per day" is -27.35.
+ *
+ * The minus is the typographic one (U+2212), the same glyph the screen
+ * prints. A figure that does not read as a number is null — and a
+ * figure that does not name its unit is a figure that should not be on
+ * the screen at all.
+ */
+function rt_average_value(string $figure): ?float
+{
+    if (preg_match('/^([+−-]?)([\d,]+(?:\.\d+)?)\s+per\s+(day|week|month|year)$/u', trim($figure), $m) !== 1) {
+        return null;
+    }
+
+    $value = (float) str_replace(',', '', $m[2]);
+
+    if ($m[1] === '−') {
+        return -$value;
+    }
+
+    return $value;
+}
+
+/**
+ * The unit an average figure names: "39.68 per day" is "day".
+ */
+function rt_average_unit(string $figure): string
+{
+    if (preg_match('/\bper\s+(day|week|month|year)$/u', trim($figure), $m) === 1) {
+        return $m[1];
+    }
+
+    return '';
+}
+
 // ---------------------------------------------------------------------------
 // The fixtures
 // ---------------------------------------------------------------------------
@@ -851,7 +886,7 @@ ok(
 
 ok(
     'no request value reaches the SQL',
-    !preg_match('/\{\$(from|to|period|month|grain|uid)/', $code),
+    !preg_match('/\{\$(from|to|period|month|grain|uid|unit)/', $code),
     'a request value is interpolated into a statement'
 );
 
@@ -1030,7 +1065,7 @@ ok(
 
 ok(
     'the selector works without JavaScript',
-    (bool) preg_match('/class="period__link" href="\/reports\?period=day"/', $view)
+    (bool) preg_match('/class="period__link" href="\/reports\?period=day&amp;unit=<\?= e\(\$unit\) \?>"/', $view)
 );
 
 ok(
@@ -1118,6 +1153,177 @@ ok(
     'the empty period renders no tables',
     str_contains($view, 'No transactions in this period.')
         && str_contains($view, 'Look at this month')
+);
+
+// --- A13. The average ---
+
+ok(
+    'the three helpers exist',
+    function_exists('normalizeAverageUnit')
+        && function_exists('reportUnitCount')
+        && function_exists('formatAverageMoney')
+);
+
+ok(
+    'the unit is whitelisted',
+    normalizeAverageUnit('day') === 'day'
+        && normalizeAverageUnit('WEEK') === 'week'
+        && normalizeAverageUnit(' month ') === 'month'
+        && normalizeAverageUnit('year') === 'year',
+    normalizeAverageUnit('nonsense')
+);
+
+ok(
+    'an unknown unit falls back to the day',
+    normalizeAverageUnit('nonsense') === 'day',
+    normalizeAverageUnit('nonsense')
+);
+
+ok(
+    'the denominator of a month is its days',
+    reportUnitCount('2026-10-01', '2026-10-31', 'day') === 31,
+    (string) reportUnitCount('2026-10-01', '2026-10-31', 'day')
+);
+
+ok(
+    'the denominator of a month is its five weeks',
+    reportUnitCount('2026-10-01', '2026-10-31', 'week') === 5,
+    (string) reportUnitCount('2026-10-01', '2026-10-31', 'week')
+);
+
+ok(
+    'the denominator of a month is one month',
+    reportUnitCount('2026-10-01', '2026-10-31', 'month') === 1,
+    (string) reportUnitCount('2026-10-01', '2026-10-31', 'month')
+);
+
+ok(
+    'the denominator of a month is one year',
+    reportUnitCount('2026-10-01', '2026-10-31', 'year') === 1,
+    (string) reportUnitCount('2026-10-01', '2026-10-31', 'year')
+);
+
+ok(
+    'a range that straddles three months has three months',
+    reportUnitCount('2026-01-31', '2026-03-01', 'month') === 3,
+    (string) reportUnitCount('2026-01-31', '2026-03-01', 'month')
+);
+
+ok(
+    'a range that straddles two years has two years',
+    reportUnitCount('2025-12-31', '2026-01-01', 'year') === 2,
+    (string) reportUnitCount('2025-12-31', '2026-01-01', 'year')
+);
+
+ok(
+    'a full week is one week',
+    reportUnitCount('2026-10-05', '2026-10-11', 'week') === 1,
+    (string) reportUnitCount('2026-10-05', '2026-10-11', 'week')
+);
+
+ok(
+    'a week that straddles the week start is two weeks',
+    reportUnitCount('2026-10-07', '2026-10-13', 'week') === 2,
+    (string) reportUnitCount('2026-10-07', '2026-10-13', 'week')
+);
+
+ok(
+    'the week starts on the Monday of the week',
+    reportWeekStart('2026-10-07') === '2026-10-05',
+    reportWeekStart('2026-10-07')
+);
+
+ok(
+    'a range that ends before it starts has no unit',
+    reportUnitCount('2026-10-31', '2026-10-01', 'day') === 0,
+    (string) reportUnitCount('2026-10-31', '2026-10-01', 'day')
+);
+
+ok(
+    'the average names its unit',
+    formatAverageMoney('39.68', 'day', '+') === '+39.68 per day',
+    formatAverageMoney('39.68', 'day', '+')
+);
+
+ok(
+    'the average of a zero carries no sign',
+    formatAverageMoney('0.00', 'day', '+') === '0.00 per day',
+    formatAverageMoney('0.00', 'day', '+')
+);
+
+ok(
+    'the average of a spending carries the minus sign',
+    formatAverageMoney('27.35', 'day', '−') === '−27.35 per day',
+    formatAverageMoney('27.35', 'day', '−')
+);
+
+ok(
+    'the average is not an AVG()',
+    !preg_match('/\bAVG\s*\(/i', $code),
+    'the statement averages the rows that exist'
+);
+
+ok(
+    'the divisor is bound',
+    str_contains($code, 'CAST(? AS DECIMAL(10,0))'),
+    'the divisor is interpolated into the statement'
+);
+
+ok(
+    'the divisor is the unit count',
+    str_contains($code, 'reportUnitCount($range[0], $range[1], $unit)')
+        && str_contains($code, '$unitCount')
+);
+
+ok(
+    'the net average is computed from the rounded sides',
+    str_contains($code, 'ROUND(avg_income - avg_spending, 2)')
+);
+
+ok(
+    'the sign of the net average comes from the database',
+    str_contains($code, 'avg_net_sign')
+);
+
+ok(
+    'the average is not divided in PHP',
+    !preg_match('/\$average\w*Label\s*=[^;]*\/[^;]*;/', $code),
+    'the view divides the average in PHP'
+);
+
+ok(
+    'the three averages are formatted by the helper',
+    substr_count($code, 'formatAverageMoney(') >= 3,
+    (string) substr_count($code, 'formatAverageMoney(')
+);
+
+ok(
+    'the unit is normalised before it is used',
+    str_contains($code, "normalizeAverageUnit(query('unit', 'day'))")
+);
+
+ok(
+    'the unit control carries the four links',
+    str_contains($view, 'data-unit="day"')
+        && str_contains($view, 'data-unit="week"')
+        && str_contains($view, 'data-unit="month"')
+        && str_contains($view, 'data-unit="year"')
+);
+
+ok(
+    'the unit control names itself',
+    str_contains($view, '<span class="period__label">Average per</span>')
+);
+
+ok(
+    'the three tiles carry an average',
+    substr_count($view, 'tile__average') === 3,
+    (string) substr_count($view, 'tile__average')
+);
+
+ok(
+    'the range form keeps the unit',
+    str_contains($view, '<input type="hidden" name="unit" value="<?= e($unit) ?>">')
 );
 
 // ---------------------------------------------------------------------------
@@ -1501,10 +1707,24 @@ if ($db === null) {
         );
 
         $current = substr_count($response['body'], 'aria-current="true"');
+        $periodCurrent = substr_count($response['body'], 'data-period="' . $period . '" aria-current="true"');
+        $unitCurrent = substr_count($response['body'], 'data-unit="day" aria-current="true"');
 
         ok(
             'the ' . $period . ' period marks exactly one link',
-            $current === 1,
+            $periodCurrent === 1,
+            (string) $periodCurrent
+        );
+
+        ok(
+            'the ' . $period . ' period marks exactly one unit',
+            $unitCurrent === 1,
+            (string) $unitCurrent
+        );
+
+        ok(
+            'the ' . $period . ' period marks two links in total',
+            $current === 2,
             (string) $current
         );
     }
@@ -1546,7 +1766,7 @@ if ($db === null) {
 
     ok(
         'the month row drills into the month report',
-        str_contains($body, 'href="/reports?period=month&amp;month=2026-10"')
+        str_contains($body, 'href="/reports?period=month&amp;month=2026-10&amp;unit=day"')
     );
 
     ok(
@@ -1710,7 +1930,7 @@ if ($db === null) {
 
     ok(
         'the empty period offers the month',
-        str_contains($body, 'href="/reports?period=month"')
+        str_contains($body, 'href="/reports?period=month&amp;unit=day"')
     );
 
     // --- B9. The failed query ------------------------------------------
@@ -1788,6 +2008,279 @@ if ($db === null) {
     ok(
         'the other account counts one transaction',
         str_contains($body, 'October 2026 · 1 transaction')
+    );
+
+    // --- B11. The average ----------------------------------------------
+
+    echo "\n## B11. The average\n";
+
+    // The first account again: the average is the account's own.
+    rt_reset_cookies();
+    $loginPage = rt_http_request('GET', $base . '/login');
+    $token = rt_csrf_of($loginPage['body']);
+    $response = rt_http_request('POST', $base . '/login', [
+        'csrf_token' => $token,
+        'username'   => $demoUser,
+        'password'   => $demoPassword,
+    ]);
+
+    ok('the first account signs in again', $response['status'] === 302, (string) $response['status']);
+
+    $averages = [];
+
+    $response = rt_http_request('GET', $base . '/reports?period=month&month=2026-10&unit=day');
+    $body = $response['body'];
+
+    ok('the average answers 200', $response['status'] === 200, (string) $response['status']);
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok('the average is on the three tiles', count($averages) === 3, (string) count($averages));
+
+    ok(
+        'the income average of the month is per day',
+        ($averages[0] ?? '') === '+39.68 per day',
+        $averages[0] ?? ''
+    );
+
+    ok(
+        'the spending average of the month is per day',
+        ($averages[1] ?? '') === '−27.35 per day',
+        $averages[1] ?? ''
+    );
+
+    ok(
+        'the net average of the month is per day',
+        ($averages[2] ?? '') === '+12.33 per day',
+        $averages[2] ?? ''
+    );
+
+    ok(
+        'the average names its unit',
+        rt_average_unit($averages[0] ?? '') === 'day',
+        $averages[0] ?? ''
+    );
+
+    $income   = rt_average_value($averages[0] ?? '');
+    $spending = rt_average_value($averages[1] ?? '');
+    $net      = rt_average_value($averages[2] ?? '');
+
+    ok(
+        'the three averages keep the identity after the rounding',
+        $income !== null && $spending !== null && $net !== null
+            && abs(abs($income) - abs($spending) - abs($net)) < 0.005,
+        ($averages[0] ?? '') . ' / ' . ($averages[1] ?? '') . ' / ' . ($averages[2] ?? '')
+    );
+
+    // The week is the calendar week, not the transaction week.
+    $response = rt_http_request('GET', $base . '/reports?period=month&month=2026-10&unit=week');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the income average of the month is per week',
+        ($averages[0] ?? '') === '+246.00 per week',
+        $averages[0] ?? ''
+    );
+
+    ok(
+        'the spending average of the month is per week',
+        ($averages[1] ?? '') === '−169.56 per week',
+        $averages[1] ?? ''
+    );
+
+    ok(
+        'the net average of the month is per week',
+        ($averages[2] ?? '') === '+76.44 per week',
+        $averages[2] ?? ''
+    );
+
+    // The month and the year: one unit each for a single month.
+    $response = rt_http_request('GET', $base . '/reports?period=month&month=2026-10&unit=month');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the income average of the month is per month',
+        ($averages[0] ?? '') === '+1,229.99 per month',
+        $averages[0] ?? ''
+    );
+
+    ok(
+        'the spending average of the month is per month',
+        ($averages[1] ?? '') === '−847.80 per month',
+        $averages[1] ?? ''
+    );
+
+    ok(
+        'the net average of the month is per month',
+        ($averages[2] ?? '') === '+382.19 per month',
+        $averages[2] ?? ''
+    );
+
+    $response = rt_http_request('GET', $base . '/reports?period=month&month=2026-10&unit=year');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the income average of the month is per year',
+        ($averages[0] ?? '') === '+1,229.99 per year',
+        $averages[0] ?? ''
+    );
+
+    ok(
+        'the unit control marks the chosen unit',
+        str_contains($body, 'data-unit="year" aria-current="true"')
+    );
+
+    ok(
+        'the unit control keeps the period',
+        str_contains($body, 'href="/reports?period=month&amp;month=2026-10&amp;unit=day"')
+    );
+
+    // An unknown unit falls back to the day and is never echoed.
+    $response = rt_http_request('GET', $base . '/reports?period=month&month=2026-10&unit=nonsense');
+    $body = $response['body'];
+
+    ok('the unknown unit answers 200', $response['status'] === 200, (string) $response['status']);
+    ok('the unknown unit falls back to the day', str_contains($body, 'data-unit="day" aria-current="true"'));
+    ok('the unknown unit is never echoed', !str_contains($body, 'nonsense'));
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the unknown unit reads as the day',
+        ($averages[0] ?? '') === '+39.68 per day',
+        $averages[0] ?? ''
+    );
+
+    // The month denominator counts the DISTINCT months the range touches.
+    $response = rt_http_request('GET', $base . '/reports?period=custom&from=2026-08-01&to=2026-10-31&unit=month');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the income average of the three months is per month',
+        ($averages[0] ?? '') === '+460.00 per month',
+        $averages[0] ?? ''
+    );
+
+    ok(
+        'the spending average of the three months is per month',
+        ($averages[1] ?? '') === '−282.60 per month',
+        $averages[1] ?? ''
+    );
+
+    ok(
+        'the net average of the three months is per month',
+        ($averages[2] ?? '') === '+177.40 per month',
+        $averages[2] ?? ''
+    );
+
+    // The year denominator counts the DISTINCT years the range touches.
+    $response = rt_http_request('GET', $base . '/reports?period=custom&from=2025-10-01&to=2026-10-31&unit=year');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the spending average of the two years is per year',
+        ($averages[1] ?? '') === '−423.90 per year',
+        $averages[1] ?? ''
+    );
+
+    ok(
+        'the income average of the two years is not the undivided total',
+        ($averages[0] ?? '') !== '+1,379.99 per year',
+        $averages[0] ?? ''
+    );
+
+    // The empty period: an average of zero, and a zero carries no sign.
+    $response = rt_http_request('GET', $base . '/reports?period=custom&from=2020-01-01&to=2020-01-31&unit=day');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok('the empty period has three averages', count($averages) === 3, (string) count($averages));
+
+    foreach ($averages as $index => $average) {
+        ok(
+            'the empty average ' . ($index + 1) . ' is a bare zero',
+            $average === '0.00 per day',
+            $average
+        );
+    }
+
+    ok(
+        'the empty average carries no sign',
+        !str_contains($body, '+0.00 per day') && !str_contains($body, '−0.00 per day')
+    );
+
+    // The week of the PHP twin is the week of the SQL bucket.
+    $sqlWeek = $pdo->query("SELECT DATE_SUB('2026-10-01', INTERVAL WEEKDAY('2026-10-01') DAY)")->fetchColumn();
+
+    ok(
+        'the week of the helper is the week of the SQL bucket',
+        (string) $sqlWeek === reportWeekStart('2026-10-01'),
+        (string) $sqlWeek
+    );
+
+    // The rounding identity, on a fixture that breaks it.
+    // The income is 1.00 over three days (0.33), the spending is 0.50
+    // over three days (0.17) and the net is 0.50 over three days (0.17).
+    // The identity says 0.33 - 0.17 = 0.16, and the screen must show 0.16.
+    rt_seed_transaction($pdo, $demoId, 'income', '1.00', '2026-06-01', 'Salary', $salaryId);
+    rt_seed_transaction($pdo, $demoId, 'expense', '0.50', '2026-06-02', 'Groceries', $groceriesId);
+
+    $response = rt_http_request('GET', $base . '/reports?period=custom&from=2026-06-01&to=2026-06-03&unit=day');
+    $body = $response['body'];
+
+    if (preg_match_all('/tile__average">([^<]*)</', $body, $matches) > 0) {
+        $averages = $matches[1];
+    }
+
+    ok(
+        'the income average of the rounding fixture is 0.33',
+        ($averages[0] ?? '') === '+0.33 per day',
+        $averages[0] ?? ''
+    );
+
+    ok(
+        'the spending average of the rounding fixture is 0.17',
+        ($averages[1] ?? '') === '−0.17 per day',
+        $averages[1] ?? ''
+    );
+
+    ok(
+        'the net average of the rounding fixture is 0.16',
+        ($averages[2] ?? '') === '+0.16 per day',
+        $averages[2] ?? ''
+    );
+
+    ok(
+        'the net average is not the rounded net total',
+        !str_contains($body, '+0.17 per day'),
+        'the net average was computed from the net total'
     );
 }
 

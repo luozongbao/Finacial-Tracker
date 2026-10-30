@@ -1,9 +1,13 @@
 # Issue-026 — Requirements: the average is missing
 
-> **Status:** **open** — the product brief requires the application to
-> *"search and sum/average in time period like day, month, weeks, year"*, and
-> the requirement check of 2026-10-28 found that the **sum** is implemented
-> everywhere and the **average** is implemented nowhere.
+> **Status:** **implemented and verified** — the product brief requires the
+> application to *"search and sum/average in time period like day, month,
+> weeks, year"*, and the requirement check of 2026-10-28 found that the
+> **sum** is implemented everywhere and the **average** was implemented
+> nowhere. Implemented on 2026-10-30, in the order this issue demands: the
+> **design track first**, then the application, then the tests. See
+> [§14](#14-the-implementation-as-built) for what was built and what was
+> measured.
 > **Target:** `docs/mockup/08-reports.html`, `views/reports.php`,
 > `includes/functions.php`, `assets/css/pages/reports.css`,
 > `database/reports_test.php`
@@ -35,6 +39,7 @@
 11. [Risks](#11-risks)
 12. [Out of scope](#12-out-of-scope)
 13. [The rest of the requirement check — what is already met](#13-the-rest-of-the-requirement-check--what-is-already-met)
+14. [The implementation, as built](#14-the-implementation-as-built)
 
 ---
 
@@ -393,10 +398,17 @@ week is — the same `WEEK_START` constant drives all three.
 - Render the average line on each tile, and the empty-state average at zero.
 - The status line and the period label are **unchanged**.
 
-### 7.3 The stylesheet — `assets/css/pages/reports.css`
+### 7.3 The stylesheet
 
 The average line reuses the existing tile tokens. It must not introduce a
 token that is not in `tokens.css`.
+
+> **As built:** the two new rules live in the **shared** layer,
+> `components.css` — and in **both** copies of it (the mockup's and the
+> application's). `assets/css/pages/reports.css` is **unchanged**: the
+> mockup has **no** `pages/` layer, so a rule that lives only in the
+> application's `pages/` layer would render in the application and not in
+> the mockup it is the source of. §14.1 has the list.
 
 ### 7.4 The tests — `database/reports_test.php`
 
@@ -413,47 +425,108 @@ real screen against a scratch database). **Both** tiers must grow:
 
 ## 8. Acceptance criteria
 
-- [ ] The `/reports` screen shows an **average** for income, spending and net,
+- [x] The `/reports` screen shows an **average** for income, spending and net,
       for a **day**, a **week**, a **month**, a **year** and a **custom
       range**.
-- [ ] The averaging unit is a **visitor's choice** — Day / Week / Month /
+      *The average line is on all three tiles in every state. The unit is
+      the visitor's choice and is independent of the period, so a month
+      view can be read per day, per week, per month or per year.*
+- [x] The averaging unit is a **visitor's choice** — Day / Week / Month /
       Year — independent of the period, and the unit is **named on the
       screen** next to every average figure.
-- [ ] The average is `period total ÷ calendar units in the period`, and the
+      *The "Average per" control sits beside the period selector; the
+      figure itself reads `−27.35 per day` — the unit is in the figure, not
+      in a heading that the reader has to carry in their head. The unit is
+      carried in `?unit=`, whitelisted to the four names and never
+      interpolated.*
+- [x] The average is `period total ÷ calendar units in the period`, and the
       denominator is the **calendar**, not the number of recorded transactions
       and not the number of buckets.
-- [ ] The week denominator agrees with the `WEEK_START` constant and with the
+      *October 2026: 1,229.99 ÷ **31** days = 39.68 per day, while the
+      "Over time" table shows **three** weeks with transactions. The two
+      numbers are not the same and must not be.*
+- [x] The week denominator agrees with the `WEEK_START` constant and with the
       "Over time" table's week buckets — a range that does not start on the
       week start counts the **partial** week.
-- [ ] The month denominator counts the distinct `(year, month)` pairs the
+      *`2026-10-01 … 2026-10-31` touches **5** week buckets (two of them
+      hold nothing); `2026-10-07 … 2026-10-13` — Wednesday to Tuesday —
+      is 7 days and **2** buckets; `2026-10-05 … 2026-10-11` is 1. The PHP
+      twin of the SQL bucket (`reportWeekStart()`) is asserted against the
+      database's own `DATE_SUB(… INTERVAL WEEKDAY(…) DAY)` in §B11.*
+- [x] The month denominator counts the distinct `(year, month)` pairs the
       range touches, and the year denominator counts the distinct years.
-- [ ] The division is performed **in SQL**, in `DECIMAL`, with the divisor
+      *`2026-01-31 … 2026-03-01` is **3** months; `2025-12-31 … 2026-01-01`
+      is **2** years. Measured on the screen: a range of three months with
+      1,379.99 of income reads `+460.00 per month`, and a range of two
+      years reads `−423.90 per year`.*
+- [x] The division is performed **in SQL**, in `DECIMAL`, with the divisor
       **bound as a parameter**. There is no `AVG()` and no float arithmetic
       anywhere in the average path.
-- [ ] The three averages satisfy `avg_net = avg_income − avg_spending`
+      *The divisor is bound **twice** and **cast**: `CAST(? AS
+      DECIMAL(10,0))`. The cast is not decoration — a divisor that is bound
+      as a string makes MariaDB divide in DOUBLE, and the average arrives
+      at the screen as a float. Measured: `ROUND(1229.99 / ?, 6)` comes
+      back as the PHP float `39.677097`; `ROUND(1229.99 / CAST(? AS
+      DECIMAL(10,0)), 6)` comes back as the **string** `'39.677097'`. The
+      source tier asserts that `AVG(` appears nowhere and that the average
+      is not divided in PHP.*
+- [x] The three averages satisfy `avg_net = avg_income − avg_spending`
       **after** rounding, on a fixture that would break it if the averages
       were rounded independently.
-- [ ] An **empty** period shows an average of `0.00` — not an em dash, and
+      *The net average is derived **in SQL** from the two rounded sides
+      (`ROUND(avg_income − avg_spending, 2)`), so the identity holds by
+      construction. The fixture breaks it: income 1.00 and spending 0.50
+      over three days — 0.33, 0.17 and **0.16**, where the independently
+      rounded net total would read 0.17. The screen reads `+0.16 per day`,
+      and the test asserts that `+0.17 per day` is **not** on the page.*
+- [x] An **empty** period shows an average of `0.00` — not an em dash, and
       not a failed-query state.
-- [ ] The negative sign is **U+2212** (`−`), the literal character, and a
+      *An empty range reads `0.00 per day` on all three tiles, and the
+      failed-query state renders **no** average at all.*
+- [x] The negative sign is **U+2212** (`−`), the literal character, and a
       zero carries no sign.
-- [ ] An unknown `unit` in the query string falls back to `day` and is never
+      *The glyph is the literal character in the source — a grep for it
+      finds it — and the zero carries no sign: the empty period reads
+      `0.00 per day`, never `+0.00` or `−0.00`.*
+- [x] An unknown `unit` in the query string falls back to `day` and is never
       echoed into the page.
-- [ ] `docs/mockup/08-reports.html` shows the average control, the average
+      *`?unit=nonsense` answers 200, marks the **day** as the current unit,
+      reads `+39.68 per day` and never contains the word it was given.*
+- [x] `docs/mockup/08-reports.html` shows the average control, the average
       line on the tiles and the empty-state average, and its **figures
       reconcile** with each other and with the period totals.
-- [ ] The mockup's `assets/tokens.css` and the application's
+      *The month view reads `+39.68 / −27.35 / +12.33 per day` over 31
+      days; the year view reads `+1,237.50 / −767.79 / +469.71 per month`
+      over twelve months of `+14,849.99 / −9,213.45`; the custom view
+      reads `+246.00 / −169.56 / +76.44 per week` over the five calendar
+      weeks of October 2026; the empty view reads `0.00 per day` three
+      times. Every pair reconciles: 39.68 − 27.35 = 12.33,
+      1,237.50 − 767.79 = 469.71, 246.00 − 169.56 = 76.44.*
+- [x] The mockup's `assets/tokens.css` and the application's
       `assets/css/tokens.css` still declare the same names in the same order,
       and `database/assets_test.php` passes.
-- [ ] `database/reports_test.php` guards the helpers, the whitelisting, the
+      *No token was added at all: the average line uses the existing
+      `--font-mono`, `--fs-sm` and `--gray-700`. The two new rules live in
+      the **shared** `components.css` layer, and the mockup's copy and the
+      application's copy are byte-identical.*
+- [x] `database/reports_test.php` guards the helpers, the whitelisting, the
       absence of `AVG(`, and the fixture figures — in **both** tiers.
-- [ ] The **search** and the **sum** still work exactly as before: no
+      *§A13 (the sources) and §B11 (the sandbox). The sandbox drives the
+      **real** screen against a scratch database and reads the figures off
+      the page.*
+- [x] The **search** and the **sum** still work exactly as before: no
       regression on the period selector, the custom-range form, the "Over
       time" table or the "By category" table.
+      *The period totals statement is **unchanged**; the averages are a
+      second statement over the same range. The suite is 15/15 and the LIVE
+      tier is 2/2.*
 
 ---
 
 ## 9. Verification
+
+> **As run on 2026-10-30.** Every command below was executed against the
+> running stack; the output quoted after it is what it returned.
 
 ```bash
 # 1. The unit is whitelisted and never interpolated.
@@ -509,8 +582,10 @@ bash database/live/run-live-tests.sh
 ## 10. Rollback
 
 The change is confined to `views/reports.php`, `includes/functions.php`,
-`assets/css/pages/reports.css`, `docs/mockup/08-reports.html` and
-`database/reports_test.php`.
+`assets/css/components.css`, `docs/mockup/assets/components.css`,
+`docs/mockup/08-reports.html` and `database/reports_test.php`.
+`assets/css/pages/reports.css` is **unchanged** — the two new rules live in
+the shared layer, because the mockup has no `pages/` layer.
 
 - The **search** and the **sum** are untouched — the period totals statement
   keeps its existing columns, and the averages are **added** beside them. A
@@ -567,7 +642,7 @@ requirement check has a **complete** verdict rather than a partial one.
 | *"search"* | **Met** | `buildTransactionPredicate()` — the description `LIKE` (with `escapeLike()` and `ESCAPE`), the type filter, the category filter and the date range. |
 | *"sum"* | **Met** | The Income / Spending / Net tiles on `/transactions`, `/dashboard` and `/reports`; the "Over time" and "By category" tables. All summed **in SQL**. |
 | *"in time period like day, month, weeks, year"* | **Met** | `resolvePeriodRange()`, `resolveMonthRange()`, `normalizePeriod()` and the day / week / month / year selector on `/reports`; the presets on `/transactions`. |
-| *"average"* | **NOT MET** | **This issue.** |
+| *"average"* | **Met** | `/reports` — the "Average per" control, the average line on the Income / Spending / Net tiles, the denominator in `reportUnitCount()`, the division in SQL. See [issue-026](issue-026.md) §14. |
 | *"webserver: litespeed"* | **Met** | OpenLiteSpeed / LSPHP, the `.htaccess` rewrite, the pinned `litespeedtech/openlitespeed:1.9.4-lsphp85` image. |
 | *"language: php"* | **Met** | Plain PHP, no framework. |
 | *"db: mariadb"* | **Met** | MariaDB 10.11, `utf8mb4`. |
@@ -577,3 +652,194 @@ requirement check has a **complete** verdict rather than a partial one.
 | *"install create config.php, allow user to customize database name, database user, database password, smtp server, smtp port, email user, smtp password"* | **Met** | Step 1 (database) and step 2 (mail) of the wizard; the values are written with `var_export()`. |
 | *"config.php also included ALLOW_REGISTRATION default true"* | **Met** | `const ALLOW_REGISTRATION = true;` in `config.template.php`; a **real PHP boolean**, compared with `=== true` / `=== false`. Guarded by `database/config_test.php`. |
 | *"if set to false don't allow user registration, both FE/BE are restricted"* | **Met** | Two-sided: the GET renders **no form** and returns 403; the POST returns 403 **before** the CSRF check and before any input is read. Guarded by `database/auth_test.php`. |
+
+---
+
+## 14. The implementation, as built
+
+Implemented on 2026-10-30, in the order this issue demands: the **design
+track first** (§6), then the application (§7), then the tests (§7.4).
+
+### 14.1 What changed
+
+| File | What it carries |
+|---|---|
+| `docs/mockup/08-reports.html` | the "Average per" control, the average line on every tile, the hidden `unit` field of the range form, the empty state at zero, and the two spec notes that explain the decisions |
+| `docs/mockup/assets/components.css` | `.tile__average` and `.period__label` — **no new token** |
+| `assets/css/components.css` | the same two rules, byte-identical to the mockup's copy |
+| `includes/functions.php` | `normalizeAverageUnit()`, `reportWeekStartDayNumber()`, `reportWeekStart()`, `reportUnitCount()`, `formatAverageMoney()` — and the week-bucket fix of §14.7 |
+| `views/reports.php` | the unit, the averages statement, the three tile lines, the control, the links |
+| `database/reports_test.php` | §A13 (the sources) and §B11 (the sandbox) |
+
+`assets/css/pages/reports.css` is **unchanged**. The two new rules live in
+the **shared** layer, `components.css`, because the mockup has **no**
+`pages/` layer: a rule that lived only in the application's `pages/` layer
+would render in the application and not in the mockup it is the source of.
+
+### 14.2 The helpers
+
+Five, in `includes/functions.php`, next to the other report helpers:
+
+| Helper | Signature | Returns |
+|---|---|---|
+| `normalizeAverageUnit()` | `(string $unit): string` | one of the four names; anything else → `'day'` |
+| `reportWeekStartDayNumber()` | `(?int $start = null): int` | the week start in **MariaDB's** numbering — the one conversion between the two day numberings |
+| `reportWeekStart()` | `(string $date): string` | the first day of the week a date falls into — the **PHP twin** of the SQL bucket |
+| `reportUnitCount()` | `(string $from, string $to, string $unit): int` | the denominator; **0** for a range that ends before it starts |
+| `formatAverageMoney()` | `(string $amount, string $unit, string $sign): string` | e.g. `−27.35 per day` |
+
+`reportUnitCount()` is the only place a denominator is computed. The week
+count is **not** `ceil(days / 7)`: it is the number of distinct week buckets
+the range touches, and it is derived from `reportWeekStart()` — the PHP twin
+of `reportBucketExpression('week')`. The two agree about what a week is
+because the same `WEEK_START` constant drives both, and because the day
+numbering conversion lives in **one** function (§14.7).
+
+### 14.3 The SQL — a second statement, and a cast
+
+The averages are a **second statement** over the same range, not three more
+columns of the totals statement. The totals statement is **unchanged**, which
+is what makes the rollback in §10 a one-line revert.
+
+```sql
+SELECT avg_income,
+       avg_spending,
+       ROUND(avg_income - avg_spending, 2)       AS avg_net,
+       SIGN(ROUND(avg_income - avg_spending, 2)) AS avg_net_sign
+  FROM (
+    SELECT ROUND(COALESCE(SUM(CASE WHEN type = 'income'  THEN amount END), 0)
+                 / CAST(? AS DECIMAL(10,0)), 2) AS avg_income,
+           ROUND(COALESCE(SUM(CASE WHEN type = 'expense' THEN amount END), 0)
+                 / CAST(? AS DECIMAL(10,0)), 2) AS avg_spending
+      FROM transactions
+     WHERE user_id = ?
+       AND occurred_on BETWEEN ? AND ?
+   ) AS averages
+```
+
+Three things in there are not decoration:
+
+1. **The divisor is bound twice** — once per side — and it is the value
+   `reportUnitCount()` returned. It is never interpolated.
+2. **The divisor is cast**: `CAST(? AS DECIMAL(10,0))`. A divisor that is
+   bound as a **string** makes MariaDB divide in **DOUBLE**, and the average
+   would arrive at the screen as a float. Measured through the application's
+   own PDO wrapper: `ROUND(1229.99 / ?, 6)` comes back as the PHP float
+   `39.677097`; `ROUND(1229.99 / CAST(? AS DECIMAL(10,0)), 6)` comes back as
+   the **string** `'39.677097'`. This is the same rule as the rest of the
+   money path, and it is invisible until somebody measures it.
+3. **The net is derived from the two rounded sides**, so the identity of
+   §4.4 holds by construction rather than by luck.
+
+The divisor is guarded in PHP as well: `$unitCount < 1` means **no averages
+query at all**, so a malformed range can never produce a division by zero.
+
+### 14.4 The sign convention — a deliberate deviation from §4.5
+
+§4.5 says the income average uses `formatIncomeMoney()`, which keeps the
+"+" on a zero — "+0.00" — because "the column says income". The **tile**
+convention is the opposite: the tile shows a bare `0.00` for an empty
+period, and §8 says *"An empty period shows an average of 0.00"*.
+
+The average appears **only on the tiles**, so the tile convention wins: all
+three averages use `formatSignedMoney()`, and a zero carries **no sign**.
+The income average of an empty period is therefore `0.00 per day`, not
+`+0.00 per day`.
+
+This is a **deviation from §4.5**, and it is recorded here rather than
+quietly applied: §4.5's premise was a **column** whose header says "income",
+and the design decision of §14.5 removed that column.
+
+### 14.5 The presentation
+
+- The **"Average per" control** sits beside the period selector, in the same
+  `.period` visual language, with `aria-current="true"` on the active one
+  and never a class.
+- The **average line** is a fourth line on each tile, under the amount and
+  above the period line.
+- The **"Over time" table gains no average column.** Its rows **are** the
+  per-bucket figures, and a per-bucket average would be **A2** — the reading
+  §3 rejects. The mockup carries a spec note that says so. One screen, one
+  meaning of the word "average" (§6.1).
+- The **per-transaction average** (A3) is not added: `tx_count` is on the
+  screen, but a second metric called "average" would break §6.1.
+- The **empty state** shows `0.00 per day` on all three tiles.
+- The **status line and the period label** are unchanged.
+
+The unit travels in `?unit=` and is carried by every link on the screen: the
+period links, the unit links, the "Over time" row links and the empty
+state's "Look at this month" button all keep it.
+
+### 14.6 The regression test, as written
+
+`database/reports_test.php` grew in **both** tiers.
+
+**§A13 — the sources** (28 assertions): the three helpers exist; the unit is
+whitelisted (`'WEEK'` → `week`, `' month '` → `month`, `'nonsense'` →
+`day`); the eight denominator cases of §9; a range that ends before it
+starts has no units; `reportWeekStart('2026-10-07')` is `2026-10-05`; the
+figure names its unit; a zero carries no sign; **no `AVG(`** anywhere; the
+divisor is bound and cast; the divisor is the unit count; the net is
+computed from the rounded sides; the sign comes from the database; the
+average is **not** divided in PHP; the unit control carries the four links
+and names itself; the three tiles carry an average; the range form keeps
+the unit.
+
+**§B11 — the sandbox** (34 assertions): the real screen, against a scratch
+database, with the figures read off the page — per day, per week, per month
+and per year; the active unit is marked and the period is kept; an unknown
+unit falls back to the day and is **never echoed**; the three-month and the
+two-year denominators; the empty period at `0.00 per day` with **no sign**;
+the PHP week twin against the database's own `DATE_SUB(… INTERVAL
+WEEKDAY(…) DAY)`; and the **rounding fixture** — income 1.00 and spending
+0.50 over three days, which reads `+0.33`, `−0.17` and **+0.16**, where the
+independently rounded net total would read `+0.17`.
+
+### 14.7 The one thing this issue did not say — the week bucket was off by one
+
+The requirement "the week denominator agrees with the `WEEK_START` constant
+and with the 'Over time' table's week buckets" is not checkable without a
+week-bucket expression that is **correct** — and `reportBucketExpression()`
+was not, for every week start **except** Monday and Sunday.
+
+Its general branch mixed the two day numberings: it subtracted the
+**config's** week-start number from MariaDB's `DAYOFWEEK()`, and the two
+numberings differ by one for every day except Sunday. A week configured to
+start on **Tuesday** therefore produced a **Monday-aligned** bucket — and the
+wrap made it worse than a plain off-by-one, because the last day of the week
+landed in a bucket of its own.
+
+Measured, with `WEEK_START = 2` (Tuesday):
+
+| The date | The old bucket | The fixed bucket |
+|---|---|---|
+| 2026-10-06 (Tuesday) | 2026-10-05 (Monday) | **2026-10-06** (Tuesday) |
+| 2026-10-07 (Wednesday) | 2026-10-05 (Monday) | **2026-10-06** (Tuesday) |
+| 2026-10-11 (Sunday) | 2026-10-05 (Monday) | **2026-10-06** (Tuesday) |
+| 2026-10-12 (Monday) | 2026-10-12 (Monday) | **2026-10-06** (Tuesday) |
+
+The fix is one function — `reportWeekStartDayNumber()` — that converts the
+config's day number into MariaDB's, and it is used by **both** the SQL
+expression and the PHP twin. The default (`WEEK_START = 1`, Monday) is
+unaffected: it has its own branch, and the literal the existing test
+asserts is unchanged.
+
+The defect was **latent**: the shipped configuration starts on Monday, so
+nothing on the screen was wrong. It would have become wrong the moment
+`WEEK_START` was set to anything else — and the average would have been the
+first screen to show it, because the average's denominator is the week.
+
+### 14.8 The measured result
+
+| The check | The result |
+|---|---|
+| The SOURCE suite | **15 PASS / 0 FAIL** |
+| The LIVE tier | **2 PASS / 0 FAIL** |
+| `grep -n "AVG(" views/reports.php includes/functions.php` | **no output** |
+| The denominators of §9, step 3 | **8 of 8 ok** |
+| The average of October 2026 | `+39.68 / −27.35 / +12.33 per day` |
+| The average of October 2026 | `+246.00 / −169.56 / +76.44 per week` |
+| The average of the empty period | `0.00 per day` × 3 |
+| The unknown unit | `200`, the **day** is marked, the word is not echoed |
+| The rounding fixture | `+0.33 / −0.17 / **+0.16** per day` — not `+0.17` |
+| The token parity | unchanged — **no token was added** |

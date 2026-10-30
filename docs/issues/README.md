@@ -13,7 +13,7 @@ Two tracks run through this folder:
 | **UX/UI design** | Design | [004](issue-004.md) · [005](issue-005.md) · [006](issue-006.md) · [007](issue-007.md) · [008](issue-008.md) | The static mockups in [`docs/mockup/`](../mockup/), and through them, the design of the application itself. |
 | **Application** | Dev | [011](issue-011.md) – [020](issue-020.md) | The application itself: the schema, the runtime, the design-token layer, the front controller, the installer, the authentication, and the five screens. **All ten issues (011–020) are implemented & verified.** |
 | **Security** | Dev | [021](issue-021.md) – [025](issue-025.md) | The findings of the pre-release security audit of 2026-10-28. **021 – 025 are all implemented & verified.** |
-| **Requirements** | Dev + Design | [026](issue-026.md) | The gap between [docs/About.md](../About.md) and the application: the **average** is required and missing. **Open.** |
+| **Requirements** | Dev + Design | [026](issue-026.md) | The gap between [docs/About.md](../About.md) and the application: the **average** was required and missing. **Implemented & verified.** |
 
 ---
 
@@ -46,7 +46,7 @@ Two tracks run through this folder:
 | [023](issue-023.md) | Security: the web root still serves the deployment topology | Security | **implemented & verified** | 003 | the deny block for `docker-compose.yml`, `config.template.php`, `AGENTS.md` and `docs/` — the loopback WebAdmin binding and the pinned image tags in `docker-compose.yml` — and the hardening test that used to pin the leak in place |
 | [024](issue-024.md) | Security: the response-hardening headers | Security | **done** | 013, 014, 015 | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers |
 | [025](issue-025.md) | Security: the installer keeps the credentials in the session store | Security | **done** | 010, 012, 015 | the secrets are never written to the session, the session id is rotated at every step boundary, `session.use_strict_mode` is 1, and the store is a private `0700` directory of the application — guarded by `database/install_test.php` and `database/live/live_security_test.php` |
-| [026](issue-026.md) | Requirements: the average is missing | Requirements | **open** | 007, 019 | the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first |
+| [026](issue-026.md) | Requirements: the average is missing | Requirements | **implemented & verified** | 007, 019 | the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first — `reportUnitCount()`, `formatAverageMoney()`, the "Average per" control and the average line on the tiles, guarded by `database/reports_test.php` |
 
 > **The Application track has its first seven issues in.** Issue 011 — the
 > schema and the data model — is **implemented and verified**:
@@ -197,10 +197,17 @@ Two tracks run through this folder:
 > store could not be created, the application fell back to the shared `/tmp`,
 > and the test was about to pass while the defect it guards was live.
 > A requirement check against [docs/About.md](../About.md) found the
-> application **meets every claim in the brief except one**: the brief says
+> application **met every claim in the brief except one**: the brief says
 > *"search and sum/average in time period like day, month, weeks, year"*, the
-> search and the sum are implemented, and **the average is implemented
-> nowhere**. That is [issue-026](issue-026.md).
+> search and the sum were implemented, and **the average was implemented
+> nowhere**. That was [issue-026](issue-026.md) — **now implemented and
+> verified**: the `/reports` screen carries an **average** for income,
+> spending and net, per day, per week, per month or per year, over the
+> **calendar** denominator, divided in SQL with the divisor bound and cast.
+> The implementation found one thing the issue did not — the week bucket of
+> `reportBucketExpression()` was **off by one** for every week start except
+> Monday and Sunday, because it mixed the config's day numbering with
+> MariaDB's `DAYOFWEEK()`.
 
 ---
 
@@ -314,7 +321,7 @@ The implementation copies the shape, not the text.
 | building the screens | **016** (authentication) → **017** (the dashboard) → **018** (transactions) → **019** (the reports) → **020** (categories and settings) |
 | reviewing security | 003 (the web root), 005 (`ALLOW_REGISTRATION`), 008 (the installer), 009 (the PHP patch floor), 010 (the vendored dependency tree), 015 (the install gate), 016 (the two-sided registration gate), 020 (the installation card) |
 | fixing the findings of the 2026-10-28 audit | **021** (the throttle is a DoS — **done**) → **022** (the unthrottled endpoints — **done**) → **023** (the web root — **done**) → **024** (the headers — **done**) → **025** (the installer's secrets — **done**). All five are implemented and verified. |
-| closing the gap against the brief | **026** — but read **007** (the mockup contract) and **019** (the reports screen) first; 026 changes the design *and* the screen. |
+| closing the gap against the brief | **026** — **done**. It changed the design *and* the screen: the mockup first, then `views/reports.php`, then the test. |
 | adding a third-party PHP library | 010 (Composer as a vendor-time tool) |
 
 ### The application track, in order
@@ -341,7 +348,7 @@ The implementation copies the shape, not the text.
 | [023](issue-023.md) | the deny block for `docker-compose.yml`, `config.template.php` and the internal documentation, and the hardening test that used to pin the leak in place | 003 |
 | [024](issue-024.md) | `Content-Security-Policy`, a conditional `Strict-Transport-Security`, `Permissions-Policy`, and the installer's missing headers | 013, 014, 015 |
 | [025](issue-025.md) | the database and SMTP passwords in clear text in `/tmp/sess_*`, under an attacker-chosen file name | 010, 012, 015 |
-| [026](issue-026.md) | the missing **average** — the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first | 007, 019 |
+| [026](issue-026.md) | the missing **average** — the averaging unit, the calendar denominator, the rounding identity, and the mockup that must be extended first | 007, 019 — **implemented & verified** |
 
 > **Two known contradictions between the issues**, both flagged in place:
 > issue-012's route table listed `GET /transactions/{id}/edit`, which

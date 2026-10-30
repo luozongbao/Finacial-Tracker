@@ -11,13 +11,13 @@ This file holds only what an agent cannot infer from the tree.
 **The application is complete and the design and DevOps tracks are complete —
 twenty of the twenty original issues are in and verified. A pre-release
 security audit (2026-10-28) and a requirement check against
-[docs/About.md](docs/About.md) produced **six further issues (021–026)**: the
-first **five** are **in and verified**, and **one (026) is open**.
+[docs/About.md](docs/About.md) produced **six further issues (021–026)**:
+**all six are in and verified**.
 Nothing in the application is a placeholder.**
 
 | Exists and works | Exists, spec only | Does not exist yet |
 |---|---|---|
-| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/security_headers_test.php`, `database/css_cascade.php` (the cascade resolver the header test proves), `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer), `storage/sessions/` (the private session store, mode `0700`, denied by `.htaccess`) | — | **one (026)** — the **missing average** |
+| `docker-compose.yml` (app + db + phpMyAdmin), `docker/entrypoint.sh`, `docker/mockup-nginx.conf`, `.env.example`, `.htaccess` (web-root hardening + the front-controller rewrite), `config.template.php`, `composer.json` + `composer.lock` (tracked) + `vendor/` (git-ignored), `index.php` (the front controller), `install.php` (the three-step install wizard), `includes/mailer.php`, `includes/bootstrap.php`, `includes/Database.php`, `includes/functions.php`, `includes/auth.php`, `includes/Router.php`, `includes/header.php`, `includes/footer.php`, `includes/views/` (the four error pages + the bootstrap page), `views/` (the six auth screens: login, register, forgot password, reset password, verify email, sign out) + `views/dashboard.php` + `views/transactions.php` + `views/transaction_form.php` + `views/transaction_save.php` + `views/transaction_delete.php` + `views/categories.php` + `views/category_save.php` + `views/category_delete.php` + `views/settings.php` + `views/reports.php`, `assets/css/tokens.css` + `base.css` + `components.css` + `pages/install.css` + `pages/auth.css` + `pages/dashboard.css` + `pages/transactions.css` + `pages/categories.css` + `pages/settings.css` + `pages/reports.css`, `assets/js/app.js`, `database/config_test.php`, `database/mailer_test.php`, `database/webroot_hardening_test.php`, `database/security_headers_test.php`, `database/css_cascade.php` (the cascade resolver the header test proves), `database/schema.sql` + `database/schema_test.php`, `database/runtime_test.php`, `database/assets_test.php`, `database/front_controller_test.php`, `database/install_test.php`, `database/auth_test.php`, `database/dashboard_test.php`, `database/transactions_test.php`, `database/categories_test.php`, `database/settings_test.php`, `database/reports_test.php`, `database/migrations/20261028_add_login_attempts.sql`, `database/migrations/20261029_throttle_scope_and_backoff.sql`, `database/migrations/20261030_mail_outbox_and_request_throttles.sql`, `includes/logging.php`, `includes/outbox.php`, `database/outbox_worker.php` (the CLI mail worker), `database/live/` (the LIVE tier — the running-application sweep + the runner), `docs/mockup/` (the full design-system reference page + all twelve screen mockups + the shared `assets/` layer), `storage/sessions/` (the private session store, mode `0700`, denied by `.htaccess`) | — | — |
 
 The DevOps track (issues 001–003, 009, 010) is **implemented and verified** —
 the stack runs **on PHP 8.5.12** (the PHP2Shell patch release), the mockup
@@ -100,10 +100,10 @@ helpers (`resolveMonthRange()`, `reportGrain()`, `reportSpanDays()`,
 sandbox that runs the real screen against a scratch database. **All twenty
 of the original issues are in.**
 
-**One further issue (026) is open** — it is the output of a requirement
-check carried out on 2026-10-28, and it is **not** implemented. The five
-security findings of the audit (021–025) are all in and verified. Read
-[docs/issues/README.md](docs/issues/README.md) for the index.
+**The sixth issue (026) is in as well** — it is the output of a requirement
+check carried out on 2026-10-28, and it closed the last gap against the
+brief. The five security findings of the audit (021–025) are all in and
+verified. Read [docs/issues/README.md](docs/issues/README.md) for the index.
 
 - **021 — the sign-in throttle is a denial-of-service weapon.** **Implemented
   and verified.** The lockout is keyed by a hash of the identifier, the count
@@ -177,18 +177,24 @@ security findings of the audit (021–025) are all in and verified. Read
   store could not be created, the application fell back to the shared `/tmp`,
   and the test was about to pass while the defect it guards was live.
 - **026 — the requirement gap.** The brief says *"search and sum/average in
-  time period like day, month, weeks, year"*. The search and the sum are
-  implemented; **the average is implemented nowhere**. This issue also
-  extends `docs/mockup/08-reports.html` first — the design track must move
-  before the screen can.
+  time period like day, month, weeks, year"*. The search and the sum were
+  implemented; **the average was implemented nowhere**. **Implemented and
+  verified.** The mockup moved **first** — `docs/mockup/08-reports.html` now
+  carries the "Average per" control and the average line on the three
+  tiles — and then the screen: `views/reports.php` shows the average for
+  income, spending and net, per **day**, **week**, **month** or **year**,
+  over the **calendar** denominator, divided in SQL. **The implementation
+  found one thing the issue did not**: `reportBucketExpression()` mixed the
+  config's day numbering with MariaDB's `DAYOFWEEK()`, so a week that
+  started on **Tuesday** produced a **Monday-aligned** bucket — and the
+  average's denominator is the week.
 
 The audit itself was **not** a clean bill of health on those six points and
 **is** one on everything else: the SQL injection, IDOR, XSS, CSRF, open
 redirect, session and path-traversal audits all came back clean, and the
 findings are written up with their measurements in
 [docs/issues/issue-021.md](docs/issues/issue-021.md) –
-[docs/issues/issue-026.md](docs/issues/issue-026.md). **021–025 are all
-done; 026 is open.**
+[docs/issues/issue-026.md](docs/issues/issue-026.md). **All six are done.**
 
 Start here: **[docs/issues/README.md](docs/issues/README.md)** — it indexes
 every issue, states which track owns it, and shows where the design track
@@ -665,6 +671,35 @@ Day / week / month / year grouping belongs in the query, not in a PHP loop over 
 Store transaction dates as `DATE` in UTC, and keep the week-start rule in one place
 (`WEEK_START` config constant, Monday by default) so reports and the UI agree.
 
+### The average is a period total over the calendar — divided in SQL
+
+The average on `/reports` is `period total ÷ calendar units in the period`. The
+denominator is the **calendar**, never the number of transactions and never the
+number of buckets with data in them.
+
+- **There is no `AVG()`.** `AVG()` divides by the number of **rows**, which is
+  the number of transactions — the wrong denominator, and one that changes with
+  the data.
+- **The divisor is bound and cast**: `CAST(? AS DECIMAL(10,0))`. A divisor that
+  is bound as a **string** makes MariaDB divide in **DOUBLE**, and the average
+  arrives at the screen as a **float**. Bind it, cast it, read it back as a
+  string.
+- **The divisor is never interpolated.** It comes from `reportUnitCount()`.
+- **The net average is derived from the two rounded sides**, in SQL:
+  `ROUND(avg_income - avg_spending, 2)`. Round the sides independently and the
+  identity `avg_net = avg_income - avg_spending` breaks on the third decimal.
+- **A zero carries no sign.** The average lives on the **tiles**, so it uses
+  `formatSignedMoney()` for all three figures — the empty period reads
+  `0.00 per day`, never `+0.00 per day`.
+- **The week denominator is the number of distinct week buckets the range
+  touches**, and it comes from the same `WEEK_START` as the "Over time"
+  buckets. `reportWeekStart()` is the PHP twin of `reportBucketExpression()`,
+  and `reportWeekStartDayNumber()` is the **only** place the config's day
+  numbering is converted to MariaDB's — the two numberings differ by one for
+  every day except Sunday, and mixing them quietly moves the week.
+- The unit is the **visitor's choice** (`?unit=`, whitelisted to day / week /
+  month / year) and it is **named on the screen** next to every figure.
+
 The **period label** is a span, not a month: a range that straddles two months must not
 read "October", because the screen summed something that is not a calendar month.
 `formatPeriodLabel()` and `formatPeriodSpan()` are the only places a label is built, and
@@ -914,7 +949,7 @@ from `REMOTE_ADDR` is a dial the visitor can turn.
 | [docs/issues/issue-010.md](docs/issues/issue-010.md) | The Composer vendor-time policy, the PHPMailer choice, the mailer config contract. |
 | [docs/issues/issue-011.md](docs/issues/issue-011.md) – [issue-020.md](docs/issues/issue-020.md) | The application specification: the schema, the runtime, the tokens, the front controller, the installer, the authentication and the five screens. |
 | [docs/issues/issue-021.md](docs/issues/issue-021.md) – [issue-025.md](docs/issues/issue-025.md) | The 2026-10-28 security audit: the throttle as a DoS, the unthrottled and enumerating endpoints, the web-root disclosure, the response headers, the installer secrets. **021–025 are all implemented & verified.** |
-| [docs/issues/issue-026.md](docs/issues/issue-026.md) | The requirement gap against [docs/About.md](docs/About.md): the missing **average**. **Open.** |
+| [docs/issues/issue-026.md](docs/issues/issue-026.md) | The requirement gap against [docs/About.md](docs/About.md): the missing **average**. **Implemented & verified.** |
 | [docs/mockup/README.md](docs/mockup/README.md) | The mockup delivery contract: file naming, self-containment, shared assets. |
 | [.github/skills/dev-stack-ops/SKILL.md](.github/skills/dev-stack-ops/SKILL.md) | Operating the LiteSpeed + MariaDB dev stack, running tests, DB access. |
 | [.github/instructions/](.github/instructions/) | Scoped conventions for PHP, database, tests, and front-end code. |

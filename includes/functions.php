@@ -1035,8 +1035,13 @@ function reportBucketExpression(string $grain): string
 
     // A week that starts on Tuesday, Wednesday, Thursday, Friday or
     // Saturday: the offset is the number of days since the week start.
-    // The day number is the config constant, never a request value.
-    return 'DATE_SUB(occurred_on, INTERVAL ((DAYOFWEEK(occurred_on) - ' . $start . ' + 7) MOD 7) DAY)';
+    // The day number is MARIA'S, not the config constant's: DAYOFWEEK
+    // counts 1 = Sunday ... 7 = Saturday, while WEEK_START counts
+    // 1 = Monday ... 7 = Sunday. The two numberings differ by one for
+    // every day except Sunday, so the config constant here quietly
+    // produced a week that started on Monday.
+    return 'DATE_SUB(occurred_on, INTERVAL ((DAYOFWEEK(occurred_on) - '
+        . reportWeekStartDayNumber($start) . ' + 7) MOD 7) DAY)';
 }
 
 /**
@@ -1105,6 +1110,160 @@ function formatShare(float $share): string
 function formatIncomeMoney(string $amount): string
 {
     return '+' . formatMoney(ltrim(trim($amount), '+-'));
+}
+
+/**
+ * The unit an average is taken per.
+ *
+ * The unit is the visitor's choice and it arrives in the query string,
+ * so this function is the ONE place that decides what a unit is. The
+ * list is closed: four names, nothing else. An unknown unit — a typo, a
+ * crawler, a hand-edited URL — falls back to "day", the unit that is
+ * meaningful for every range.
+ *
+ * The returned value is a LITERAL from the list. It is never
+ * interpolated into SQL and never echoed back to the visitor: a unit
+ * that is not on the list does not exist.
+ */
+function normalizeAverageUnit(string $unit): string
+{
+    $unit = strtolower(trim($unit));
+
+    return in_array($unit, ['day', 'week', 'month', 'year'], true) ? $unit : 'day';
+}
+
+/**
+ * The day a week starts on, in MariaDB's numbering.
+ *
+ * MariaDB counts the days 1 = Sunday ... 7 = Saturday, while WEEK_START
+ * counts 1 = Monday ... 7 = Sunday and 0 = Sunday. The two numberings
+ * differ by one for every day except Sunday, and mixing them is how a
+ * week that is configured to start on Tuesday quietly becomes a week
+ * that starts on Monday.
+ *
+ * The number is computed here, in ONE place, so the SQL bucket
+ * expression and the PHP week count cannot disagree about what a week
+ * is.
+ *
+ * @param int|null $start The week start day; null reads WEEK_START.
+ */
+function reportWeekStartDayNumber(?int $start = null): int
+{
+    $day = $start ?? weekStartDay();
+
+    if ($day === 0 || $day === 7) {
+        // Sunday, in either numbering.
+        return 1;
+    }
+
+    // Monday is 2 in MariaDB, Tuesday is 3, ... Saturday is 7.
+    return $day + 1;
+}
+
+/**
+ * The first day of the week a date falls into.
+ *
+ * The PHP twin of reportBucketExpression('week'): the same WEEK_START
+ * constant and the same rule, so the number of weeks in a range and
+ * the week buckets of the "Over time" table are the same weeks.
+ *
+ * @return string The week start, YYYY-MM-DD.
+ */
+function reportWeekStart(string $date): string
+{
+    $ts = strtotime($date . ' UTC');
+
+    if ($ts === false) {
+        return $date;
+    }
+
+    // The week start, in the ISO numbering (1 = Monday ... 7 = Sunday).
+    $isoStart = (reportWeekStartDayNumber() + 5) % 7 + 1;
+
+    // The day of the week, in the same numbering.
+    $isoDay = (int) gmdate('N', $ts);
+
+    $offset = ($isoDay - $isoStart + 7) % 7;
+
+    return gmdate('Y-m-d', $ts - $offset * 86400);
+}
+
+/**
+ * The number of calendar units in a range — the denominator of the
+ * average.
+ *
+ * The denominator is the CALENDAR, never the rows that happen to
+ * exist: a month that touches five weeks is five weeks even when two
+ * of them hold nothing, and a year is twelve months even when three of
+ * them do. An average that divided by the number of rows would answer
+ * a different question.
+ *
+ * The four units:
+ *
+ *   day   the number of days in the range, inclusive on both ends;
+ *   week  the number of week buckets the range touches — a partial
+ *         first week counts, and the weeks follow WEEK_START;
+ *   month the number of distinct (year, month) pairs the range
+ *         touches;
+ *   year  the number of distinct years the range touches.
+ *
+ * A range that ends before it starts has no units: the count is zero,
+ * and the caller must not divide by it.
+ */
+function reportUnitCount(string $from, string $to, string $unit): int
+{
+    $unit = normalizeAverageUnit($unit);
+
+    $fromTs = strtotime($from . ' UTC');
+    $toTs   = strtotime($to . ' UTC');
+
+    if ($fromTs === false || $toTs === false || $toTs < $fromTs) {
+        return 0;
+    }
+
+    if ($unit === 'day') {
+        return reportSpanDays($from, $to);
+    }
+
+    if ($unit === 'week') {
+        $first = strtotime(reportWeekStart($from) . ' UTC');
+        $last  = strtotime(reportWeekStart($to) . ' UTC');
+
+        if ($first === false || $last === false) {
+            return 0;
+        }
+
+        // Both ends are week starts, so the difference is a whole
+        // number of weeks.
+        return intdiv($last - $first, 604800) + 1;
+    }
+
+    if ($unit === 'month') {
+        $fromYear  = (int) gmdate('Y', $fromTs);
+        $fromMonth = (int) gmdate('n', $fromTs);
+        $toYear    = (int) gmdate('Y', $toTs);
+        $toMonth   = (int) gmdate('n', $toTs);
+
+        return ($toYear - $fromYear) * 12 + ($toMonth - $fromMonth) + 1;
+    }
+
+    // The year.
+    return ((int) gmdate('Y', $toTs)) - ((int) gmdate('Y', $fromTs)) + 1;
+}
+
+/**
+ * Format an average, with the unit named next to the figure.
+ *
+ * The unit is part of the reading: "27.35 per day" says what the
+ * number is, and the screen must never show a bare average.
+ *
+ * The sign is the caller's, exactly as on the tiles: the income is
+ * signed with "+", the spending with the minus sign, and the net with
+ * the sign the database gave. A zero carries no sign.
+ */
+function formatAverageMoney(string $amount, string $unit, string $sign): string
+{
+    return formatSignedMoney($amount, $sign) . ' per ' . normalizeAverageUnit($unit);
 }
 
 // ---------------------------------------------------------------------------

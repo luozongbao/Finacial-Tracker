@@ -382,6 +382,18 @@
     color: var(--gray-700);
 }
 
+/* The average line of a report tile: the period total, and the average
+   per calendar unit, with the unit named next to the figure. It is a
+   fourth line, so the tile grows by one — the period line stays,
+   because the period is the context of the figure (issue-026 §6). */
+.tile__average {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--gray-700);
+}
+
 .tile--income .tile__amount { color: var(--success-700); }
 .tile--spending .tile__amount { color: var(--danger-700); }
 .tile--net .tile__amount { color: var(--gray-900); }
@@ -810,6 +822,21 @@
 .period__link[aria-current="true"] {
     background-color: var(--brand-100);
     color: var(--brand-700);
+}
+
+/* The label that names what a group of links chooses — "Average per".
+   It sits inside the pill, before the links, so the control reads as one
+   thing rather than as a stray word (issue-026 §6). */
+.period__label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-xs);
+    font-weight: 650;
+    color: var(--gray-700);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
 }
 
 /* ==========================================================================

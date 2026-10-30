@@ -42,11 +42,19 @@
             <p class="state__label" id="r-pop-h">State — populated</p>
 
             <div class="period" data-period-group="month">
-                <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
-                <a class="period__link" href="08-reports.html?period=week" data-period="week">Week</a>
-                <a class="period__link" href="08-reports.html?period=month" data-period="month" aria-current="true">Month</a>
-                <a class="period__link" href="08-reports.html?period=year" data-period="year">Year</a>
-                <a class="period__link" href="08-reports.html?period=custom" data-period="custom">Custom</a>
+                <a class="period__link" href="08-reports.html?period=day&amp;unit=day" data-period="day">Day</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=day" data-period="week">Week</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=day" data-period="month" aria-current="true">Month</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=day" data-period="year">Year</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;unit=day" data-period="custom">Custom</a>
+            </div>
+
+            <div class="period" data-unit-group="day">
+                <span class="period__label">Average per</span>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=day" data-unit="day" aria-current="true">Day</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=week" data-unit="week">Week</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=month" data-unit="month">Month</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=year" data-unit="year">Year</a>
             </div>
 
             <p class="pagination__status">October 2026 · 18 transactions</p>
@@ -55,16 +63,19 @@
                 <div class="tile tile--income">
                     <span class="tile__label">Income</span>
                     <span class="tile__amount">+1,229.99</span>
+                    <span class="tile__average">+39.68 per day</span>
                     <span class="tile__period">October 2026</span>
                 </div>
                 <div class="tile tile--spending">
                     <span class="tile__label">Spending</span>
                     <span class="tile__amount">−847.80</span>
+                    <span class="tile__average">−27.35 per day</span>
                     <span class="tile__period">October 2026</span>
                 </div>
                 <div class="tile tile--net tile--net-positive">
                     <span class="tile__label">Net</span>
                     <span class="tile__amount">+382.19</span>
+                    <span class="tile__average">+12.33 per day</span>
                     <span class="tile__period">October 2026</span>
                 </div>
             </div>
@@ -194,6 +205,20 @@
                     "Uncategorised" row is present because entries without a
                     category still belong in the report.
                 </p>
+                <p>
+                    The <strong>average</strong> is the period total divided by
+                    the number of <strong>calendar</strong> units in the period
+                    — 31 days for October 2026. It is never the mean of the
+                    three week rows: the month touches five weeks, and two of
+                    them hold no transactions at all.
+                </p>
+                <p>
+                    The three averages reconcile — <code>+39.68 − 27.35 =
+                    +12.33</code> — and the unit is named next to every figure.
+                    The unit is the visitor's choice and it is independent of the
+                    period: a month can be averaged per day, per week, per month
+                    or per year.
+                </p>
             </div>
         </section>
 
@@ -204,11 +229,19 @@
             <p class="state__label" id="r-year-h">State — the year view, one row per month</p>
 
             <div class="period" data-period-group="year">
-                <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
-                <a class="period__link" href="08-reports.html?period=week" data-period="week">Week</a>
-                <a class="period__link" href="08-reports.html?period=month" data-period="month">Month</a>
-                <a class="period__link" href="08-reports.html?period=year" data-period="year" aria-current="true">Year</a>
-                <a class="period__link" href="08-reports.html?period=custom" data-period="custom">Custom</a>
+                <a class="period__link" href="08-reports.html?period=day&amp;unit=month" data-period="day">Day</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=month" data-period="week">Week</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=month" data-period="month">Month</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=month" data-period="year" aria-current="true">Year</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;unit=month" data-period="custom">Custom</a>
+            </div>
+
+            <div class="period" data-unit-group="month">
+                <span class="period__label">Average per</span>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=day" data-unit="day">Day</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=week" data-unit="week">Week</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=month" data-unit="month" aria-current="true">Month</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=year" data-unit="year">Year</a>
             </div>
 
             <p class="pagination__status">2026 · 34 transactions</p>
@@ -217,16 +250,19 @@
                 <div class="tile tile--income">
                     <span class="tile__label">Income</span>
                     <span class="tile__amount">+14,849.99</span>
+                    <span class="tile__average">+1,237.50 per month</span>
                     <span class="tile__period">2026</span>
                 </div>
                 <div class="tile tile--spending">
                     <span class="tile__label">Spending</span>
                     <span class="tile__amount">−9,213.45</span>
+                    <span class="tile__average">−767.79 per month</span>
                     <span class="tile__period">2026</span>
                 </div>
                 <div class="tile tile--net tile--net-positive">
                     <span class="tile__label">Net</span>
                     <span class="tile__amount">+5,636.54</span>
+                    <span class="tile__average">+469.71 per month</span>
                     <span class="tile__period">2026</span>
                 </div>
             </div>
@@ -274,6 +310,12 @@
                     row. The table does not carry a row of zeros for every month
                     of the year — an empty month is an absence, not a fact.
                 </p>
+                <p>
+                    The denominator of the average is the <strong>calendar</strong>,
+                    not the table: 2026 has twelve months, so the average per
+                    month divides by twelve even though only three months have
+                    a row.
+                </p>
             </div>
         </section>
 
@@ -284,15 +326,24 @@
             <p class="state__label" id="r-custom-h">State — custom range</p>
 
             <div class="period" data-period-group="custom">
-                <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
-                <a class="period__link" href="08-reports.html?period=week" data-period="week">Week</a>
-                <a class="period__link" href="08-reports.html?period=month" data-period="month">Month</a>
-                <a class="period__link" href="08-reports.html?period=year" data-period="year">Year</a>
-                <a class="period__link" href="08-reports.html?period=custom" data-period="custom" aria-current="true">Custom</a>
+                <a class="period__link" href="08-reports.html?period=day&amp;unit=week" data-period="day">Day</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=week" data-period="week">Week</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=week" data-period="month">Month</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=week" data-period="year">Year</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;unit=week" data-period="custom" aria-current="true">Custom</a>
+            </div>
+
+            <div class="period" data-unit-group="week">
+                <span class="period__label">Average per</span>
+                <a class="period__link" href="08-reports.html?period=custom&amp;from=2026-10-01&amp;to=2026-10-31&amp;unit=day" data-unit="day">Day</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;from=2026-10-01&amp;to=2026-10-31&amp;unit=week" data-unit="week" aria-current="true">Week</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;from=2026-10-01&amp;to=2026-10-31&amp;unit=month" data-unit="month">Month</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;from=2026-10-01&amp;to=2026-10-31&amp;unit=year" data-unit="year">Year</a>
             </div>
 
             <form class="filters" aria-label="Custom date range">
                 <input type="hidden" name="period" value="custom">
+                <input type="hidden" name="unit" value="week">
                 <div class="filters__from">
                     <label class="field__label" for="rep-from">From</label>
                     <input class="input" id="rep-from" name="from" type="date" value="2026-10-01">
@@ -312,16 +363,19 @@
                 <div class="tile tile--income">
                     <span class="tile__label">Income</span>
                     <span class="tile__amount">+1,229.99</span>
+                    <span class="tile__average">+246.00 per week</span>
                     <span class="tile__period">1 – 31 October 2026</span>
                 </div>
                 <div class="tile tile--spending">
                     <span class="tile__label">Spending</span>
                     <span class="tile__amount">−847.80</span>
+                    <span class="tile__average">−169.56 per week</span>
                     <span class="tile__period">1 – 31 October 2026</span>
                 </div>
                 <div class="tile tile--net tile--net-positive">
                     <span class="tile__label">Net</span>
                     <span class="tile__amount">+382.19</span>
+                    <span class="tile__average">+76.44 per week</span>
                     <span class="tile__period">1 – 31 October 2026</span>
                 </div>
             </div>
@@ -333,6 +387,11 @@
                     rejected by the server with the message "The start date must
                     be on or before the end date." — see the invalid-range state
                     below.
+                </p>
+                <p>
+                    The range touches <strong>five</strong> weeks — two of them
+                    hold no transactions — so the average per week divides by
+                    five, not by the three weeks the table shows.
                 </p>
             </div>
         </section>
@@ -382,11 +441,19 @@
             <p class="state__label" id="r-empty-h">State — the period has no transactions</p>
 
             <div class="period" data-period-group="week">
-                <a class="period__link" href="08-reports.html?period=day" data-period="day">Day</a>
-                <a class="period__link" href="08-reports.html?period=week" data-period="week" aria-current="true">Week</a>
-                <a class="period__link" href="08-reports.html?period=month" data-period="month">Month</a>
-                <a class="period__link" href="08-reports.html?period=year" data-period="year">Year</a>
-                <a class="period__link" href="08-reports.html?period=custom" data-period="custom">Custom</a>
+                <a class="period__link" href="08-reports.html?period=day&amp;unit=day" data-period="day">Day</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=day" data-period="week" aria-current="true">Week</a>
+                <a class="period__link" href="08-reports.html?period=month&amp;unit=day" data-period="month">Month</a>
+                <a class="period__link" href="08-reports.html?period=year&amp;unit=day" data-period="year">Year</a>
+                <a class="period__link" href="08-reports.html?period=custom&amp;unit=day" data-period="custom">Custom</a>
+            </div>
+
+            <div class="period" data-unit-group="day">
+                <span class="period__label">Average per</span>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=day" data-unit="day" aria-current="true">Day</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=week" data-unit="week">Week</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=month" data-unit="month">Month</a>
+                <a class="period__link" href="08-reports.html?period=week&amp;unit=year" data-unit="year">Year</a>
             </div>
 
             <p class="pagination__status">19 – 25 October 2026 · 0 transactions</p>
@@ -395,16 +462,19 @@
                 <div class="tile tile--income">
                     <span class="tile__label">Income</span>
                     <span class="tile__amount">0.00</span>
+                    <span class="tile__average">0.00 per day</span>
                     <span class="tile__period">19 – 25 October 2026</span>
                 </div>
                 <div class="tile tile--spending">
                     <span class="tile__label">Spending</span>
                     <span class="tile__amount">0.00</span>
+                    <span class="tile__average">0.00 per day</span>
                     <span class="tile__period">19 – 25 October 2026</span>
                 </div>
                 <div class="tile tile--net tile--net-zero">
                     <span class="tile__label">Net</span>
                     <span class="tile__amount">0.00</span>
+                    <span class="tile__average">0.00 per day</span>
                     <span class="tile__period">19 – 25 October 2026</span>
                 </div>
             </div>
@@ -424,6 +494,11 @@
                     summed nothing. The tiles render and the tables are omitted
                     entirely.
                 </p>
+                <p>
+                    The average of nothing is <strong>0.00</strong>, and a zero
+                    carries no sign: the tile reads "0.00 per day", not
+                    "+0.00 per day".
+                </p>
             </div>
         </section>
 
@@ -437,16 +512,19 @@
                 <div class="tile">
                     <span class="tile__label">Income</span>
                     <span class="skeleton skeleton--tile"></span>
+                    <span class="tile__average">&nbsp;</span>
                     <span class="tile__period">&nbsp;</span>
                 </div>
                 <div class="tile">
                     <span class="tile__label">Spending</span>
                     <span class="skeleton skeleton--tile"></span>
+                    <span class="tile__average">&nbsp;</span>
                     <span class="tile__period">&nbsp;</span>
                 </div>
                 <div class="tile">
                     <span class="tile__label">Net</span>
                     <span class="skeleton skeleton--tile"></span>
+                    <span class="tile__average">&nbsp;</span>
                     <span class="tile__period">&nbsp;</span>
                 </div>
             </div>

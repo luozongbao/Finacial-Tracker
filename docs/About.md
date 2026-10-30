@@ -7,6 +7,14 @@ This project is to record spending andd income for personal use. it should be ab
 - db: mariadb
 - docker is used for development, can be used for production but not depend on docker.
 
+## Searching, summing and averaging
+
+the reports screen answers the first line of this brief. it sums the income and the spending over a period - a day, a week, a month, a year or a custom range - and it divides the total by the number of calendar units in the period, so the average is there too.
+
+the unit is the visitor's choice and it does not have to match the period: a month can be read per day, per week, per month or per year, and the figure names its own unit (`−27.35 per day`). the denominator is the calendar, never the number of recorded transactions - thirty-one days stay thirty-one days when only three of them have transactions on them.
+
+the division is done in the database, in decimal, with the denominator sent as a parameter. there is no AVG() and no float arithmetic anywhere in the path. the net average is derived from the two rounded sides, so the three figures always reconcile.
+
 ## Installation
 1. search for config.php if exist goto index.php
 2. if not install

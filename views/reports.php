@@ -62,6 +62,16 @@ $fromRaw    = query('from');
 $toRaw      = query('to');
 $monthParam = query('month');
 
+// The unit of the average is the visitor's choice, and it is
+// INDEPENDENT of the period: the same month can be averaged per day,
+// per week, per month or per year.
+//
+// normalizeAverageUnit() is the only place that decides what a unit
+// is. The list is closed — four names — so the unit is never a request
+// value that reaches the SQL and never a string that is echoed back as
+// it was typed. An unknown unit falls back to "day".
+$unit = normalizeAverageUnit(query('unit', 'day'));
+
 // ---------------------------------------------------------------------------
 // 4. The range.
 //
@@ -189,17 +199,70 @@ SELECT c.id AS category_id,
  ORDER BY c.name IS NULL, c.name
 SQL;
 
+// The averages are the PERIOD TOTAL divided by the number of calendar
+// units the period covers — never the mean of the rows that happen to
+// exist. A month that touches five weeks is five weeks even when two
+// of them hold nothing.
+//
+// The divisor is a BOUND parameter, and it is CAST to DECIMAL: a
+// string-bound divisor makes MariaDB divide in DOUBLE, and a DOUBLE is
+// a float. The division stays in DECIMAL and the database does the
+// rounding, so the money path never sees a float.
+//
+// The net average is computed from the two ROUNDED sides, so
+// avg_net = avg_income - avg_spending holds exactly AFTER the
+// rounding. The sign comes from SIGN(): no PHP ever compares money.
+//
+// AVG() is not used anywhere here. AVG() would average the rows that
+// exist, which is a different quantity — the average of a period is
+// its total over its calendar.
+$averagesSql = <<<'SQL'
+SELECT avg_income,
+       avg_spending,
+       ROUND(avg_income - avg_spending, 2)       AS avg_net,
+       SIGN(ROUND(avg_income - avg_spending, 2)) AS avg_net_sign
+  FROM (
+    SELECT ROUND(COALESCE(SUM(CASE WHEN type = 'income'  THEN amount END), 0) / CAST(? AS DECIMAL(10,0)), 2) AS avg_income,
+           ROUND(COALESCE(SUM(CASE WHEN type = 'expense' THEN amount END), 0) / CAST(? AS DECIMAL(10,0)), 2) AS avg_spending
+      FROM transactions
+     WHERE user_id = ?
+       AND occurred_on BETWEEN ? AND ?
+  ) AS averages
+SQL;
+
 $uid        = (int) getCurrentUserId();
 $totals     = null;
+$averages   = null;
 $buckets    = [];
 $categories = [];
 $failed     = false;
+
+// The number of calendar units the period covers — the denominator of
+// every average on the screen.
+//
+// reportUnitCount() is the ONE place that counts them, so the average,
+// the report and the "Over time" buckets cannot disagree about what a
+// week is: they all follow the same WEEK_START.
+$unitCount = $range !== null ? reportUnitCount($range[0], $range[1], $unit) : 0;
 
 try {
     $db = Database::getInstance();
 
     if ($range !== null) {
         $totals = $db->fetchOne($totalsSql, [$uid, $range[0], $range[1]]);
+
+        // The averages are read only when there is a divisor. A range
+        // with no calendar unit in it has no average, and the screen
+        // shows 0.00 — which is what an empty period shows anyway.
+        if ($unitCount > 0) {
+            $averages = $db->fetchOne($averagesSql, [
+                $unitCount,
+                $unitCount,
+                $uid,
+                $range[0],
+                $range[1],
+            ]);
+        }
 
         // The buckets come back only for the periods that HAVE
         // transactions — the GROUP BY produces no row for an empty
@@ -217,6 +280,7 @@ try {
 
     $failed     = true;
     $totals     = null;
+    $averages   = null;
     $buckets    = [];
     $categories = [];
 }
@@ -239,6 +303,16 @@ $netModifier   = 'tile--net-zero';
 $netAmountClass = 'amount amount--zero';
 $txCount       = 0;
 $periodLabel   = '';
+
+// The three averages. The unit is named in the figure itself, so the
+// number is never read out of context: "39.68 per day" says what it
+// is.
+//
+// A zero carries NO sign: an empty period reads "0.00 per day", and a
+// signed zero would be noise.
+$averageIncomeLabel   = formatAverageMoney('0.00', $unit, '+');
+$averageSpendingLabel = formatAverageMoney('0.00', $unit, '−');
+$averageNetLabel      = formatAverageMoney('0.00', $unit, '');
 
 if ($totals !== false && $totals !== null) {
     $netSign = (int) ($totals['net_sign'] ?? 0);
@@ -270,6 +344,23 @@ if ($range !== null) {
 // FAILED query by the two never sharing a state.
 $periodEmpty = !$failed && $range !== null && $txCount === 0;
 
+// The average figures. The sign is chosen here and applied by
+// formatAverageMoney(); the template only concatenates.
+//
+// The net's sign comes from the SQL, so no PHP ever compares money —
+// the same rule the tiles follow.
+if ($averages !== false && $averages !== null) {
+    $averageSign = (int) ($averages['avg_net_sign'] ?? 0);
+
+    $averageIncomeLabel   = formatAverageMoney((string) $averages['avg_income'], $unit, '+');
+    $averageSpendingLabel = formatAverageMoney((string) $averages['avg_spending'], $unit, '−');
+    $averageNetLabel      = formatAverageMoney(
+        (string) $averages['avg_net'],
+        $unit,
+        $averageSign > 0 ? '+' : ($averageSign < 0 ? '−' : '')
+    );
+}
+
 // ---------------------------------------------------------------------------
 // 8. The "Over time" rows.
 //
@@ -289,7 +380,9 @@ foreach ($buckets as $bucket) {
 
     if ($grain['grain'] === 'month') {
         // The year view drills into the month report.
-        $rowLink  = '/reports?period=month&month=' . substr($start, 0, 7);
+        // The unit travels with the link: the drill-down opens the
+        // month report with the denominator the visitor chose.
+        $rowLink  = '/reports?period=month&month=' . substr($start, 0, 7) . '&unit=' . $unit;
         $rowLabel = formatPeriodLabel($start, $end, 'month');
         $rowMeta  = '';
     } elseif ($grain['grain'] === 'week') {
@@ -444,6 +537,15 @@ if ($period === 'custom') {
 
 $reloadUrl = '/reports?' . http_build_query($reloadParams);
 
+// The four unit links. Each one carries the period it was reached
+// from — the range, the month and the unit — so the visitor never
+// loses the period by changing the denominator.
+$unitLinks = [];
+
+foreach (['day', 'week', 'month', 'year'] as $unitName) {
+    $unitLinks[$unitName] = '/reports?' . http_build_query($reloadParams + ['unit' => $unitName]);
+}
+
 // ---------------------------------------------------------------------------
 // 12. The status.
 //
@@ -470,17 +572,26 @@ require __DIR__ . '/../includes/header.php';
 </div>
 
 <div class="period" data-period-group="<?= e($period) ?>">
-    <a class="period__link" href="/reports?period=day"    data-period="day"<?= $period === 'day' ? ' aria-current="true"' : '' ?>>Day</a>
-    <a class="period__link" href="/reports?period=week"   data-period="week"<?= $period === 'week' ? ' aria-current="true"' : '' ?>>Week</a>
-    <a class="period__link" href="/reports?period=month"  data-period="month"<?= $period === 'month' ? ' aria-current="true"' : '' ?>>Month</a>
-    <a class="period__link" href="/reports?period=year"   data-period="year"<?= $period === 'year' ? ' aria-current="true"' : '' ?>>Year</a>
-    <a class="period__link" href="/reports?period=custom" data-period="custom"<?= $period === 'custom' ? ' aria-current="true"' : '' ?>>Custom</a>
+    <a class="period__link" href="/reports?period=day&amp;unit=<?= e($unit) ?>"    data-period="day"<?= $period === 'day' ? ' aria-current="true"' : '' ?>>Day</a>
+    <a class="period__link" href="/reports?period=week&amp;unit=<?= e($unit) ?>"   data-period="week"<?= $period === 'week' ? ' aria-current="true"' : '' ?>>Week</a>
+    <a class="period__link" href="/reports?period=month&amp;unit=<?= e($unit) ?>"  data-period="month"<?= $period === 'month' ? ' aria-current="true"' : '' ?>>Month</a>
+    <a class="period__link" href="/reports?period=year&amp;unit=<?= e($unit) ?>"   data-period="year"<?= $period === 'year' ? ' aria-current="true"' : '' ?>>Year</a>
+    <a class="period__link" href="/reports?period=custom&amp;unit=<?= e($unit) ?>" data-period="custom"<?= $period === 'custom' ? ' aria-current="true"' : '' ?>>Custom</a>
+</div>
+
+<div class="period" data-unit-group="<?= e($unit) ?>">
+    <span class="period__label">Average per</span>
+    <a class="period__link" href="<?= e($unitLinks['day']) ?>"   data-unit="day"<?= $unit === 'day' ? ' aria-current="true"' : '' ?>>Day</a>
+    <a class="period__link" href="<?= e($unitLinks['week']) ?>"  data-unit="week"<?= $unit === 'week' ? ' aria-current="true"' : '' ?>>Week</a>
+    <a class="period__link" href="<?= e($unitLinks['month']) ?>" data-unit="month"<?= $unit === 'month' ? ' aria-current="true"' : '' ?>>Month</a>
+    <a class="period__link" href="<?= e($unitLinks['year']) ?>"  data-unit="year"<?= $unit === 'year' ? ' aria-current="true"' : '' ?>>Year</a>
 </div>
 
 <?php if ($period === 'custom'): ?>
 
     <form class="filters rep__range" aria-label="Custom date range" method="get" action="/reports">
         <input type="hidden" name="period" value="custom">
+        <input type="hidden" name="unit" value="<?= e($unit) ?>">
         <div class="filters__from">
             <label class="field__label" for="rep-from">From</label>
             <input class="input" id="rep-from" name="from" type="date" value="<?= e($from) ?>"<?= $rangeError !== '' ? ' aria-invalid="true" aria-describedby="rep-range-msg"' : '' ?>>
@@ -540,16 +651,19 @@ require __DIR__ . '/../includes/header.php';
         <div class="tile tile--income">
             <span class="tile__label">Income</span>
             <span class="tile__amount"><?= e($incomeLabel) ?></span>
+            <span class="tile__average"><?= e($averageIncomeLabel) ?></span>
             <span class="tile__period"><?= e($periodLabel) ?></span>
         </div>
         <div class="tile tile--spending">
             <span class="tile__label">Spending</span>
             <span class="tile__amount"><?= e($spendingLabel) ?></span>
+            <span class="tile__average"><?= e($averageSpendingLabel) ?></span>
             <span class="tile__period"><?= e($periodLabel) ?></span>
         </div>
         <div class="tile tile--net <?= e($netModifier) ?>">
             <span class="tile__label">Net</span>
             <span class="tile__amount"><?= e($netLabel) ?></span>
+            <span class="tile__average"><?= e($averageNetLabel) ?></span>
             <span class="tile__period"><?= e($periodLabel) ?></span>
         </div>
     </div>
@@ -560,7 +674,7 @@ require __DIR__ . '/../includes/header.php';
         <div class="empty">
             <h3 class="empty__title">No transactions in this period.</h3>
             <p class="empty__body">Nothing was recorded between <?= e($rangePhrase) ?>.</p>
-            <a class="btn btn--secondary" href="/reports?period=month">Look at this month</a>
+            <a class="btn btn--secondary" href="/reports?period=month&amp;unit=<?= e($unit) ?>">Look at this month</a>
         </div>
     </div>
 
